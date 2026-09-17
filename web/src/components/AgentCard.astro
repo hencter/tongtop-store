@@ -1,0 +1,62 @@
+---
+import Icon from "./Icon.astro";
+import { agentKind, installCommand, type AgentEntry } from "../lib/data";
+
+interface Props {
+  agent: AgentEntry;
+  /** 展开显示环境变量与说明 */
+  detailed?: boolean;
+}
+const { agent, detailed = false } = Astro.props;
+const cmd = installCommand(agent);
+const kind = agentKind(agent);
+---
+<article class="card" id={`agent-${agent.id}`}>
+  <div class="row">
+    <Icon id={`agent:${agent.id}`} name={agent.name} />
+    <div style="flex:1;min-width:0">
+      <h3>{agent.name}</h3>
+      <div class="meta">{agent.vendor}</div>
+    </div>
+    <span class="badge">{kind}</span>
+    {agent.env.length === 0 && <span class="badge ok">免密钥</span>}
+  </div>
+  <p class="desc">{agent.desc}</p>
+  <div class="copy-row">
+    <pre><code>{cmd}</code></pre>
+    <button class="copy-btn">复制</button>
+  </div>
+  {
+    detailed && agent.env.length > 0 && (
+      <div>
+        <div class="meta" style="margin-bottom:6px">需要的环境变量（装机时在客户端里粘贴，或手动设置）</div>
+        <table>
+          <tbody>
+            {agent.env.map((e) => (
+              <tr>
+                <td class="mono">{e.name}</td>
+                <td class="muted">
+                  {e.label}
+                  {e.hint ? ` · ${e.hint}` : ""}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+  {
+    detailed && agent.notes?.length ? (
+      <ul class="muted" style="margin:0;padding-left:18px;font-size:13px">
+        {agent.notes.map((n) => (
+          <li>{n}</li>
+        ))}
+      </ul>
+    ) : null
+  }
+  <div class="actions">
+    <a class="btn sm" href={agent.homepage} target="_blank" rel="noopener">官网 / 文档</a>
+    {agent.env.length > 0 && <a class="btn sm" href="/ai">去哪领 Key →</a>}
+  </div>
+</article>

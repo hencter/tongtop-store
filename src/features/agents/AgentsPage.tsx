@@ -24,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 
 // ---------- 选择页 ----------
 
-function AgentCard({ recipe, onPick }: { recipe: AgentRecipe; onPick: () => void }) {
+function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; installed: boolean; onPick: () => void }) {
   const kindLabel = recipe.desktopNames ? "桌面端" : recipe.webPort ? "Web" : "CLI";
   return (
     <Card className="flex flex-col gap-2 p-4 transition-colors hover:border-foreground/20">
@@ -35,6 +35,11 @@ function AgentCard({ recipe, onPick }: { recipe: AgentRecipe; onPick: () => void
           <div className="text-[11px] text-muted-foreground">{recipe.vendor}</div>
         </div>
         <div className="ml-auto flex gap-1.5">
+          {installed && (
+            <Badge variant="outline">
+              <CheckCircle2 className="size-3 text-ok" /> 已安装
+            </Badge>
+          )}
           <Badge variant="outline">{kindLabel}</Badge>
           {recipe.env.length === 0 && <Badge variant="secondary">免密钥</Badge>}
         </div>
@@ -42,7 +47,15 @@ function AgentCard({ recipe, onPick }: { recipe: AgentRecipe; onPick: () => void
       <div className="min-h-8 text-xs text-muted-foreground">{recipe.desc}</div>
       <div className="mt-auto flex gap-2 pt-1">
         <Button size="sm" className="flex-1" onClick={onPick}>
-          <Rocket className="size-3.5" /> 一键装机
+          {installed ? (
+            <>
+              <Play className="size-3.5" /> 打开
+            </>
+          ) : (
+            <>
+              <Rocket className="size-3.5" /> 一键装机
+            </>
+          )}
         </Button>
         <Button variant="outline" size="sm" onClick={() => void openUrl(recipe.homepage)}>
           <ExternalLink className="size-3.5" />
@@ -76,11 +89,13 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
   const log = useAgentStore((s) => s.log);
   const envValues = useAgentStore((s) => s.envValues);
   const useMirror = useAgentStore((s) => s.useMirror);
+  const installed = useAgentStore((s) => s.installedMap[recipe.id] === true);
   const setEnv = useAgentStore((s) => s.setEnv);
   const setUseMirror = useAgentStore((s) => s.setUseMirror);
   const start = useAgentStore((s) => s.start);
   const launch = useAgentStore((s) => s.launch);
   const close = useAgentStore((s) => s.close);
+  const reset = useAgentStore((s) => s.reset);
   const autoExit = useSettingsStore((s) => s.autoExit);
   const setAutoExit = useSettingsStore((s) => s.setAutoExit);
 
@@ -191,6 +206,11 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                 <Button size="lg" className="flex-1" onClick={() => void launch()}>
                   <Play className="size-4" /> {recipe.webPort ? "启动并打开浏览器" : `启动 ${recipe.name}`}
                 </Button>
+                {installed && (
+                  <Button variant="outline" size="lg" className="shrink-0" onClick={reset}>
+                    重新装机
+                  </Button>
+                )}
                 <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-muted-foreground" title="启动后商店自动退出——任务结束">
                   <Switch checked={autoExit} onCheckedChange={setAutoExit} />
                   启动后退出商店
@@ -212,7 +232,14 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
 export function AgentsPage() {
   const agentId = useAgentStore((s) => s.agentId);
   const open = useAgentStore((s) => s.open);
+  const installedMap = useAgentStore((s) => s.installedMap);
+  const detectInstalled = useAgentStore((s) => s.detectInstalled);
   const recipe = AGENTS.find((a) => a.id === agentId);
+
+  // 进入本页重新探测一次（开机探测后用户可能又装了新东西）
+  useEffect(() => {
+    void detectInstalled();
+  }, [detectInstalled]);
 
   if (recipe) return <SetupPage recipe={recipe} />;
 
@@ -223,11 +250,11 @@ export function AgentsPage() {
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
         选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。
-        最后点「启动」—— 商店退出，任务结束。
+        最后点「启动」—— 商店退出，任务结束。已安装的会自动识别，直接启动即可。
       </p>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
         {AGENTS.map((a) => (
-          <AgentCard key={a.id} recipe={a} onPick={() => open(a.id)} />
+          <AgentCard key={a.id} recipe={a} installed={installedMap[a.id] === true} onPick={() => open(a.id)} />
         ))}
       </div>
     </div>

@@ -1,0 +1,16 @@
+{
+  "name": "tongtop-store-web",
+  "private": true,
+  "version": "0.2.1",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "dev:api": "node scripts/dev-api.mjs",
+    "build": "node scripts/prepare-installer.mjs && astro build",
+    "preview": "astro preview",
+    "verify:links": "node scripts/verify-links.mjs"
+  },
+  "dependencies": {
+    "astro": "^7.3.2"
+  }
+}

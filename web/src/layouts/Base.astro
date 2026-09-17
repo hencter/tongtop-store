@@ -1,0 +1,48 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const {
+  title = "TongTop Store · 应用与 AI 智能体分发站",
+  description = "精选软件目录、AI 智能体一键装机配方、国内镜像源、AI 模型免费额度与密钥配置引导。",
+} = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <Header />
+    <main class="container page">
+      <slot />
+    </main>
+    <Footer />
+    <script>
+      // 全站复制：data-copy-text 直接复制其值；否则复制按钮所在 .copy-row 里的 <pre>
+      document.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const btn = target.closest("[data-copy-text], .copy-btn");
+        if (!btn) return;
+        const own = btn.getAttribute("data-copy-text");
+        const text = own ?? btn.parentElement?.querySelector("pre")?.textContent ?? "";
+        if (!text) return;
+        navigator.clipboard.writeText(text.trim()).then(() => {
+          const old = btn.textContent;
+          btn.textContent = "已复制";
+          setTimeout(() => (btn.textContent = old), 1200);
+        });
+      });
+    </script>
+  </body>
+</html>

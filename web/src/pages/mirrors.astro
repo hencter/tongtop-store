@@ -1,0 +1,47 @@
+---
+import Base from "../layouts/Base.astro";
+import { MIRRORS } from "../lib/data";
+---
+<Base title="镜像中心 · TongTop Store" description="npm / pip / cargo / docker / go / winget 国内镜像源索引。">
+  <h1 class="page-title">镜像中心</h1>
+  <p class="page-sub">
+    国内网络下装依赖的加速方案。桌面客户端里可以一键切换并自动测速选最快；
+    这里给出等价的命令行配置，方便手动处理。
+  </p>
+
+  <section class="section">
+    <div class="grid wide">
+      {
+        MIRRORS.map((tool) => (
+          <article class="card">
+            <div class="row">
+              <div style="flex:1;min-width:0">
+                <h3>{tool.name}</h3>
+                <p class="desc">{tool.desc}</p>
+              </div>
+            </div>
+            <table>
+              <tbody>
+                {tool.presets.map((p) => (
+                  <tr>
+                    <td>
+                      {p.label}
+                      {p.note ? <span class="badge" style="margin-left:6px">{p.note}</span> : null}
+                    </td>
+                    <td>
+                      <div class="copy-row">
+                        <pre><code>{p.value}</code></pre>
+                        <button class="copy-btn">复制</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {tool.applyNote ? <p class="meta">注意：{tool.applyNote}</p> : null}
+          </article>
+        ))
+      }
+    </div>
+  </section>
+</Base>

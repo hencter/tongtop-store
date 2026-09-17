@@ -1,0 +1,97 @@
+---
+import Base from "../layouts/Base.astro";
+import AppCard from "../components/AppCard.astro";
+import AgentCard from "../components/AgentCard.astro";
+import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory } from "../lib/data";
+
+const aiApps = appsByCategory("ai").slice(0, 8);
+const featured = APPS.filter((a) => a.category !== "ai").slice(0, 8);
+const providers = FREE_MODELS.providers.slice(0, 6);
+const stats = [
+  { n: APPS.length, label: "收录软件" },
+  { n: AGENTS.length, label: "AI 智能体" },
+  { n: MIRRORS.length, label: "镜像源" },
+  { n: FREE_MODELS.providers.length, label: "免费额度渠道" },
+];
+---
+<section class="hero">
+  <h1>TongTop Store</h1>
+  <p>
+    精选软件目录 · AI 智能体一键装机 · 国内镜像加速 · 免费大模型额度与密钥配置引导。
+    桌面端只管装，网站负责索引与说明书。
+  </p>
+  <div class="cta">
+    <a class="btn primary" href="/download">下载桌面客户端</a>
+    <a class="btn" href="/apps">浏览软件库</a>
+    <a class="btn" href="/ai">AI 白嫖指南</a>
+  </div>
+  <div class="stats">
+    {stats.map((s) => (
+      <div>
+        <b>{s.n}</b>
+        <span>{s.label}</span>
+      </div>
+    ))}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>AI 应用精选</h2>
+    <a class="more" href="/apps?cat=ai">全部 {appsByCategory("ai").length} 个 →</a>
+  </div>
+  <div class="grid">
+    {aiApps.map((app) => <AppCard app={app} />)}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>AI 智能体（一键装机）</h2>
+    <a class="more" href="/agents">全部 {AGENTS.length} 个 →</a>
+  </div>
+  <div class="grid">
+    {AGENTS.slice(0, 6).map((agent) => <AgentCard agent={agent} />)}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>免费大模型额度</h2>
+    <a class="more" href="/ai">配置引导 →</a>
+  </div>
+  <div class="grid wide">
+    {
+      providers.map((p) => (
+        <article class="card">
+          <div class="row">
+            <div style="flex:1;min-width:0">
+              <h3>{p.name}</h3>
+              <div class="meta">{p.vendor} · 核验 {p.verifiedAt}</div>
+            </div>
+            <span class="badge ok">免费</span>
+          </div>
+          <p class="desc">{p.summary}</p>
+          <div class="actions">
+            <a class="btn sm primary" href={p.official} target="_blank" rel="noopener">
+              去领 Key
+            </a>
+            <a class="btn sm" href={`/ai#${p.id}`}>
+              配置方法
+            </a>
+          </div>
+        </article>
+      ))
+    }
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2>常用软件</h2>
+    <a class="more" href="/apps">全部 {APPS.length} 个 →</a>
+  </div>
+  <div class="grid">
+    {featured.map((app) => <AppCard app={app} />)}
+  </div>
+</section>

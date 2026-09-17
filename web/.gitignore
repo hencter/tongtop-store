@@ -1,0 +1,8 @@
+node_modules
+dist
+.astro
+.data
+
+# 安装包：只保留发布用的这一个（EdgeOne 从 Git 构建时要用），其余忽略
+public/downloads/*
+!public/downloads/tongtop-store-setup.exe

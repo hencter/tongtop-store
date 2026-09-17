@@ -1,0 +1,83 @@
+---
+import Base from "../layouts/Base.astro";
+import { CATEGORIES } from "../lib/data";
+---
+<Base title="提交收录 · TongTop Store" description="提交新软件、新智能体、免费额度情报或信息纠错。">
+  <h1 class="page-title">提交收录</h1>
+  <p class="page-sub">
+    提交后进入审核队列，通过后进入网站索引（软件库 / 智能体 / 白嫖情报）。
+    只收官方来源：官网、官方仓库、官方文档。
+  </p>
+
+  <form class="form" id="form">
+    <div class="field">
+      <label for="type">类型 *</label>
+      <select id="type" name="type">
+        <option value="app">新软件</option>
+        <option value="agent">新智能体</option>
+        <option value="free-model">免费额度情报</option>
+        <option value="correction">信息纠错</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="name">名称 *</label>
+      <input id="name" name="name" required maxlength="80" placeholder="如：Cherry Studio" />
+    </div>
+    <div class="field">
+      <label for="refId">
+        包 ID / 仓库 <span class="hint">winget ID、npm 包名或 owner/repo</span>
+      </label>
+      <input id="refId" name="refId" maxlength="120" placeholder="如：kangfenmao.CherryStudio" />
+    </div>
+    <div class="field">
+      <label for="site">官网 / 官方链接</label>
+      <input id="site" name="site" type="url" maxlength="300" placeholder="https://" />
+    </div>
+    <div class="field">
+      <label for="category">分类</label>
+      <select id="category" name="category">
+        {CATEGORIES.map((c) => <option value={c.id}>{c.label}</option>)}
+      </select>
+    </div>
+    <div class="field">
+      <label for="desc">说明 * <span class="hint">为什么值得收录？有没有 AI 功能？</span></label>
+      <textarea id="desc" name="desc" rows="5" required maxlength="1000"></textarea>
+    </div>
+    <div class="field">
+      <label for="contact">联系方式 <span class="hint">可选，仅审核可见</span></label>
+      <input id="contact" name="contact" maxlength="120" placeholder="邮箱 / GitHub / 微信" />
+    </div>
+    <div>
+      <button class="btn primary" type="submit" id="submit-btn">提交审核</button>
+    </div>
+  </form>
+  <div id="result" style="margin-top:16px"></div>
+</Base>
+
+<script>
+  const form = document.getElementById("form");
+  const button = document.getElementById("submit-btn");
+  const result = document.getElementById("result");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    button.disabled = true;
+    result.innerHTML = "";
+    const data = Object.fromEntries(new FormData(form).entries());
+    try {
+      const resp = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+      result.innerHTML = `<div class="notice ok">提交成功（编号 ${json.id}），等待审核。</div>`;
+      form.reset();
+    } catch (error) {
+      result.innerHTML = `<div class="notice err">提交失败：${String(error.message || error)}</div>`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>

@@ -1,0 +1,80 @@
+---
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
+import Base from "../layouts/Base.astro";
+
+// 构建时 cwd 可能是 web/ 也可能是仓库根：向上找含 data/apps.json 的目录
+function findRepoRoot(start: string): string {
+  let dir = start;
+  for (let i = 0; i < 5; i += 1) {
+    if (existsSync(path.join(dir, "data", "apps.json"))) return dir;
+    dir = path.dirname(dir);
+  }
+  return start;
+}
+
+const root = findRepoRoot(process.cwd());
+const setup = path.join(root, "web/public/downloads/tongtop-store-setup.exe");
+const hasSetup = existsSync(setup);
+const version = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version as string;
+const sizeText = hasSetup ? `${(statSync(setup).size / 1024 / 1024).toFixed(1)} MB` : "";
+const sha256 = hasSetup
+  ? createHash("sha256").update(readFileSync(setup)).digest("hex")
+  : "";
+---
+<Base title="下载 · TongTop Store" description="TongTop Store 桌面客户端安装包下载。">
+  <h1 class="page-title">下载桌面客户端</h1>
+  <p class="page-sub">
+    Windows 10/11 x64 · 通过 winget 官方源安装软件 · 智能体一键装机 · 全程本地运行，不上传任何数据。
+  </p>
+
+  <section class="section">
+    {
+      hasSetup ? (
+        <article class="card" style="max-width:640px">
+          <div class="row">
+            <div style="flex:1">
+              <h3>TongTop Store v{version}</h3>
+              <div class="meta">Windows x64 · NSIS 安装包 · {sizeText}</div>
+            </div>
+            <span class="badge ok">最新</span>
+          </div>
+          <p class="desc">下载后双击安装；安装完打开即可搜索、安装软件与配置 AI 智能体。</p>
+          <div class="copy-row">
+            <pre><code>SHA256: {sha256}</code></pre>
+            <button class="copy-btn">复制</button>
+          </div>
+          <div class="actions">
+            <a class="btn primary" href="/downloads/tongtop-store-setup.exe" download>
+              下载安装包（{sizeText}）
+            </a>
+          </div>
+        </article>
+      ) : (
+        <div class="notice">
+          安装包尚未构建。先在仓库根执行 <code>pnpm tauri build</code>，再执行
+          <code>pnpm --dir web build</code>，脚本会自动把最新安装包拷到本站下载目录。
+        </div>
+      )
+    }
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>安装说明</h2></div>
+    <div class="grid wide">
+      <article class="card">
+        <h3>系统要求</h3>
+        <p class="desc">Windows 10 1809+ / Windows 11，x64；系统需自带 WebView2（Win11 默认已装）。</p>
+      </article>
+      <article class="card">
+        <h3>安装步骤</h3>
+        <p class="desc">双击安装包 → 按向导完成安装 → 打开「TongTop Store」→ 搜索或选择 AI 智能体。</p>
+      </article>
+      <article class="card">
+        <h3>数据与隐私</h3>
+        <p class="desc">不托管任何安装包，只做官方下载链接分发；密钥只写入本机用户环境变量。</p>
+      </article>
+    </div>
+  </section>
+</Base>

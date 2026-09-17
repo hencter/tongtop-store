@@ -1,0 +1,48 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="社区提交 · TongTop Store" description="社区提交并通过审核的软件、智能体与情报。">
+  <h1 class="page-title">社区提交</h1>
+  <p class="page-sub">
+    社区提交并审核通过的条目。想补充？去 <a href="/submit">提交收录</a>。
+  </p>
+
+  <div id="list" style="margin-top:20px"><p class="muted">加载中…</p></div>
+</Base>
+
+<script>
+  const list = document.getElementById("list");
+  const TYPE_LABEL = {
+    app: "软件",
+    agent: "智能体",
+    "free-model": "免费额度",
+    correction: "纠错",
+  };
+
+  fetch("/api/submissions?status=approved")
+    .then((resp) => resp.json())
+    .then((json) => {
+      if (!json.ok || json.items.length === 0) {
+        list.innerHTML = `<p class="muted">还没有已通过的社区提交。</p>`;
+        return;
+      }
+      list.innerHTML = json.items
+        .map(
+          (item) => `<article class="card" style="margin-bottom:12px">
+            <div class="row">
+              <div style="flex:1;min-width:0">
+                <h3>${item.name}</h3>
+                <div class="meta">${TYPE_LABEL[item.type] || item.type} · 通过于 ${item.reviewedAt?.slice(0, 10) || ""} ${item.refId ? `· ${item.refId}` : ""}</div>
+              </div>
+              <span class="badge ok">已收录</span>
+            </div>
+            <p class="desc">${item.desc}</p>
+            ${item.site ? `<div class="meta"><a href="${item.site}" target="_blank" rel="noopener">${item.site}</a></div>` : ""}
+          </article>`,
+        )
+        .join("");
+    })
+    .catch(() => {
+      list.innerHTML = `<p class="muted">加载失败（审核接口未部署时属正常）。</p>`;
+    });
+</script>

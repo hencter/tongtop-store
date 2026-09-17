@@ -1,11 +1,13 @@
-/** 首页：精选目录（静态数据，首屏零 IPC）+ 分类筛选。 */
+/** 首页：AI 智能体精选 + 软件分类目录（静态数据，首屏零 IPC）+ 分类筛选。 */
 
 import { memo, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, Clock, Download, ExternalLink, Loader2, Search, TrendingUp } from "lucide-react";
+import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
 import { CATALOG, CATEGORIES, type CatalogApp, type CategoryId } from "../../catalog/apps";
+import { AGENTS, type AgentRecipe } from "../../catalog/agents";
 import { useAppStore } from "../../state/appStore";
+import { useAgentStore } from "../../state/agentStore";
 import { useTaskStore } from "../../state/taskStore";
 import { AppIcon } from "../../components/AppIcon";
 import { Badge } from "@/components/ui/badge";
@@ -78,13 +80,65 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
   );
 });
 
+const AgentCard = memo(function AgentCard({
+  recipe,
+  installed,
+  onOpen,
+}: {
+  recipe: AgentRecipe;
+  installed: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
+      <div className="flex items-start justify-between">
+        <AppIcon id={`agent:${recipe.id}`} name={recipe.name} size={42} />
+        {installed && (
+          <Badge variant="outline">
+            <Check className="size-3.5 text-ok" /> 已安装
+          </Badge>
+        )}
+      </div>
+      <div className="mt-1 font-semibold">{recipe.name}</div>
+      <div className="line-clamp-2 h-8 text-xs text-muted-foreground" title={recipe.desc}>
+        {recipe.desc}
+      </div>
+      <div className="text-[11px] text-muted-foreground">{recipe.vendor}</div>
+      <div className="mt-1.5 flex gap-2">
+        <Button size="sm" className="flex-1" onClick={onOpen}>
+          {installed ? (
+            <>
+              <Play className="size-3.5" /> 打开
+            </>
+          ) : (
+            <>
+              <Rocket className="size-3.5" /> 一键装机
+            </>
+          )}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void openUrl(recipe.homepage)} title={recipe.homepage}>
+          <ExternalLink className="size-3.5" />
+        </Button>
+      </div>
+    </Card>
+  );
+});
+
 export function HomePage() {
   const setTab = useAppStore((s) => s.setTab);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
   const installed = useAppStore((s) => s.installed);
   const upgrades = useAppStore((s) => s.upgrades);
+  const openAgent = useAgentStore((s) => s.open);
+  const agentsInstalled = useAgentStore((s) => s.installedMap);
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const shown = cat === "all" ? CATEGORIES : CATEGORIES.filter((c) => c.id === cat);
+
+  // 打开智能体装机页（自动检测到已安装则直接落到「启动」）
+  const pickAgent = (id: string) => {
+    openAgent(id);
+    setTab("agents");
+  };
 
   // 快照索引：已安装 / 可更新（毫秒级本地数据，不改变首屏零 IPC）
   const installedSet = useMemo(
@@ -147,8 +201,31 @@ export function HomePage() {
         </div>
       </section>
 
+      <section className="mt-8">
+        <div className="mb-3.5 flex items-baseline justify-between">
+          <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体</h2>
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-xs text-muted-foreground"
+            onClick={() => setTab("agents")}
+          >
+            查看全部 {AGENTS.length} 个 <ChevronRight className="size-3.5" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+          {AGENTS.map((a) => (
+            <AgentCard key={a.id} recipe={a} installed={agentsInstalled[a.id] === true} onOpen={() => pickAgent(a.id)} />
+          ))}
+        </div>
+      </section>
+
       {shown.map((c) => {
-        const apps = CATALOG.filter((a) => a.category === c.id);
+        // AI 分类聚合：AI 原生应用 + 带 AI 功能的常规软件
+        const apps =
+          c.id === "ai"
+            ? CATALOG.filter((a) => a.category === "ai" || a.ai === true)
+            : CATALOG.filter((a) => a.category === c.id);
         if (apps.length === 0) return null;
         return (
           <section key={c.id} className="mt-7">

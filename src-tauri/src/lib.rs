@@ -1401,6 +1401,26 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID ----------
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StartAppDto {
+    name: String,
+    app_id: String,
+}
+
+/// 一次列出开始菜单全部应用（前端批量匹配桌面端智能体是否已安装）。
+#[tauri::command]
+async fn list_start_apps() -> Vec<StartAppDto> {
+    tauri::async_runtime::spawn_blocking(|| {
+        tools::list_start_apps()
+            .into_iter()
+            .map(|(name, app_id)| StartAppDto { name, app_id })
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
+}
+
 #[tauri::command]
 fn find_start_app(names: Vec<String>) -> Option<String> {
     tools::find_start_app(&names)
@@ -1543,6 +1563,7 @@ pub fn run() {
             launch_agent,
             launch_desktop_app,
             find_start_app,
+            list_start_apps,
             check_self_update,
             download_self_update,
             quit_app,

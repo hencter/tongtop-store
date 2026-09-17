@@ -47,8 +47,13 @@ interface AgentStore {
   log: string[];
   envValues: Record<string, string>;
   useMirror: boolean;
+  /** 自动检测到的已安装智能体（bin 探测 + 开始菜单匹配） */
+  installedMap: Record<string, boolean>;
+  detecting: boolean;
+  detectInstalled: () => Promise<void>;
   open: (agentId: string) => void;
   close: () => void;
+  reset: () => void;
   setEnv: (name: string, value: string) => void;
   setUseMirror: (v: boolean) => void;
   start: () => Promise<void>;
@@ -67,14 +72,70 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
   log: [],
   envValues: {},
   useMirror: true,
+  installedMap: {},
+  detecting: false,
+
+  /** 批量探测：CLI 型查 bin（npm 全局 / 已知位置 / where），桌面端查开始菜单 */
+  detectInstalled: async () => {
+    if (get().detecting) return;
+    set({ detecting: true });
+    try {
+      const cli = AGENTS.filter((a) => !a.desktopNames);
+      const gui = AGENTS.filter((a) => a.desktopNames);
+      const [tools, startApps] = await Promise.all([
+        ipc.checkTools(cli.map((a) => a.bin)),
+        gui.length > 0 ? ipc.listStartApps() : Promise.resolve([]),
+      ]);
+      const bins = new Set(tools.filter((t) => t.installed).map((t) => t.name.toLowerCase()));
+      const appNames = startApps.map((s) => s.name.toLowerCase());
+      const map: Record<string, boolean> = {};
+      for (const a of cli) map[a.id] = bins.has(a.bin.toLowerCase());
+      for (const a of gui) {
+        map[a.id] = a.desktopNames!.some((n) => appNames.some((x) => x.includes(n.toLowerCase())));
+      }
+      set({ installedMap: map });
+    } catch {
+      // 探测失败保持现状，不影响使用
+    } finally {
+      set({ detecting: false });
+    }
+  },
+
   open: (agentId) => {
     const recipe = AGENTS.find((a) => a.id === agentId);
     if (!recipe) return;
     const envValues: Record<string, string> = {};
     for (const e of recipe.env) envValues[e.name] = e.defaultValue ?? "";
-    set({ agentId, steps: buildSteps(recipe), running: false, finished: false, log: [], envValues });
+    const installed = get().installedMap[agentId] === true;
+    const steps = buildSteps(recipe);
+    let log: string[] = [];
+    if (installed) {
+      // 已装：流水线直接标完成，落到「启动」这一步
+      for (const s of steps) {
+        s.status = "ok";
+        if (s.id === "install-agent") s.detail = "已检测到本机安装";
+        if (s.id === "install-runtime") s.detail = "已存在，跳过";
+      }
+      log = [`已检测到本机已安装 ${recipe.name}，可直接启动。`];
+    }
+    set({ agentId, steps, running: false, finished: installed, log, envValues });
+    // 之前写过的密钥/端点从用户环境变量回填（不覆盖表单已有值）
+    if (recipe.env.length > 0) {
+      void ipc.getUserEnvs(recipe.env.map((e) => e.name)).then((envs) => {
+        if (get().agentId !== agentId) return;
+        const next = { ...get().envValues };
+        for (const [k, v] of Object.entries(envs)) if (!next[k]?.trim()) next[k] = v;
+        set({ envValues: next });
+      });
+    }
   },
   close: () => set({ agentId: null, steps: [], running: false, finished: false, log: [] }),
+  /** 重新装机：流水线回到初始态（保留已填的密钥） */
+  reset: () => {
+    const recipe = AGENTS.find((a) => a.id === get().agentId);
+    if (!recipe) return;
+    set({ steps: buildSteps(recipe), running: false, finished: false, log: [] });
+  },
   setEnv: (name, value) => set({ envValues: { ...get().envValues, [name]: value } }),
   setUseMirror: (v) => set({ useMirror: v }),
 
@@ -176,7 +237,7 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
           upd("verify", { status: "ok", detail: "已安装（启动时按已知位置解析）" });
         }
       }
-      set({ running: false, finished: true });
+      set({ running: false, finished: true, installedMap: { ...get().installedMap, [recipe.id]: true } });
     } catch (e) {
       const runningStep = get().steps.find((s) => s.status === "running");
       fail(runningStep?.id ?? "install-agent", String(e));

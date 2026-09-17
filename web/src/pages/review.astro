@@ -1,0 +1,122 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="审核入口 · TongTop Store" description="维护者审核提交队列。">
+  <h1 class="page-title">审核入口</h1>
+  <p class="page-sub">
+    管理令牌保存在浏览器会话中，仅用于调用审核接口。审核通过后条目出现在
+    <a href="/community">社区提交</a> 页；正式收录请把条目合并进仓库 data/ 下的 JSON。
+  </p>
+
+  <div class="form" style="margin-bottom:24px">
+    <div class="field">
+      <label for="token">管理令牌 <span class="hint">服务端环境变量 ADMIN_TOKEN</span></label>
+      <div class="copy-row">
+        <input id="token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off" />
+        <button class="btn" id="save">保存并加载</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters" id="tabs">
+    <button class="chip active" data-status="pending">待审核</button>
+    <button class="chip" data-status="approved">已通过</button>
+    <button class="chip" data-status="rejected">已拒绝</button>
+  </div>
+
+  <div id="list"></div>
+</Base>
+
+<script>
+  const tokenInput = document.getElementById("token");
+  const saveBtn = document.getElementById("save");
+  const tabs = Array.from(document.querySelectorAll("#tabs .chip"));
+  const list = document.getElementById("list");
+  let status = "pending";
+
+  tokenInput.value = sessionStorage.getItem("adminToken") || "";
+
+  function render(items) {
+    if (items.length === 0) {
+      list.innerHTML = `<p class="muted">没有记录。</p>`;
+      return;
+    }
+    list.innerHTML = items
+      .map((item) => {
+        const actions =
+          item.status === "pending"
+            ? `<div class="actions">
+                 <button class="btn sm primary" data-action="approve" data-id="${item.id}">通过</button>
+                 <button class="btn sm" data-action="reject" data-id="${item.id}">拒绝</button>
+               </div>`
+            : "";
+        return `<article class="card" style="margin-bottom:12px">
+          <div class="row">
+            <div style="flex:1;min-width:0">
+              <h3>${item.name}</h3>
+              <div class="meta">${item.type} · ${item.createdAt} ${item.refId ? `· ${item.refId}` : ""}</div>
+            </div>
+            <span class="badge ${item.status === "approved" ? "ok" : ""}">${item.status}</span>
+          </div>
+          <p class="desc">${item.desc}</p>
+          ${item.site ? `<div class="meta"><a href="${item.site}" target="_blank" rel="noopener">${item.site}</a></div>` : ""}
+          ${item.contact ? `<div class="meta">联系方式：${item.contact}</div>` : ""}
+          ${actions}
+        </article>`;
+      })
+      .join("");
+  }
+
+  async function load() {
+    const token = tokenInput.value.trim();
+    if (!token) {
+      list.innerHTML = `<p class="muted">先填写管理令牌。</p>`;
+      return;
+    }
+    sessionStorage.setItem("adminToken", token);
+    list.innerHTML = `<p class="muted">加载中…</p>`;
+    try {
+      const resp = await fetch(`/api/submissions?status=${status}`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+      render(json.items);
+    } catch (error) {
+      list.innerHTML = `<div class="notice err">加载失败：${String(error.message || error)}</div>`;
+    }
+  }
+
+  saveBtn.addEventListener("click", load);
+  tabs.forEach((tab) =>
+    tab.addEventListener("click", () => {
+      status = tab.dataset.status;
+      tabs.forEach((t) => t.classList.toggle("active", t === tab));
+      load();
+    }),
+  );
+
+  list.addEventListener("click", async (event) => {
+    const btn = event.target.closest("[data-action]");
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/review", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${tokenInput.value.trim()}`,
+        },
+        body: JSON.stringify({ id: btn.dataset.id, action: btn.dataset.action }),
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+      await load();
+    } catch (error) {
+      btn.disabled = false;
+      alert(`操作失败：${String(error.message || error)}`);
+    }
+  });
+
+  if (tokenInput.value) load();
+</script>

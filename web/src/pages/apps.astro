@@ -1,0 +1,70 @@
+---
+import Base from "../layouts/Base.astro";
+import AppCard from "../components/AppCard.astro";
+import { APPS, CATEGORIES } from "../lib/data";
+---
+<Base title="软件库 · TongTop Store" description="精选软件目录，全部经 winget 官方源验证。">
+  <h1 class="page-title">软件库</h1>
+  <p class="page-sub">
+    共 {APPS.length} 个精选条目，全部经 winget 官方源验证。点「复制安装命令」到终端即可安装，
+    也可以直接在桌面客户端里一键装。
+  </p>
+
+  <div class="filters" id="cats">
+    <button class="chip active" data-cat="all">全部</button>
+    {CATEGORIES.map((c) => <button class="chip" data-cat={c.id}>{c.label}</button>)}
+  </div>
+  <input id="q" type="search" placeholder="搜索名称 / ID / 标签…" style="max-width:380px" />
+
+  <div class="grid" id="grid" style="margin-top:18px">
+    {
+      APPS.map((app) => (
+        <div
+          class="app-cell"
+          data-cat={app.category}
+          data-ai={app.ai ? "1" : ""}
+          data-text={`${app.name} ${app.id} ${app.desc} ${(app.tags ?? []).join(" ")}`.toLowerCase()}
+        >
+          <AppCard app={app} />
+        </div>
+      ))
+    }
+  </div>
+  <p id="empty" class="muted hidden">没有匹配的条目。</p>
+</Base>
+
+<script>
+  const grid = document.getElementById("grid");
+  const cells = Array.from(grid.querySelectorAll(".app-cell"));
+  const chips = Array.from(document.querySelectorAll("#cats .chip"));
+  const empty = document.getElementById("empty");
+  const input = document.getElementById("q");
+  let cat = new URLSearchParams(location.search).get("cat") || "all";
+  let query = "";
+
+  function apply() {
+    let visible = 0;
+    for (const cell of cells) {
+      const okCat =
+        cat === "all" || cell.dataset.cat === cat || (cat === "ai" && cell.dataset.ai === "1");
+      const okQuery = !query || cell.dataset.text.includes(query);
+      const show = okCat && okQuery;
+      cell.classList.toggle("hidden", !show);
+      if (show) visible += 1;
+    }
+    empty.classList.toggle("hidden", visible > 0);
+    for (const chip of chips) chip.classList.toggle("active", chip.dataset.cat === cat);
+  }
+
+  chips.forEach((chip) =>
+    chip.addEventListener("click", () => {
+      cat = chip.dataset.cat;
+      apply();
+    }),
+  );
+  input.addEventListener("input", () => {
+    query = input.value.trim().toLowerCase();
+    apply();
+  });
+  apply();
+</script>

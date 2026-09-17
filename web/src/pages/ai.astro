@@ -1,0 +1,151 @@
+---
+import Base from "../layouts/Base.astro";
+import { AGENTS, FREE_MODELS, psEnvCommand } from "../lib/data";
+
+const providers = FREE_MODELS.providers;
+const agentName = (id: string) => AGENTS.find((a) => a.id === id)?.name ?? id;
+
+function psScript(env: { name: string; value?: string }[]): string {
+  return env
+    .map((e) => psEnvCommand(e.name, e.value ?? "你的Key"))
+    .join("\n");
+}
+---
+<Base title="AI 白嫖指南 · TongTop Store" description="各大平台免费大模型额度索引，以及 API Key / 环境变量配置引导。">
+  <h1 class="page-title">AI 白嫖指南</h1>
+  <p class="page-sub">
+    收录官方提供免费额度或免费模型的平台，附领取入口与配置方法。
+    额度会变，以各平台官网为准；本页最后核验：{FREE_MODELS.updatedAt}。
+  </p>
+
+  <div class="ai-layout">
+    <div class="ai-main">
+
+  <section class="section">
+    <div class="section-head"><h2>环境变量怎么配</h2></div>
+    <div class="grid wide">
+      <article class="card">
+        <h3>方式 A · 桌面客户端（推荐）</h3>
+        <p class="desc">
+          打开 TongTop Store → AI 智能体 → 选一个智能体 → 把 Key 粘贴到「密钥与端点」→ 开始装机。
+          商店会把变量写入用户级环境变量，并直接注入启动的进程。
+        </p>
+        <div class="actions"><a class="btn sm primary" href="/download">下载客户端</a></div>
+      </article>
+      <article class="card">
+        <h3>方式 B · PowerShell 一条命令</h3>
+        <p class="desc">把下面命令里的值换成你的 Key，粘贴到 PowerShell 执行；之后新开的终端都会生效。</p>
+        <div class="copy-row">
+          <pre><code>[Environment]::SetEnvironmentVariable('OPENAI_API_KEY','你的Key','User')</code></pre>
+          <button class="copy-btn">复制</button>
+        </div>
+        <p class="meta">临时生效（仅当前窗口）：<code>$env:OPENAI_API_KEY="你的Key"</code></p>
+      </article>
+      <article class="card">
+        <h3>方式 C · 图形界面</h3>
+        <p class="desc">
+          <code>Win + R</code> 输入 <code>sysdm.cpl</code> → 高级 → 环境变量 → 在「用户变量」新建。
+          改完需要重开终端/应用。
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>免费额度平台（{providers.length}）</h2>
+      <span class="more">核验 {FREE_MODELS.updatedAt}</span>
+    </div>
+    <div class="grid wide">
+      {
+        providers.map((p) => (
+          <article class="card" id={p.id}>
+            <div class="row">
+              <div style="flex:1;min-width:0">
+                <h3>{p.name}</h3>
+                <div class="meta">{p.vendor} · 核验 {p.verifiedAt}</div>
+              </div>
+              <span class="badge ok">免费额度</span>
+            </div>
+            <p class="desc">{p.summary}</p>
+            {p.note ? <p class="meta">{p.note}</p> : null}
+            <table>
+              <tbody>
+                {p.env.map((e) => (
+                  <tr>
+                    <td class="mono" style="white-space:nowrap">
+                      {e.name}
+                      <button class="copy-btn" style="margin-left:6px" data-copy-text={e.name}>
+                        复制
+                      </button>
+                    </td>
+                    <td class="muted">
+                      {e.label}
+                      {e.value ? (
+                        <>
+                          {" · "}
+                          <code>{e.value}</code>
+                        </>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div class="copy-row">
+              <pre><code>{psScript(p.env)}</code></pre>
+              <button class="copy-btn">复制命令</button>
+            </div>
+            <div class="actions">
+              <a class="btn sm primary" href={p.official} target="_blank" rel="noopener">领取 API Key</a>
+              <a class="btn sm" href={p.docs} target="_blank" rel="noopener">官方文档</a>
+              {p.agents.length > 0 && (
+                <a class="btn sm" href={`/agents#agent-${p.agents[0]}`}>适配 {agentName(p.agents[0])} →</a>
+              )}
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="notice">
+      安全提示：API Key 只写入本机用户环境变量，不要提交到 Git、不要发到群里。若怀疑泄露，
+      立刻到平台控制台吊销并重新生成。
+    </div>
+  </section>
+    </div>
+
+    <aside class="ai-side">
+      <div class="card">
+        <h3>快速配置</h3>
+        <ol class="muted" style="margin:0 0 10px;padding-left:18px;font-size:13px">
+          <li>选一家平台，点「领取 API Key」注册并创建 Key</li>
+          <li>复制下面的命令，把 <code>你的Key</code> 换成刚创建的 Key</li>
+          <li>粘贴到 PowerShell 执行（或直接用桌面客户端装机，自动写入）</li>
+          <li>新开一个终端，运行智能体即可</li>
+        </ol>
+        <div class="copy-row">
+          <pre><code>[Environment]::SetEnvironmentVariable('OPENAI_API_KEY','你的Key','User')</code></pre>
+          <button class="copy-btn">复制</button>
+        </div>
+        <p class="meta" style="margin-top:8px">
+          兼容 OpenAI 的平台（OpenRouter / 硅基流动 / 智谱 / Groq 等）还需要设置
+          <code>OPENAI_BASE_URL</code>，见各平台卡片。
+        </p>
+        <div class="actions">
+          <a class="btn sm" href="/agents">去配智能体 →</a>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>平台速查</h3>
+        <ul class="muted" style="margin:0;padding-left:18px;font-size:13px;line-height:1.9">
+          {providers.map((p) => (
+            <li><a href={`#${p.id}`}>{p.name}</a></li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  </div>
+</Base>

@@ -18,6 +18,7 @@ import type {
   NotesDto,
   SelfUpdateInfo,
   SnapshotDto,
+  StartApp,
   TaskSpec,
   ToolStatus,
 } from "./types";
@@ -133,6 +134,12 @@ export async function launchDesktopApp(names: string[]): Promise<void> {
 export async function findDesktopApp(names: string[]): Promise<string | null> {
   if (!isTauri()) return null;
   return invoke<string | null>("find_start_app", { names });
+}
+
+/** 一次列出开始菜单全部应用（批量检测桌面端是否已安装） */
+export async function listStartApps(): Promise<StartApp[]> {
+  if (!isTauri()) return [];
+  return invoke<StartApp[]>("list_start_apps");
 }
 
 export async function releaseNotes(id: string): Promise<NotesDto> {

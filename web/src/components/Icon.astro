@@ -1,0 +1,28 @@
+---
+import { appIcon } from "../../../src/catalog/appIcons";
+
+interface Props {
+  id: string;
+  name: string;
+  size?: number;
+}
+const { id, name, size = 38 } = Astro.props;
+const icon = appIcon(id);
+const letter = (name.trim()[0] ?? "?").toUpperCase();
+const style = `width:${size}px;height:${size}px`;
+---
+{
+  icon ? (
+    icon.startsWith("data:image/") ? (
+      <span class="icon" style={style}>
+        <img src={icon} alt="" loading="lazy" />
+      </span>
+    ) : (
+      <span class="icon" style={style} set:html={icon} />
+    )
+  ) : (
+    <span class="icon avatar" style={`${style};font-size:${Math.round(size * 0.42)}px`}>
+      {letter}
+    </span>
+  )
+}

@@ -55,6 +55,12 @@ export interface ToolStatus {
   version: string | null;
 }
 
+/** 开始菜单应用（批量检测桌面端安装状态用） */
+export interface StartApp {
+  name: string;
+  appId: string;
+}
+
 export interface MirrorStatus {
   tool: string;
   installed: boolean;

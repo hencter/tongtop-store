@@ -6,7 +6,7 @@ import { useAppStore, type Tab } from "./state/appStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useUpdateStore } from "./state/updateStore";
 import { initTaskListeners } from "./state/taskStore";
-import { wireAgentLog } from "./state/agentStore";
+import { wireAgentLog, useAgentStore } from "./state/agentStore";
 import { HomePage } from "./features/home/HomePage";
 import { SearchPage } from "./features/search/SearchPage";
 import { AgentsPage } from "./features/agents/AgentsPage";
@@ -83,6 +83,8 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
+    // 后台探测已安装的智能体（bin + 开始菜单），不阻塞首屏
+    void useAgentStore.getState().detectInstalled();
     void (async () => {
       await checkWinget();
       // 启动即后台跑一遍 winget 快照（陈旧才真跑），界面先读 SQLite 毫秒渲染

@@ -1,13 +1,16 @@
 {
   "name": "tongtop-store",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "web:dev": "pnpm --dir web dev",
+    "web:build": "pnpm --dir web build",
+    "icons": "node scripts/fetch-icons.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",

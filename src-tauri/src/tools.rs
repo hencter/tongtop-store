@@ -291,22 +291,33 @@ pub fn set_user_env(name: &str, value: &str) -> Result<(), String> {
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID 解析 ----------
 
+/// 列出开始菜单全部应用（一次 PowerShell 调用；批量检测桌面端安装状态用）。
+pub fn list_start_apps() -> Vec<(String, String)> {
+    let script = "Get-StartApps | ForEach-Object { $_.Name + '|' + $_.AppID }";
+    let out = match powershell(script) {
+        Ok(t) => t,
+        Err(_) => return Vec::new(),
+    };
+    out.lines()
+        .filter_map(|line| {
+            let (name, appid) = line.trim().split_once('|')?;
+            let (name, appid) = (name.trim(), appid.trim());
+            (!name.is_empty() && !appid.is_empty()).then(|| (name.to_string(), appid.to_string()))
+        })
+        .collect()
+}
+
 /// 按开始菜单快捷方式名查找 AppID（任一匹配词命中即返回）。
 /// winget 装的 GUI 应用 exe 落点各异，但开始菜单快捷方式稳定存在。
 pub fn find_start_app(names: &[String]) -> Option<String> {
-    let script = "Get-StartApps | ForEach-Object { $_.Name + '|' + $_.AppID }";
-    let out = powershell(script).ok()?;
     let needles: Vec<String> = names.iter().map(|n| n.to_lowercase()).collect();
-    for line in out.lines() {
-        let Some((name, appid)) = line.trim().split_once('|') else {
-            continue;
-        };
+    list_start_apps().into_iter().find_map(|(name, appid)| {
         let lname = name.to_lowercase();
-        if needles.iter().any(|n| !n.is_empty() && lname.contains(n.as_str())) {
-            return Some(appid.trim().to_string());
-        }
-    }
-    None
+        needles
+            .iter()
+            .any(|n| !n.is_empty() && lname.contains(n.as_str()))
+            .then_some(appid)
+    })
 }
 
 /// 经 shell:AppsFolder 启动开始菜单里的应用（GUI 桌面端通用启动法）。

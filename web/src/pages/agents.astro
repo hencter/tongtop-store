@@ -1,0 +1,37 @@
+---
+import Base from "../layouts/Base.astro";
+import AgentCard from "../components/AgentCard.astro";
+import { AGENTS } from "../lib/data";
+---
+<Base title="AI 智能体 · TongTop Store" description="AI 智能体一键装机配方：安装命令、环境变量、国内镜像。">
+  <h1 class="page-title">AI 智能体</h1>
+  <p class="page-sub">
+    每个配方包含：运行时依赖、安装命令、需要配置的环境变量。桌面客户端里点「一键装机」会自动完成
+    装运行时 → 装本体 → 写密钥 → 启动；也可以在终端里按下面的命令手动安装。
+  </p>
+
+  <section class="section">
+    <div class="section-head"><h2>装机三步</h2></div>
+    <div class="grid wide">
+      <article class="card">
+        <h3>1 · 领 Key</h3>
+        <p class="desc">到 <a href="/ai">AI 白嫖指南</a> 选一家有免费额度的平台，注册并创建 API Key。</p>
+      </article>
+      <article class="card">
+        <h3>2 · 一键装机</h3>
+        <p class="desc">打开桌面客户端 → AI 智能体 → 选智能体 → 粘贴 Key → 开始装机。自动装运行时、配国内镜像。</p>
+      </article>
+      <article class="card">
+        <h3>3 · 启动</h3>
+        <p class="desc">点「启动」拉起终端或桌面端。密钥写入用户级环境变量，之后新开的终端都能直接用。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>全部 {AGENTS.length} 个配方</h2></div>
+    <div class="grid wide">
+      {AGENTS.map((agent) => <AgentCard agent={agent} detailed />)}
+    </div>
+  </section>
+</Base>
