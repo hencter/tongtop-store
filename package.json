@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "web:dev": "pnpm --dir web dev",
     "web:build": "pnpm --dir web build",
-    "icons": "node scripts/fetch-icons.mjs"
+    "icons": "node scripts/fetch-icons.mjs",
+    "winget": "node scripts/winget-bump.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
