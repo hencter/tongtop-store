@@ -1,0 +1,243 @@
+/**
+ * 智能体装机流水线：检查运行时 → 装运行时 → 装本体 → 写环境变量 → 完成。
+ * 全程顺序执行（宿主同一时刻只跑一个任务），日志直通任务面板。
+ */
+
+import { create } from "zustand";
+import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { AGENTS, type AgentRecipe } from "../catalog/agents";
+import * as ipc from "../ipc/client";
+import type { TaskLogEvent, TaskSpec } from "../ipc/types";
+import { useTaskStore } from "./taskStore";
+import { useSettingsStore } from "./settingsStore";
+
+export type StepStatus = "pending" | "running" | "ok" | "fail" | "skipped";
+
+export interface Step {
+  id: string;
+  label: string;
+  status: StepStatus;
+  detail?: string;
+}
+
+const NPM_MIRROR = "https://registry.npmmirror.com";
+const PIP_MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple";
+const MAX_LOG = 3000;
+
+function buildSteps(recipe: AgentRecipe): Step[] {
+  const steps: Step[] = [];
+  if (recipe.runtime !== "none") {
+    steps.push({ id: "check-runtime", label: `检查 ${recipe.runtimeLabel}`, status: "pending" });
+    steps.push({ id: "install-runtime", label: `安装 ${recipe.runtimeLabel}（winget）`, status: "pending" });
+  }
+  steps.push({ id: "install-agent", label: `安装 ${recipe.name}`, status: "pending" });
+  if (recipe.env.length > 0) {
+    steps.push({ id: "env", label: "写入密钥与环境变量", status: "pending" });
+  }
+  steps.push({ id: "verify", label: "验证安装", status: "pending" });
+  return steps;
+}
+
+interface AgentStore {
+  agentId: string | null;
+  steps: Step[];
+  running: boolean;
+  finished: boolean;
+  log: string[];
+  envValues: Record<string, string>;
+  useMirror: boolean;
+  open: (agentId: string) => void;
+  close: () => void;
+  setEnv: (name: string, value: string) => void;
+  setUseMirror: (v: boolean) => void;
+  start: () => Promise<void>;
+  launch: () => Promise<void>;
+}
+
+function setStep(steps: Step[], id: string, patch: Partial<Step>): Step[] {
+  return steps.map((s) => (s.id === id ? { ...s, ...patch } : s));
+}
+
+export const useAgentStore = create<AgentStore>()((set, get) => ({
+  agentId: null,
+  steps: [],
+  running: false,
+  finished: false,
+  log: [],
+  envValues: {},
+  useMirror: true,
+  open: (agentId) => {
+    const recipe = AGENTS.find((a) => a.id === agentId);
+    if (!recipe) return;
+    const envValues: Record<string, string> = {};
+    for (const e of recipe.env) envValues[e.name] = e.defaultValue ?? "";
+    set({ agentId, steps: buildSteps(recipe), running: false, finished: false, log: [], envValues });
+  },
+  close: () => set({ agentId: null, steps: [], running: false, finished: false, log: [] }),
+  setEnv: (name, value) => set({ envValues: { ...get().envValues, [name]: value } }),
+  setUseMirror: (v) => set({ useMirror: v }),
+
+  start: async () => {
+    const { agentId, envValues, useMirror } = get();
+    const recipe = AGENTS.find((a) => a.id === agentId);
+    if (!recipe || get().running) return;
+    const task = useTaskStore.getState();
+    set({ running: true, finished: false, log: [] });
+
+    const upd = (id: string, patch: Partial<Step>) => set({ steps: setStep(get().steps, id, patch) });
+    const fail = (id: string, detail: string) => {
+      upd(id, { status: "fail", detail });
+      set({ running: false });
+    };
+
+    try {
+      // 1. 检查运行时
+      if (recipe.runtime !== "none") {
+        upd("check-runtime", { status: "running" });
+        const runtimeName = recipe.runtime === "node" ? "node" : "python";
+        let [st] = await ipc.checkTools([runtimeName]);
+        if (st?.installed) {
+          upd("check-runtime", { status: "ok", detail: st.version ?? st.path ?? "已安装" });
+          upd("install-runtime", { status: "skipped", detail: "已存在，跳过" });
+        } else {
+          upd("check-runtime", { status: "ok", detail: "未安装" });
+          upd("install-runtime", { status: "running" });
+          const r = await task.runTask(`winget:runtime:${recipe.runtimeWinget}`, {
+            kind: "winget",
+            action: "install",
+            wingetId: recipe.runtimeWinget!,
+            display: `安装 ${recipe.runtimeLabel}`,
+          });
+          if (!r.success) return fail("install-runtime", `退出码 ${r.code}`);
+          // 装完重新检测（宿主按已知位置解析，不依赖 PATH 刷新）
+          [st] = await ipc.checkTools([runtimeName]);
+          if (!st?.installed) return fail("install-runtime", "安装后仍未检测到，请重启本应用再试");
+          upd("install-runtime", { status: "ok", detail: st.version ?? "完成" });
+        }
+      }
+
+      // 2. 安装本体
+      upd("install-agent", { status: "running" });
+      let spec: TaskSpec;
+      if (recipe.install.kind === "npm") {
+        const args = ["install", "-g", recipe.install.package];
+        if (useMirror) args.push(`--registry=${NPM_MIRROR}`);
+        spec = {
+          kind: "process",
+          program: "npm",
+          args,
+          pathExtra: recipe.pathExtra,
+          display: `npm 安装 ${recipe.name}`,
+        };
+      } else if (recipe.install.kind === "pip") {
+        const args = ["-m", "pip", "install", recipe.install.package];
+        if (useMirror) args.push("-i", PIP_MIRROR);
+        spec = {
+          kind: "process",
+          program: "python",
+          args,
+          pathExtra: recipe.pathExtra,
+          display: `pip 安装 ${recipe.name}`,
+        };
+      } else {
+        spec = {
+          kind: "winget",
+          action: "install",
+          wingetId: recipe.install.package,
+          display: `安装 ${recipe.name}`,
+        };
+      }
+      const r2 = await task.runTask(`agent:${recipe.id}:install`, spec);
+      if (!r2.success) return fail("install-agent", `退出码 ${r2.code}`);
+      upd("install-agent", { status: "ok" });
+
+      // 3. 环境变量
+      if (recipe.env.length > 0) {
+        upd("env", { status: "running" });
+        for (const e of recipe.env) {
+          const v = envValues[e.name]?.trim();
+          if (v) await ipc.setUserEnv(e.name, v);
+        }
+        upd("env", { status: "ok", detail: "新开的终端生效" });
+      }
+
+      // 4. 验证
+      upd("verify", { status: "running" });
+      if (recipe.desktopNames) {
+        // 桌面端（GUI）：winget 静默安装路径因包而异，按开始菜单快捷方式核验
+        const found = await ipc.findDesktopApp(recipe.desktopNames);
+        upd("verify", found ? { status: "ok", detail: found } : { status: "ok", detail: "已安装（开始菜单可见）" });
+      } else {
+        const [bin] = await ipc.checkTools([recipe.bin]);
+        if (bin?.installed) {
+          upd("verify", { status: "ok", detail: bin.path ?? "就绪" });
+        } else {
+          upd("verify", { status: "ok", detail: "已安装（启动时按已知位置解析）" });
+        }
+      }
+      set({ running: false, finished: true });
+    } catch (e) {
+      const runningStep = get().steps.find((s) => s.status === "running");
+      fail(runningStep?.id ?? "install-agent", String(e));
+    }
+  },
+
+  launch: async () => {
+    const { agentId, envValues } = get();
+    const recipe = AGENTS.find((a) => a.id === agentId);
+    if (!recipe) return;
+    const env: Record<string, string> = {};
+    for (const e of recipe.env) {
+      const v = envValues[e.name]?.trim();
+      if (v) env[e.name] = v;
+    }
+    if (recipe.desktopNames) {
+      // 桌面端（GUI）：经开始菜单 AppID 启动，无需知道 exe 落点
+      await ipc.launchDesktopApp(recipe.desktopNames);
+    } else if (recipe.webPort) {
+      // Web 型：后台拉起本地服务（独立控制台常驻），稍后自动打开浏览器
+      await ipc.launchAgent({
+        program: recipe.bin,
+        args: recipe.launchArgs ?? [],
+        env,
+        pathExtra: recipe.pathExtra,
+      });
+      // 等服务就绪再开浏览器（若此刻退出商店，setTimeout 会随窗口销毁）
+      await new Promise((r) => setTimeout(r, 3000));
+      await openUrl(`http://localhost:${recipe.webPort}`);
+    } else if (recipe.keepOpen) {
+      await ipc.launchAgent({
+        program: "cmd.exe",
+        args: ["/k", [recipe.bin, ...(recipe.launchArgs ?? [])].join(" ")],
+        env,
+        pathExtra: recipe.pathExtra,
+      });
+    } else {
+      await ipc.launchAgent({
+        program: recipe.bin,
+        args: recipe.launchArgs ?? [],
+        env,
+        pathExtra: recipe.pathExtra,
+      });
+    }
+    // “任务结束”：启动成功后商店真正退出（关窗口默认只收进托盘）
+    if (useSettingsStore.getState().autoExit) {
+      await ipc.quitApp();
+    }
+  },
+}));
+
+/** 流水线日志：把宿主任务事件流并入自己的累积日志（一次性接线）。 */
+let logWired = false;
+export function wireAgentLog(): () => void {
+  if (logWired) return () => {};
+  logWired = true;
+  const un = listen<TaskLogEvent>("task-log", (e) => {
+    useAgentStore.setState((s) => ({ log: [...s.log, ...e.payload.lines].slice(-MAX_LOG) }));
+  });
+  return () => {
+    logWired = false;
+    void un.then((f) => f());
+  };
+}

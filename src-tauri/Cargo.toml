@@ -1,0 +1,39 @@
+[package]
+name = "tongtop-store"
+version = "0.2.0"
+description = "应用商店：官方软件下载链接分发（winget 源）"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "tongtop_store_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 中文 Windows 上 winget 管道输出可能是 GBK：先尝试 UTF-8，失败回退 GBK 解码
+encoding_rs = "0.8"
+# GitHub Releases API（轻量阻塞 HTTP，调用方走 spawn_blocking）
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+# SQLite 缓存索引（快照 + KV），bundled 静态链接、零外部依赖
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
