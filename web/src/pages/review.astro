@@ -4,8 +4,9 @@ import Base from "../layouts/Base.astro";
 <Base title="审核入口 · TongTop Store" description="维护者审核提交队列。">
   <h1 class="page-title">审核入口</h1>
   <p class="page-sub">
-    管理令牌保存在浏览器会话中，仅用于调用审核接口。审核通过后条目出现在
+    提交以 GitHub Issue 形式存放在仓库里（标签 pending / approved / rejected），审核通过后条目出现在
     <a href="/community">社区提交</a> 页；正式收录请把条目合并进仓库 data/ 下的 JSON。
+    管理令牌保存在浏览器会话中，仅用于调用审核接口。
   </p>
 
   <div class="form" style="margin-bottom:24px">

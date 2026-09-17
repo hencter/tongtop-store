@@ -16,6 +16,10 @@ export async function onRequestPost(context) {
   const result = validate(body);
   if (result.error) return err(result.error);
 
-  const record = await addSubmission(env, result.value, ip);
-  return json({ ok: true, id: record.id, message: "已提交，等待审核" }, 201);
+  try {
+    const record = await addSubmission(env, result.value);
+    return json({ ok: true, id: record.id, message: "已提交，等待审核" }, 201);
+  } catch (error) {
+    return err(`提交失败：${String(error.message || error)}`, 502);
+  }
 }

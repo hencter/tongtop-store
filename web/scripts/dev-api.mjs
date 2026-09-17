@@ -16,20 +16,29 @@ const mem = new Map(
 );
 const persist = () => writeFileSync(dataFile, JSON.stringify(Object.fromEntries(mem), null, 2));
 
+// 与生产同构的存储接口：create / list / update（本地落盘，生产走 GitHub Issues）
 globalThis.__TONGTOP_STORE__ = {
-  async get(key) {
-    return mem.get(key) ?? null;
-  },
-  async put(key, value) {
-    mem.set(key, value);
+  async create(record) {
+    mem.set(record.id, JSON.stringify(record));
     persist();
+    return record;
   },
-  async delete(key) {
-    mem.delete(key);
+  async list(status) {
+    const out = [];
+    for (const raw of mem.values()) {
+      const record = JSON.parse(raw);
+      if (!status || record.status === status) out.push(record);
+    }
+    out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return out;
+  },
+  async update(id, patch) {
+    const raw = mem.get(String(id));
+    if (!raw) return null;
+    const record = { ...JSON.parse(raw), ...patch };
+    mem.set(String(id), JSON.stringify(record));
     persist();
-  },
-  async list(prefix) {
-    return [...mem.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key }));
+    return record;
   },
 };
 

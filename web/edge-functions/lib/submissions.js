@@ -26,51 +26,30 @@ export function validate(body) {
   return { value: { type, name, refId, site, category, desc, contact } };
 }
 
-export async function addSubmission(env, payload, ip) {
+export async function addSubmission(env, payload) {
   const store = getStore(env);
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const record = {
     id,
     ...payload,
     status: "pending",
-    ip: ip ?? "",
     createdAt: new Date().toISOString(),
     reviewedAt: "",
     note: "",
   };
-  await store.put(`submission_${id}`, JSON.stringify(record));
-  return record;
+  const created = await store.create(record);
+  return created ?? record;
 }
 
 export async function listSubmissions(env, status) {
-  const store = getStore(env);
-  const keys = await store.list("submission_");
-  const out = [];
-  for (const { key } of keys) {
-    const raw = await store.get(key);
-    if (!raw) continue;
-    try {
-      const record = JSON.parse(raw);
-      if (!status || record.status === status) out.push(record);
-    } catch {
-      // 跳过损坏记录
-    }
-  }
-  out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return out;
+  return getStore(env).list(status);
 }
 
 export async function updateSubmission(env, id, patch) {
-  const store = getStore(env);
-  const key = `submission_${id}`;
-  const raw = await store.get(key);
-  if (!raw) return null;
-  const record = { ...JSON.parse(raw), ...patch, reviewedAt: new Date().toISOString() };
-  await store.put(key, JSON.stringify(record));
-  return record;
+  return getStore(env).update(String(id), { ...patch, reviewedAt: new Date().toISOString() });
 }
 
-/** 公开列表脱敏：不带联系方式与 IP */
+/** 公开列表脱敏：不带联系方式与内部备注 */
 export function sanitizePublic(record) {
   return {
     id: record.id,

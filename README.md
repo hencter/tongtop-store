@@ -37,5 +37,5 @@ pnpm --dir web build  # 网站 → web/dist/（自动把最新安装包拷进下
 ## 网站部署（腾讯云 EdgeOne）
 
 1. 导入仓库，项目根目录 `web`，构建命令 `pnpm build`，输出 `dist`
-2. 环境变量 `ADMIN_TOKEN`；KV 命名空间绑定变量名 `SUBMISSIONS_KV`
+2. 环境变量 `ADMIN_TOKEN`（审核令牌）、`GITHUB_TOKEN`（Issues 读写，提交/审核用）
 3. 详见 `web/README.md`

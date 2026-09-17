@@ -26,9 +26,12 @@ pnpm build       # 拷安装包 + astro build → dist/
 
 1. EdgeOne 控制台 → Pages → 导入 Git 仓库
 2. **项目根目录填 `web`**，构建命令 `pnpm build`，输出目录 `dist`
-3. 环境变量：`ADMIN_TOKEN`（审核接口令牌，务必设置）
-4. 存储 → KV：创建命名空间并绑定到项目，**变量名填 `SUBMISSIONS_KV`**（未绑定时审核数据仅存边缘实例内存，重启即丢）
-5. 提交审核：`POST /api/submit`；审核：`GET /api/submissions?status=pending`（Bearer 令牌）、`POST /api/review`
+3. 环境变量：
+   - `ADMIN_TOKEN`：审核接口令牌（务必设置）
+   - `GITHUB_TOKEN`：Fine-grained PAT，勾选本仓库 `Issues: Read and write`（提交/审核用它建 Issue、打标签）
+   - `GITHUB_REPO`（可选）：默认 `hencter/tongtop-store`
+4. 提交审核：`POST /api/submit`；审核：`GET /api/submissions?status=pending`（Bearer 令牌）、`POST /api/review`
+5. 不依赖 EdgeOne KV：提交以 GitHub Issue 存储（标签 `submission` + `pending/approved/rejected`），也可以在 GitHub 上直接改标签审核
 
 ### 安装包发布流程
 
