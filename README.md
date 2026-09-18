@@ -2,7 +2,7 @@
 
 Windows 桌面应用商店（Tauri 2 + React 19 + TypeScript）+ Astro 索引站。
 
-- 桌面端：精选软件目录（winget 安装）、AI 智能体一键装机（装运行时 → 装本体 → 写密钥 → 启动）、镜像源管理、缓存清理、自动更新
+- 桌面端：精选软件目录（winget 安装）、AI 智能体一键装机（CLI / 桌面端分栏：装运行时 → 装本体 → 写密钥 → 一键启动，自动检测并建议安装 Windows Terminal）、GitHub 专区（Release + 直链下载）、镜像源管理、包管理器管理（主流语言运行时检测/安装/卸载）、缓存清理、自动更新
 - 索引站（`web/`）：软件库 / 智能体 / 镜像 / AI 免费额度索引 + 环境变量配置引导 + 提交审核接口 + 安装包下载
 - 数据：`data/*.json` 为唯一数据源，桌面端与网站共用
 
@@ -24,13 +24,20 @@ pnpm tauri build      # 桌面端安装包 → src-tauri/target/release/bundle/n
 pnpm --dir web build  # 网站 → web/dist/（自动把最新安装包拷进下载目录）
 ```
 
+## 发版（GitHub Actions）
+
+1. 三处版本号同步 bump：`package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml`（Release CI 会校验，不一致直接失败）
+2. `git tag v0.x.x && git push --tags`（或 Actions 页手动 Run workflow 填版本号）
+3. Release CI 自动：Windows 构建 NSIS → 发布 GitHub Release（商店内自更新随即生效）→ winget 清单作为 artifact 上传（下载后 `winget validate` + `wingetcreate submit` 提交）
+4. 另有 CI：push / PR 自动回归（前端构建 + 网站构建 + cargo test）
+
 ## 目录
 
 | 路径 | 说明 |
 | --- | --- |
 | `src/` | 桌面端前端（React） |
 | `src-tauri/` | 桌面端宿主（Rust） |
-| `data/` | 目录数据：apps / agents / mirrors / categories / free-models |
+| `data/` | 目录数据：apps / agents / mirrors / categories / free-models / devtools |
 | `web/` | Astro 索引站（EdgeOne Pages：项目根 `web`，输出 `dist`，函数在 `edge-functions/`） |
 | `scripts/fetch-icons.mjs` | 图标抓取（Iconify + 官网 favicon 兜底，生成 `src/catalog/appIcons.ts`） |
 

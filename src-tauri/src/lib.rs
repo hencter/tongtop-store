@@ -1448,7 +1448,7 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
 // ---------- 自更新（自家 GitHub Releases 发布渠道） ----------
 
 /// 商店自身的发布仓库（GitHub Releases 里的 NSIS 安装包即更新源）
-const SELF_REPO: &str = "tongtianlu/tongtop-store";
+const SELF_REPO: &str = "hencter/tongtop-store";
 
 /// semver 比较：a > b ?（按 主.次.修订 数值段，正式版优先于预发布）
 fn semver_gt(a: &str, b: &str) -> bool {
