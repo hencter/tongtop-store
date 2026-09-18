@@ -13,13 +13,19 @@ const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWit
 ---
 <header class="site-header">
   <div class="container">
-    <a class="logo" href="/">
-      <span class="logo-mark">T</span>
+    <a class="logo" href="/" aria-label="TongTop Store 首页">
+      <span class="logo-mark" aria-hidden="true">T</span>
       <span>TongTop Store</span>
     </a>
-    <nav class="site-nav">
+    <nav class="site-nav" aria-label="主导航">
       {links.map((l) => (
-        <a href={l.href} class={isActive(l.href) ? "active" : ""}>{l.label}</a>
+        <a
+          href={l.href}
+          class={isActive(l.href) ? "active" : ""}
+          aria-current={isActive(l.href) ? "page" : undefined}
+        >
+          {l.label}
+        </a>
       ))}
     </nav>
   </div>

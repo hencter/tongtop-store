@@ -19,30 +19,88 @@ import Base from "../layouts/Base.astro";
     correction: "纠错",
   };
 
+  function externalHttpUrl(value) {
+    if (typeof value !== "string" || !value) return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function textElement(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  function showMessage(message) {
+    if (!list) return;
+    const p = textElement("p", "muted", message);
+    list.replaceChildren(p);
+  }
+
+  function render(items) {
+    if (!list) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      showMessage("还没有已通过的社区提交。");
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const item of items) {
+      const article = document.createElement("article");
+      article.className = "card";
+      article.style.marginBottom = "12px";
+
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const main = document.createElement("div");
+      main.style.flex = "1";
+      main.style.minWidth = "0";
+      main.appendChild(textElement("h3", "", String(item.name || "")));
+
+      const typeLabel = TYPE_LABEL[item.type] || item.type || "";
+      const reviewed = typeof item.reviewedAt === "string" ? item.reviewedAt.slice(0, 10) : "";
+      const ref = item.refId ? ` · ${item.refId}` : "";
+      main.appendChild(textElement("div", "meta", `${typeLabel} · 通过于 ${reviewed}${ref}`));
+
+      row.appendChild(main);
+      row.appendChild(textElement("span", "badge ok", "已收录"));
+      article.appendChild(row);
+      article.appendChild(textElement("p", "desc", String(item.desc || "")));
+
+      const href = externalHttpUrl(item.site);
+      if (href) {
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const link = document.createElement("a");
+        link.href = href;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = href;
+        meta.appendChild(link);
+        article.appendChild(meta);
+      }
+
+      fragment.appendChild(article);
+    }
+    list.replaceChildren(fragment);
+  }
+
   fetch("/api/submissions?status=approved")
     .then((resp) => resp.json())
     .then((json) => {
-      if (!json.ok || json.items.length === 0) {
-        list.innerHTML = `<p class="muted">还没有已通过的社区提交。</p>`;
+      if (!json.ok) {
+        showMessage("社区提交暂时不可用。");
         return;
       }
-      list.innerHTML = json.items
-        .map(
-          (item) => `<article class="card" style="margin-bottom:12px">
-            <div class="row">
-              <div style="flex:1;min-width:0">
-                <h3>${item.name}</h3>
-                <div class="meta">${TYPE_LABEL[item.type] || item.type} · 通过于 ${item.reviewedAt?.slice(0, 10) || ""} ${item.refId ? `· ${item.refId}` : ""}</div>
-              </div>
-              <span class="badge ok">已收录</span>
-            </div>
-            <p class="desc">${item.desc}</p>
-            ${item.site ? `<div class="meta"><a href="${item.site}" target="_blank" rel="noopener">${item.site}</a></div>` : ""}
-          </article>`,
-        )
-        .join("");
+      render(json.items);
     })
     .catch(() => {
-      list.innerHTML = `<p class="muted">加载失败（审核接口未部署时属正常）。</p>`;
+      showMessage("加载失败（审核接口未部署时属正常）。");
     });
 </script>

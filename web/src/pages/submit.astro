@@ -51,7 +51,7 @@ import { CATEGORIES } from "../lib/data";
       <button class="btn primary" type="submit" id="submit-btn">提交审核</button>
     </div>
   </form>
-  <div id="result" style="margin-top:16px"></div>
+  <div id="result" aria-live="polite" style="margin-top:16px"></div>
 </Base>
 
 <script>
@@ -59,10 +59,23 @@ import { CATEGORIES } from "../lib/data";
   const button = document.getElementById("submit-btn");
   const result = document.getElementById("result");
 
-  form.addEventListener("submit", async (event) => {
+  function showResult(kind, message) {
+    if (!result) return;
+    const box = document.createElement("div");
+    box.className = `notice ${kind}`;
+    box.textContent = message;
+    result.replaceChildren(box);
+  }
+
+  form?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!(form instanceof HTMLFormElement) || !(button instanceof HTMLButtonElement)) return;
+
+    const original = button.textContent;
     button.disabled = true;
-    result.innerHTML = "";
+    button.textContent = "提交中…";
+    result?.replaceChildren();
+
     const data = Object.fromEntries(new FormData(form).entries());
     try {
       const resp = await fetch("/api/submit", {
@@ -72,12 +85,14 @@ import { CATEGORIES } from "../lib/data";
       });
       const json = await resp.json();
       if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
-      result.innerHTML = `<div class="notice ok">提交成功（编号 ${json.id}），等待审核。</div>`;
+      showResult("ok", `提交成功（编号 ${json.id}），等待审核。`);
       form.reset();
     } catch (error) {
-      result.innerHTML = `<div class="notice err">提交失败：${String(error.message || error)}</div>`;
+      const message = error instanceof Error ? error.message : String(error);
+      showResult("err", `提交失败：${message}`);
     } finally {
       button.disabled = false;
+      button.textContent = original;
     }
   });
 </script>

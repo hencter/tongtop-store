@@ -3,13 +3,31 @@ import { getStore } from "./store.js";
 export const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
   });
 
 export const err = (message, status = 400) => json({ ok: false, error: message }, status);
 
 const TYPES = ["app", "agent", "free-model", "correction"];
 const str = (value, max = 500) => (typeof value === "string" ? value.trim().slice(0, max) : "");
+
+function validHttpUrl(value) {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function validate(body) {
   const type = TYPES.includes(body?.type) ? body.type : "";
@@ -22,7 +40,7 @@ export function validate(body) {
   if (!type) return { error: "提交类型不正确" };
   if (!name) return { error: "名称必填" };
   if (!desc) return { error: "说明必填" };
-  if (site && !/^https?:\/\//i.test(site)) return { error: "链接需要以 http(s):// 开头" };
+  if (!validHttpUrl(site)) return { error: "链接需要是有效的 http(s) 地址" };
   return { value: { type, name, refId, site, category, desc, contact } };
 }
 
@@ -72,7 +90,7 @@ export function isAdmin(request, env) {
   return header === `Bearer ${token}`;
 }
 
-/** 简易限流：每个边缘实例内存计数（防刷够用） */
+/** 简易限流：每个边缘实例内存计数；生产还应配合 EdgeOne/WAF 的边缘限流规则。 */
 const HITS = new Map();
 export function rateLimited(ip, limit = 5, windowMs = 10 * 60 * 1000) {
   if (!ip) return false;
