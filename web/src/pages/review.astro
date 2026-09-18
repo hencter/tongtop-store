@@ -14,99 +14,191 @@ import Base from "../layouts/Base.astro";
       <label for="token">管理令牌 <span class="hint">服务端环境变量 ADMIN_TOKEN</span></label>
       <div class="copy-row">
         <input id="token" type="password" placeholder="ADMIN_TOKEN" autocomplete="off" />
-        <button class="btn" id="save">保存并加载</button>
+        <button class="btn" type="button" id="save">保存并加载</button>
+        <button class="btn" type="button" id="clear">清除</button>
       </div>
     </div>
   </div>
 
-  <div class="filters" id="tabs">
-    <button class="chip active" data-status="pending">待审核</button>
-    <button class="chip" data-status="approved">已通过</button>
-    <button class="chip" data-status="rejected">已拒绝</button>
+  <div class="filters" id="tabs" aria-label="审核状态">
+    <button class="chip active" type="button" data-status="pending" aria-pressed="true">待审核</button>
+    <button class="chip" type="button" data-status="approved" aria-pressed="false">已通过</button>
+    <button class="chip" type="button" data-status="rejected" aria-pressed="false">已拒绝</button>
   </div>
 
-  <div id="list"></div>
+  <div id="list" aria-live="polite"></div>
 </Base>
 
 <script>
   const tokenInput = document.getElementById("token");
   const saveBtn = document.getElementById("save");
+  const clearBtn = document.getElementById("clear");
   const tabs = Array.from(document.querySelectorAll("#tabs .chip"));
   const list = document.getElementById("list");
   let status = "pending";
 
-  tokenInput.value = sessionStorage.getItem("adminToken") || "";
+  if (tokenInput instanceof HTMLInputElement) {
+    tokenInput.value = sessionStorage.getItem("adminToken") || "";
+  }
+
+  function externalHttpUrl(value) {
+    if (typeof value !== "string" || !value) return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function textElement(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  function showMessage(message, kind = "muted") {
+    if (!list) return;
+    const el = kind === "muted"
+      ? textElement("p", "muted", message)
+      : textElement("div", `notice ${kind}`, message);
+    list.replaceChildren(el);
+  }
 
   function render(items) {
-    if (items.length === 0) {
-      list.innerHTML = `<p class="muted">没有记录。</p>`;
+    if (!list) return;
+    if (!Array.isArray(items) || items.length === 0) {
+      showMessage("没有记录。");
       return;
     }
-    list.innerHTML = items
-      .map((item) => {
-        const actions =
-          item.status === "pending"
-            ? `<div class="actions">
-                 <button class="btn sm primary" data-action="approve" data-id="${item.id}">通过</button>
-                 <button class="btn sm" data-action="reject" data-id="${item.id}">拒绝</button>
-               </div>`
-            : "";
-        return `<article class="card" style="margin-bottom:12px">
-          <div class="row">
-            <div style="flex:1;min-width:0">
-              <h3>${item.name}</h3>
-              <div class="meta">${item.type} · ${item.createdAt} ${item.refId ? `· ${item.refId}` : ""}</div>
-            </div>
-            <span class="badge ${item.status === "approved" ? "ok" : ""}">${item.status}</span>
-          </div>
-          <p class="desc">${item.desc}</p>
-          ${item.site ? `<div class="meta"><a href="${item.site}" target="_blank" rel="noopener">${item.site}</a></div>` : ""}
-          ${item.contact ? `<div class="meta">联系方式：${item.contact}</div>` : ""}
-          ${actions}
-        </article>`;
-      })
-      .join("");
+
+    const fragment = document.createDocumentFragment();
+    for (const item of items) {
+      const article = document.createElement("article");
+      article.className = "card";
+      article.style.marginBottom = "12px";
+
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const main = document.createElement("div");
+      main.style.flex = "1";
+      main.style.minWidth = "0";
+      main.appendChild(textElement("h3", "", String(item.name || "")));
+
+      const ref = item.refId ? ` · ${item.refId}` : "";
+      main.appendChild(
+        textElement("div", "meta", `${item.type || ""} · ${item.createdAt || ""}${ref}`),
+      );
+
+      row.appendChild(main);
+      row.appendChild(
+        textElement("span", `badge ${item.status === "approved" ? "ok" : ""}`, String(item.status || "")),
+      );
+      article.appendChild(row);
+      article.appendChild(textElement("p", "desc", String(item.desc || "")));
+
+      const href = externalHttpUrl(item.site);
+      if (href) {
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const link = document.createElement("a");
+        link.href = href;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = href;
+        meta.appendChild(link);
+        article.appendChild(meta);
+      }
+
+      if (item.contact) {
+        article.appendChild(textElement("div", "meta", `联系方式：${item.contact}`));
+      }
+
+      if (item.status === "pending") {
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const approve = document.createElement("button");
+        approve.type = "button";
+        approve.className = "btn sm primary";
+        approve.dataset.action = "approve";
+        approve.dataset.id = String(item.id || "");
+        approve.textContent = "通过";
+
+        const reject = document.createElement("button");
+        reject.type = "button";
+        reject.className = "btn sm";
+        reject.dataset.action = "reject";
+        reject.dataset.id = String(item.id || "");
+        reject.textContent = "拒绝";
+
+        actions.append(approve, reject);
+        article.appendChild(actions);
+      }
+
+      fragment.appendChild(article);
+    }
+
+    list.replaceChildren(fragment);
   }
 
   async function load() {
-    const token = tokenInput.value.trim();
+    const token = tokenInput instanceof HTMLInputElement ? tokenInput.value.trim() : "";
     if (!token) {
-      list.innerHTML = `<p class="muted">先填写管理令牌。</p>`;
+      showMessage("先填写管理令牌。");
       return;
     }
+
     sessionStorage.setItem("adminToken", token);
-    list.innerHTML = `<p class="muted">加载中…</p>`;
+    showMessage("加载中…");
     try {
-      const resp = await fetch(`/api/submissions?status=${status}`, {
+      const resp = await fetch(`/api/submissions?status=${encodeURIComponent(status)}`, {
         headers: { authorization: `Bearer ${token}` },
       });
       const json = await resp.json();
       if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
       render(json.items);
     } catch (error) {
-      list.innerHTML = `<div class="notice err">加载失败：${String(error.message || error)}</div>`;
+      const message = error instanceof Error ? error.message : String(error);
+      showMessage(`加载失败：${message}`, "err");
     }
   }
 
-  saveBtn.addEventListener("click", load);
+  saveBtn?.addEventListener("click", load);
+  clearBtn?.addEventListener("click", () => {
+    sessionStorage.removeItem("adminToken");
+    if (tokenInput instanceof HTMLInputElement) tokenInput.value = "";
+    showMessage("管理令牌已从当前浏览器会话清除。");
+  });
+
   tabs.forEach((tab) =>
     tab.addEventListener("click", () => {
-      status = tab.dataset.status;
-      tabs.forEach((t) => t.classList.toggle("active", t === tab));
-      load();
+      status = tab.dataset.status || "pending";
+      tabs.forEach((item) => {
+        const active = item === tab;
+        item.classList.toggle("active", active);
+        item.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+      void load();
     }),
   );
 
-  list.addEventListener("click", async (event) => {
-    const btn = event.target.closest("[data-action]");
-    if (!btn) return;
+  list?.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const btn = target.closest("[data-action]");
+    if (!(btn instanceof HTMLButtonElement)) return;
+
     btn.disabled = true;
     try {
+      const token = tokenInput instanceof HTMLInputElement ? tokenInput.value.trim() : "";
       const resp = await fetch("/api/review", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${tokenInput.value.trim()}`,
+          authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ id: btn.dataset.id, action: btn.dataset.action }),
       });
@@ -115,9 +207,10 @@ import Base from "../layouts/Base.astro";
       await load();
     } catch (error) {
       btn.disabled = false;
-      alert(`操作失败：${String(error.message || error)}`);
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`操作失败：${message}`);
     }
   });
 
-  if (tokenInput.value) load();
+  if (tokenInput instanceof HTMLInputElement && tokenInput.value) void load();
 </script>
