@@ -1,13 +1,10 @@
 /**
- * 提交存储（不依赖 EdgeOne KV）：
+ * 提交存储：
  * - 生产：GitHub Issues（标签 submission + pending/approved/rejected），需要 GITHUB_TOKEN
  * - 本地：dev-api.mjs 注入的文件存储（globalThis.__TONGTOP_STORE__）
- * - 兜底：内存存储（仅演示，重启即丢）
  *
  * 统一接口：create(record) / list(status?) / update(id, patch)
  */
-
-const MEM = (globalThis.__TONGTOP_MEM_STORE__ ??= new Map());
 
 const LABEL_SUBMISSION = "submission";
 const STATUS_LABELS = ["pending", "approved", "rejected"];
@@ -17,31 +14,6 @@ const LABELS = [
   ["approved", "0e8a16"],
   ["rejected", "d73a4a"],
 ];
-
-function memoryStore() {
-  return {
-    async create(record) {
-      MEM.set(record.id, JSON.stringify(record));
-      return record;
-    },
-    async list(status) {
-      const out = [];
-      for (const raw of MEM.values()) {
-        const record = JSON.parse(raw);
-        if (!status || record.status === status) out.push(record);
-      }
-      out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      return out;
-    },
-    async update(id, patch) {
-      const raw = MEM.get(id);
-      if (!raw) return null;
-      const record = { ...JSON.parse(raw), ...patch };
-      MEM.set(id, JSON.stringify(record));
-      return record;
-    },
-  };
-}
 
 function githubStore(env) {
   const repo = env.GITHUB_REPO || "hencter/tongtop-store";
@@ -67,7 +39,7 @@ function githubStore(env) {
     try {
       existing = (await gh("/labels?per_page=100")) ?? [];
     } catch {
-      // 读不到就尝试创建，失败也无妨（标签可后补）
+      // 读不到就尝试创建，失败会在后续真实写入时暴露。
     }
     const names = new Set(existing.map((l) => l.name));
     for (const [name, color] of LABELS) {
@@ -101,7 +73,9 @@ function githubStore(env) {
     };
   }
 
-  const markerOf = (record) => `<!-- tongtop:${JSON.stringify(record)} -->`;
+  // 避免用户输入 "-->" 提前闭合 HTML comment，破坏元数据标记。
+  const markerOf = (record) =>
+    `<!-- tongtop:${JSON.stringify(record).replaceAll("-->", "--\\u003e")} -->`;
 
   function renderBody(record) {
     return `${markerOf(record)}
@@ -135,20 +109,31 @@ _由 TongTop Store 网站提交；审核通过后同步到站点。_`;
     },
     async list(status) {
       const labels = status ? `${LABEL_SUBMISSION},${status}` : LABEL_SUBMISSION;
-      const issues = await gh(`/issues?labels=${labels}&state=all&per_page=100`);
+      const params = new URLSearchParams({ labels, state: "all", per_page: "100" });
+      const issues = await gh(`/issues?${params.toString()}`);
       return (issues ?? [])
         .filter((issue) => !issue.pull_request)
         .map(parse)
         .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     },
     async update(id, patch) {
+      if (!/^\d+$/.test(String(id))) return null;
+
       await ensureLabels();
       const issue = await gh(`/issues/${id}`);
       const record = { ...parse(issue), ...patch };
       const body = (issue.body ?? "").replace(/<!--\s*tongtop:[\s\S]*?-->/, markerOf(record));
+
+      const existingLabels = (issue.labels ?? [])
+        .map((label) => (typeof label === "string" ? label : label.name))
+        .filter((name) => name && name !== LABEL_SUBMISSION && !STATUS_LABELS.includes(name));
+
       await gh(`/issues/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ body, labels: [LABEL_SUBMISSION, record.status] }),
+        body: JSON.stringify({
+          body,
+          labels: [...existingLabels, LABEL_SUBMISSION, record.status],
+        }),
       });
       if (patch.note) {
         await gh(`/issues/${id}/comments`, {
@@ -164,5 +149,5 @@ _由 TongTop Store 网站提交；审核通过后同步到站点。_`;
 export function getStore(env) {
   if (globalThis.__TONGTOP_STORE__) return globalThis.__TONGTOP_STORE__;
   if (env?.GITHUB_TOKEN) return githubStore(env);
-  return memoryStore();
+  throw new Error("GITHUB_TOKEN 未配置：生产环境提交存储不可用");
 }
