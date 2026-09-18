@@ -4,7 +4,8 @@ import AppCard from "../components/AppCard.astro";
 import AgentCard from "../components/AgentCard.astro";
 import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory } from "../lib/data";
 
-const aiApps = appsByCategory("ai").slice(0, 8);
+const allAiApps = appsByCategory("ai");
+const aiApps = allAiApps.slice(0, 8);
 const featured = APPS.filter((a) => a.category !== "ai").slice(0, 8);
 const providers = FREE_MODELS.providers.slice(0, 6);
 const stats = [
@@ -15,16 +16,22 @@ const stats = [
 ];
 ---
 <Base>
-<section class="hero">
+<section class="hero hero-panel">
+  <span class="eyebrow">Windows 软件 · AI 工具 · 开源索引</span>
   <h1>TongTop Store</h1>
-  <p>
-    精选软件目录 · AI 智能体一键装机 · 国内镜像加速 · 免费大模型额度与密钥配置引导。
-    桌面端只管装，网站负责索引与说明书。
+  <p class="hero-lead">
+    把装软件、配 AI 智能体、切国内镜像和领取免费模型额度放到一个入口。
+    桌面端负责一键执行，网站负责索引、说明和可复制的命令。
   </p>
   <div class="cta">
-    <a class="btn primary" href="/download">下载桌面客户端</a>
-    <a class="btn" href="/apps">浏览软件库</a>
-    <a class="btn" href="/ai">AI 白嫖指南</a>
+    <a class="btn primary hero-btn" href="/download">下载桌面客户端</a>
+    <a class="btn hero-btn" href="/apps">浏览软件库</a>
+    <a class="btn hero-btn" href="/ai">AI 白嫖指南</a>
+  </div>
+  <div class="hero-points" role="list" aria-label="项目特点">
+    <span role="listitem">winget 官方源安装</span>
+    <span role="listitem">密钥与配置留在本机</span>
+    <span role="listitem">目录数据开源可审计</span>
   </div>
   <div class="stats">
     {stats.map((s) => (
@@ -39,7 +46,7 @@ const stats = [
 <section class="section">
   <div class="section-head">
     <h2>AI 应用精选</h2>
-    <a class="more" href="/apps?cat=ai">全部 {appsByCategory("ai").length} 个 →</a>
+    <a class="more" href="/apps?cat=ai">全部 {allAiApps.length} 个 →</a>
   </div>
   <div class="grid">
     {aiApps.map((app) => <AppCard app={app} />)}
