@@ -44,7 +44,7 @@ fn winget_cache_dir() -> PathBuf {
 
 /// 迭代式计算目录大小。mimenote 教训：用 `DirEntry::metadata()`（Windows 上
 /// 复用目录枚举已返回的数据，零额外系统调用），不要 path-based `fs::metadata`。
-fn dir_size(entry: &std::fs::DirEntry) -> (u64, u32) {
+pub fn dir_size(entry: &std::fs::DirEntry) -> (u64, u32) {
     let mut total = 0u64;
     let mut files = 0u32;
     let mut stack = vec![entry.path()];

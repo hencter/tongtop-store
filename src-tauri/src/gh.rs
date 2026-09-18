@@ -1,11 +1,17 @@
 //! GitHub Releases 支持：有些软件的官方发布渠道就是 GitHub Releases，
 //! 本商店按"只做官方链接分发"的定位，把发布页与资产直链取回来给前端。
 //!
+//! 访问策略（匿名 API 限流 60 次/小时，gh 已认证是 5000 次/小时）：
+//! 1. 优先 `gh api`（用户装了 GitHub CLI 且已认证时——顺带继承用户的 gh 代理配置）；
+//! 2. 未安装/未认证/失败 → 回落匿名 `api.github.com`。
+//!
 //! - `parse_release` 是纯函数（不依赖网络），JSON → DTO 的判据只有这一份；
-//! - 网络只走 `api.github.com`，仓库名严格校验（owner/repo），
-//!   不拼接用户可控 URL。
+//! - 网络只走 `api.github.com` / `gh api`，仓库名严格校验（owner/repo）。
 
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+
+use crate::tools;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -105,12 +111,41 @@ pub fn parse_release(repo: &str, json: &str) -> Result<GhRelease, String> {
     })
 }
 
-/// 拉取最新发布（阻塞 HTTP，调用方负责 spawn_blocking）。
+/// gh CLI 检测（进程内只查一次）：装了且 `gh auth status` 通过才用。
+/// 返回 gh 可执行路径。
+pub fn gh_cli() -> Option<&'static str> {
+    static GH: OnceLock<Option<String>> = OnceLock::new();
+    GH.get_or_init(|| {
+        let p = tools::resolve("gh")?;
+        tools::run_quiet(&p, &["auth", "status"]).ok()?;
+        Some(p)
+    })
+    .as_deref()
+}
+
+/// gh CLI 状态（给镜像中心展示）
+pub fn gh_cli_status() -> (bool, bool) {
+    let installed = tools::resolve("gh").is_some();
+    (installed, installed && gh_cli().is_some())
+}
+
+/// 拉取最新发布：gh CLI 优先，匿名 API 兜底。
 pub fn fetch_latest(repo: &str) -> Result<GhRelease, String> {
     if !valid_repo(repo) {
         return Err(format!("非法仓库名：{repo}"));
     }
-    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
+    let api_path = format!("repos/{repo}/releases/latest");
+
+    // 1) gh CLI（已认证 5000 次/小时，且继承用户的 gh 代理/镜像配置）
+    if let Some(gh) = gh_cli() {
+        match tools::run_quiet(gh, &["api", &api_path]) {
+            Ok(body) => return parse_release(repo, &body),
+            Err(_) => {} // gh 失败（网络/限额）→ 回落匿名
+        }
+    }
+
+    // 2) 匿名 api.github.com（60 次/小时）
+    let url = format!("https://api.github.com/{api_path}");
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(std::time::Duration::from_secs(20)))
         .user_agent("tongtop-store/0.1")

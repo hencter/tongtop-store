@@ -11,8 +11,12 @@ import type {
   AppInfo,
   CleanupInfo,
   CleanupResult,
+  GhCliStatus,
   GhRelease,
   LaunchSpec,
+  LeftoverReport,
+  CleanReport,
+  ProcDto,
   MirrorLatency,
   MirrorStatus,
   NotesDto,
@@ -173,6 +177,46 @@ export async function cleanupScan(): Promise<CleanupInfo> {
 export async function cleanupRun(): Promise<CleanupResult> {
   if (!isTauri()) return { freedBytes: 0, deleted: 0, skipped: 0 };
   return invoke<CleanupResult>("cleanup_run");
+}
+
+export async function ghCliStatus(): Promise<GhCliStatus> {
+  if (!isTauri()) return { installed: false, authed: false };
+  return invoke<GhCliStatus>("gh_cli_status");
+}
+
+export async function leftoverScan(id: string, name: string): Promise<LeftoverReport> {
+  if (!isTauri()) {
+    return {
+      registry: [{ key: "HKCU\\Software\\Demo\\WeChat", name: "WeChat", kind: "software" }],
+      dirs: [{ path: "C:\\Users\\demo\\AppData\\Roaming\\WeChat", size: 128_000_000 }],
+    };
+  }
+  return invoke<LeftoverReport>("leftover_scan", { id, name });
+}
+
+export async function leftoverClean(dirs: string[], keys: string[]): Promise<CleanReport> {
+  if (!isTauri()) return { freedBytes: 0, dirsDeleted: 0, dirsSkipped: 0, keysDeleted: 0, keysSkipped: 0 };
+  return invoke<CleanReport>("leftover_clean", { dirs, keys });
+}
+
+export async function activityStart(roots: string[]): Promise<void> {
+  if (!isTauri()) return;
+  return invoke("activity_start", { roots });
+}
+
+export async function activityStop(): Promise<boolean> {
+  if (!isTauri()) return false;
+  return invoke<boolean>("activity_stop");
+}
+
+export async function activityStatus(): Promise<boolean> {
+  if (!isTauri()) return false;
+  return invoke<boolean>("activity_status");
+}
+
+export async function activityProcesses(): Promise<ProcDto[]> {
+  if (!isTauri()) return [];
+  return invoke<ProcDto[]>("activity_processes");
 }
 
 /** 批量探测镜像延迟（并行，TTFB；ms 为 null 表示不可达） */

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, RefreshCw, RotateCcw, Zap } from "lucide-react";
 import { GH_PROXY_PRESETS, MIRROR_TOOLS, type MirrorTool } from "../../catalog/mirrors";
+import * as ipc from "../../ipc/client";
 import { useMirrorStore } from "../../state/mirrorStore";
+import { useAppStore } from "../../state/appStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { timeLabel } from "../../domain/format";
 import { AppIcon } from "../../components/AppIcon";
@@ -90,6 +92,12 @@ function ToolCard({ tool }: { tool: MirrorTool }) {
 function GhProxyCard() {
   const ghProxy = useSettingsStore((s) => s.ghProxy);
   const setGhProxy = useSettingsStore((s) => s.setGhProxy);
+  const [gh, setGh] = useState<{ installed: boolean; authed: boolean } | null>(null);
+
+  useEffect(() => {
+    void ipc.ghCliStatus().then(setGh);
+  }, []);
+
   return (
     <Card className="flex flex-col gap-2.5 p-4">
       <div className="flex items-center justify-between">
@@ -104,6 +112,18 @@ function GhProxyCard() {
       </div>
       <div className="truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground">
         当前：{ghProxy || "直连"}
+      </div>
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {gh?.authed ? (
+          <>
+            <CheckCircle2 className="size-3 text-ok" />
+            gh CLI 已认证 —— Release 拉取走 gh api（5000 次/小时）
+          </>
+        ) : (
+          <>
+            Release 拉取走匿名 API（60 次/小时）—— 安装 GitHub CLI 并 gh auth login 可提速
+          </>
+        )}
       </div>
       <div className="mt-auto">
         <Select value={ghProxy} onChange={(e) => setGhProxy(e.target.value)}>
@@ -125,6 +145,16 @@ export function MirrorsPage() {
   const tuning = useMirrorStore((s) => s.tuning);
   const tunedAt = useMirrorStore((s) => s.tunedAt);
   const autoTune = useMirrorStore((s) => s.autoTune);
+  const pageQuery = useAppStore((s) => s.pageQueries.mirrors ?? "");
+
+  // 标题栏搜索（本页作用域）：过滤工具名 / 描述
+  const q = pageQuery.trim().toLowerCase();
+  const shownTools = q
+    ? MIRROR_TOOLS.filter(
+        (t) => t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.id.includes(q),
+      )
+    : MIRROR_TOOLS;
+  const showGhCard = !q || "github 下载加速".includes(q);
 
   useEffect(() => {
     void refresh();
@@ -168,10 +198,10 @@ export function MirrorsPage() {
       )}
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3">
-        {MIRROR_TOOLS.map((t) => (
+        {shownTools.map((t) => (
           <ToolCard key={t.id} tool={t} />
         ))}
-        <GhProxyCard />
+        {showGhCard && <GhProxyCard />}
       </div>
     </div>
   );

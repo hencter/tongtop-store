@@ -226,7 +226,7 @@ fn ps_escape(s: &str) -> String {
     s.replace('\'', "''")
 }
 
-fn powershell(script: &str) -> Result<String, String> {
+pub fn powershell(script: &str) -> Result<String, String> {
     let mut cmd = Command::new("powershell.exe");
     cmd.args(["-NoProfile", "-NonInteractive", "-Command", script])
         .stdout(Stdio::piped())
@@ -287,6 +287,35 @@ pub fn set_user_env(name: &str, value: &str) -> Result<(), String> {
         return Err(out);
     }
     Ok(())
+}
+
+/// 静默跑一个命令并收集输出（无窗口；.cmd/.bat 自动走 cmd.exe 中转）。
+/// 退出码非 0 视为 Err（带 stderr 内容）。
+pub fn run_quiet(program: &str, args: &[&str]) -> Result<String, String> {
+    let mut cmd = if program.ends_with(".cmd") || program.ends_with(".bat") {
+        let mut c = Command::new("cmd.exe");
+        c.arg("/c").arg(program).args(args);
+        c
+    } else {
+        let mut c = Command::new(program);
+        c.args(args);
+        c
+    };
+    cmd.stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let out = cmd
+        .output()
+        .map_err(|e| format!("无法启动 {program}：{e}"))?;
+    if !out.status.success() {
+        return Err(crate::winget::process::decode(&out.stderr).trim().to_string());
+    }
+    Ok(crate::winget::process::decode(&out.stdout))
 }
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID 解析 ----------

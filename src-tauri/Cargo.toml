@@ -28,6 +28,8 @@ encoding_rs = "0.8"
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 # SQLite 缓存索引（快照 + KV），bundled 静态链接、零外部依赖
 rusqlite = { version = "0.32", features = ["bundled"] }
+# 文件活动监控（Windows 走 ReadDirectoryChangesW）
+notify = "8"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -2,11 +2,12 @@
 
 import { memo, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, TrendingUp } from "lucide-react";
+import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, Trash2, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
 import { CATALOG, CATEGORIES, type CatalogApp, type CategoryId } from "../../catalog/apps";
 import { AGENTS, type AgentRecipe } from "../../catalog/agents";
 import { useAppStore } from "../../state/appStore";
+import { deepUninstall } from "../../state/leftoverStore";
 import { useAgentStore } from "../../state/agentStore";
 import { useTaskStore } from "../../state/taskStore";
 import { AppIcon } from "../../components/AppIcon";
@@ -19,10 +20,12 @@ type CardState = "none" | "installed" | "upgrade";
 const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: CardState }) {
   const runTask = useTaskStore((s) => s.runTask);
   const silent = useTaskStore((s) => s.silent);
-  // 已安装则不再显示安装按钮；有可更新版本 → 安装按钮变为更新按钮
+  // 已安装 → 按钮变卸载（深度卸载：winget 卸载 + 注册表/AppData 残留扫描）；
+  // 有可更新版本 → 安装按钮变更新按钮
   const action = state === "upgrade" ? "upgrade" : "install";
   const taskId = `winget:${action}:${app.id}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
+  const uninstallState = useTaskStore((s) => s.taskState(`winget:uninstall:${app.id}`));
   return (
     <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
       <div className="flex items-start justify-between">
@@ -36,9 +39,27 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
       <div className="text-[11px] text-muted-foreground">{new URL(app.site).host}</div>
       <div className="mt-1.5 flex gap-2">
         {state === "installed" ? (
-          <Badge variant="outline" className="h-8 px-3 text-xs">
-            <Check className="size-3.5 text-ok" /> 已安装
-          </Badge>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={uninstallState !== null}
+            title="已安装 —— 点击卸载（卸载后扫描注册表与 AppData 残留）"
+            onClick={() => void deepUninstall(app.id, app.name)}
+          >
+            {uninstallState === "running" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" /> 进行中
+              </>
+            ) : uninstallState === "queued" ? (
+              <>
+                <Clock className="size-3.5" /> 排队中
+              </>
+            ) : (
+              <>
+                <Trash2 className="size-3.5" /> 卸载
+              </>
+            )}
+          </Button>
         ) : (
           <Button
             size="sm"
@@ -131,8 +152,29 @@ export function HomePage() {
   const upgrades = useAppStore((s) => s.upgrades);
   const openAgent = useAgentStore((s) => s.open);
   const agentsInstalled = useAgentStore((s) => s.installedMap);
+  const pageQuery = useAppStore((s) => s.pageQueries.home ?? "");
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const shown = cat === "all" ? CATEGORIES : CATEGORIES.filter((c) => c.id === cat);
+
+  // 标题栏搜索（本页作用域）：非空时筛目录与智能体，替换分类分区展示
+  const q = pageQuery.trim().toLowerCase();
+  const filteredApps = q
+    ? CATALOG.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.id.toLowerCase().includes(q) ||
+          a.desc.toLowerCase().includes(q) ||
+          a.tags?.some((t) => t.toLowerCase().includes(q)),
+      )
+    : null;
+  const filteredAgents = q
+    ? AGENTS.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.vendor.toLowerCase().includes(q) ||
+          a.desc.toLowerCase().includes(q),
+      )
+    : [];
 
   // 打开智能体装机页（自动检测到已安装则直接落到「启动」）
   const pickAgent = (id: string) => {
@@ -201,45 +243,80 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="mt-8">
-        <div className="mb-3.5 flex items-baseline justify-between">
-          <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体</h2>
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto p-0 text-xs text-muted-foreground"
-            onClick={() => setTab("agents")}
-          >
-            查看全部 {AGENTS.length} 个 <ChevronRight className="size-3.5" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
-          {AGENTS.map((a) => (
-            <AgentCard key={a.id} recipe={a} installed={agentsInstalled[a.id] === true} onOpen={() => pickAgent(a.id)} />
-          ))}
-        </div>
-      </section>
-
-      {shown.map((c) => {
-        // AI 分类聚合：AI 原生应用 + 带 AI 功能的常规软件
-        const apps =
-          c.id === "ai"
-            ? CATALOG.filter((a) => a.category === "ai" || a.ai === true)
-            : CATALOG.filter((a) => a.category === c.id);
-        if (apps.length === 0) return null;
-        return (
-          <section key={c.id} className="mt-7">
-            <h2 className="mb-3.5 text-sm font-semibold tracking-wide">
-              {c.label}
-            </h2>
+      {filteredApps ? (
+        <section className="mt-8">
+          <h2 className="mb-3.5 text-sm font-semibold tracking-wide">
+            筛选结果（{filteredAgents.length + filteredApps.length}）
+          </h2>
+          {filteredAgents.length + filteredApps.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              本页没有「{pageQuery.trim()}」相关内容 —— 试试切换到「搜索」页查 winget 全量源。
+            </div>
+          ) : (
+            <>
+              {filteredAgents.length > 0 && (
+                <div className="mb-3 grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+                  {filteredAgents.map((a) => (
+                    <AgentCard
+                      key={a.id}
+                      recipe={a}
+                      installed={agentsInstalled[a.id] === true}
+                      onOpen={() => pickAgent(a.id)}
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+                {filteredApps.map((a) => (
+                  <AppCard key={a.id} app={a} state={cardState(a.id)} />
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="mt-8">
+            <div className="mb-3.5 flex items-baseline justify-between">
+              <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体</h2>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-muted-foreground"
+                onClick={() => setTab("agents")}
+              >
+                查看全部 {AGENTS.length} 个 <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
-              {apps.map((a) => (
-                <AppCard key={a.id} app={a} state={cardState(a.id)} />
+              {AGENTS.map((a) => (
+                <AgentCard key={a.id} recipe={a} installed={agentsInstalled[a.id] === true} onOpen={() => pickAgent(a.id)} />
               ))}
             </div>
           </section>
-        );
-      })}
+
+          {shown.map((c) => {
+            // AI 分类聚合：AI 原生应用 + 带 AI 功能的常规软件
+            const apps =
+              c.id === "ai"
+                ? CATALOG.filter((a) => a.category === "ai" || a.ai === true)
+                : CATALOG.filter((a) => a.category === c.id);
+            if (apps.length === 0) return null;
+            return (
+              <section key={c.id} className="mt-7">
+                <h2 className="mb-3.5 text-sm font-semibold tracking-wide">
+                  {c.label}
+                </h2>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+                  {apps.map((a) => (
+                    <AppCard key={a.id} app={a} state={cardState(a.id)} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }

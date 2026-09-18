@@ -52,6 +52,15 @@ export function UpdatesPage() {
 
   const count = visible.length;
 
+  // 标题栏搜索（本页作用域）：在可见更新里过滤名称 / ID
+  const pageQuery = useAppStore((s) => s.pageQueries.updates ?? "");
+  const q = pageQuery.trim().toLowerCase();
+  const shown = q
+    ? visible.filter(
+        (u) => u.name.toLowerCase().includes(q) || u.id.toLowerCase().includes(q),
+      )
+    : visible;
+
   const upgradeAll = () => {
     setConfirming(false);
     void runTask("winget:upgrade-all", {
@@ -91,10 +100,14 @@ export function UpdatesPage() {
         </div>
       )}
 
-      {count > 0 && (
+      {count > 0 && shown.length === 0 && (
+        <div className="py-14 text-center text-muted-foreground">没有匹配「{pageQuery.trim()}」的待更新软件。</div>
+      )}
+
+      {shown.length > 0 && (
         <VirtualList
           className="min-h-0 flex-1"
-          items={visible}
+          items={shown}
           rowHeight={ROW_H}
           renderRow={(info) => (
             <AppRow

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AGENTS, type AgentRecipe } from "../../catalog/agents";
 import { useAgentStore, type Step } from "../../state/agentStore";
+import { useAppStore } from "../../state/appStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { AppIcon } from "../../components/AppIcon";
 import { Badge } from "@/components/ui/badge";
@@ -234,6 +235,7 @@ export function AgentsPage() {
   const open = useAgentStore((s) => s.open);
   const installedMap = useAgentStore((s) => s.installedMap);
   const detectInstalled = useAgentStore((s) => s.detectInstalled);
+  const pageQuery = useAppStore((s) => s.pageQueries.agents ?? "");
   const recipe = AGENTS.find((a) => a.id === agentId);
 
   // 进入本页重新探测一次（开机探测后用户可能又装了新东西）
@@ -242,6 +244,17 @@ export function AgentsPage() {
   }, [detectInstalled]);
 
   if (recipe) return <SetupPage recipe={recipe} />;
+
+  // 标题栏搜索（本页作用域）：过滤名称 / 厂商 / 简介
+  const q = pageQuery.trim().toLowerCase();
+  const shown = q
+    ? AGENTS.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) ||
+          a.vendor.toLowerCase().includes(q) ||
+          a.desc.toLowerCase().includes(q),
+      )
+    : AGENTS;
 
   return (
     <div className="page h-full overflow-y-auto">
@@ -252,11 +265,15 @@ export function AgentsPage() {
         选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。
         最后点「启动」—— 商店退出，任务结束。已安装的会自动识别，直接启动即可。
       </p>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
-        {AGENTS.map((a) => (
-          <AgentCard key={a.id} recipe={a} installed={installedMap[a.id] === true} onPick={() => open(a.id)} />
-        ))}
-      </div>
+      {shown.length === 0 ? (
+        <div className="py-14 text-center text-sm text-muted-foreground">没有匹配「{pageQuery.trim()}」的智能体。</div>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+          {shown.map((a) => (
+            <AgentCard key={a.id} recipe={a} installed={installedMap[a.id] === true} onPick={() => open(a.id)} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -40,6 +40,7 @@
   { "id": "Postman.Postman", "name": "Postman", "desc": "API 开发与调试平台", "site": "https://www.postman.com/", "category": "dev", "tags": ["api", "调试"] },
   { "id": "Microsoft.WindowsTerminal", "name": "Windows Terminal", "desc": "现代化多标签终端", "site": "https://aka.ms/terminal", "category": "dev", "tags": ["终端", "微软"], "github": "microsoft/terminal" },
   { "id": "Genymobile.scrcpy", "name": "scrcpy", "desc": "开源安卓投屏与电脑控制工具", "site": "https://github.com/Genymobile/scrcpy", "category": "dev", "tags": ["安卓", "投屏", "开源"], "github": "Genymobile/scrcpy" },
+  { "id": "GitHub.cli", "name": "GitHub CLI", "desc": "GitHub 官方命令行（认证后本商店的 Release 拉取提速到 5000 次/小时）", "site": "https://cli.github.com/", "category": "dev", "tags": ["github", "cli", "gh"], "github": "cli/cli" },
 
   { "id": "VideoLAN.VLC", "name": "VLC 播放器", "desc": "开源全能媒体播放器", "site": "https://www.videolan.org/", "category": "media", "tags": ["播放器"] },
   { "id": "Daum.PotPlayer", "name": "PotPlayer", "desc": "功能强大的影音播放器", "site": "https://potplayer.daum.net/", "category": "media", "tags": ["播放器"] },

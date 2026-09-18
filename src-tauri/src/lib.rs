@@ -5,9 +5,11 @@
 //! 2. 管理"同一时刻只有一个任务"的状态机（winget 源锁也 hold 不住并发）；
 //! 3. 把任务输出字节流按时间窗合并成事件推给前端。
 
+mod activity;
 mod cleanup;
 mod gh;
 mod index_db;
+mod leftover;
 mod mirror;
 mod tools;
 mod winget;
@@ -253,7 +255,7 @@ struct Engine {
 type ChildSlot = Arc<Mutex<Option<Arc<Mutex<Child>>>>>;
 
 #[derive(Default)]
-struct AppState(Mutex<Engine>);
+struct AppState(Mutex<Engine>, Mutex<Option<activity::ActivitySession>>);
 
 /// 队列上限：超出的提交直接拒绝（前端同步禁用按钮）。
 const MAX_QUEUE: usize = 8;
@@ -595,6 +597,28 @@ fn launch_agent(spec: LaunchSpec) -> Result<(), String> {
     Ok(())
 }
 
+// ---------- GitHub CLI 状态 ----------
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GhCliStatus {
+    pub installed: bool,
+    pub authed: bool,
+}
+
+#[tauri::command]
+async fn gh_cli_status() -> GhCliStatus {
+    tauri::async_runtime::spawn_blocking(|| {
+        let (installed, authed) = gh::gh_cli_status();
+        GhCliStatus { installed, authed }
+    })
+    .await
+    .unwrap_or(GhCliStatus {
+        installed: false,
+        authed: false,
+    })
+}
+
 // ---------- 更新日志（winget 远程索引的 ReleaseNotes / ReleaseNotesUrl） ----------
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -664,6 +688,39 @@ fn prefetch_release_notes(ids: Vec<String>) -> usize {
         });
     }
     n
+}
+
+// ---------- 文件活动监控 ----------
+
+#[tauri::command]
+fn activity_start(app: AppHandle, state: State<AppState>, roots: Vec<String>) -> Result<(), String> {
+    let session = activity::start(app, roots)?;
+    let mut guard = state.1.lock().map_err(|e| e.to_string())?;
+    activity::stop(guard.take()); // 旧会话先停
+    *guard = Some(session);
+    Ok(())
+}
+
+#[tauri::command]
+fn activity_stop(state: State<AppState>) -> bool {
+    if let Ok(mut guard) = state.1.lock() {
+        let had = guard.is_some();
+        activity::stop(guard.take());
+        return had;
+    }
+    false
+}
+
+#[tauri::command]
+fn activity_status(state: State<AppState>) -> bool {
+    state.1.lock().map(|g| g.is_some()).unwrap_or(false)
+}
+
+#[tauri::command]
+async fn activity_processes() -> Vec<activity::ProcDto> {
+    tauri::async_runtime::spawn_blocking(activity::processes)
+        .await
+        .unwrap_or_default()
 }
 
 // ---------- 缓存清理 ----------
@@ -738,6 +795,93 @@ async fn cleanup_run(state: State<'_, AppState>) -> Result<CleanupResultDto, Str
             freed_bytes: r.freed_bytes,
             deleted: r.deleted,
             skipped: r.skipped,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// ---------- 深度卸载残留（Geek Uninstaller 式） ----------
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LeftoverRegistryDto {
+    pub key: String,
+    pub name: String,
+    pub kind: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LeftoverDirDto {
+    pub path: String,
+    pub size: u64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LeftoverReportDto {
+    pub registry: Vec<LeftoverRegistryDto>,
+    pub dirs: Vec<LeftoverDirDto>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanReportDto {
+    pub freed_bytes: u64,
+    pub dirs_deleted: u32,
+    pub dirs_skipped: u32,
+    pub keys_deleted: u32,
+    pub keys_skipped: u32,
+}
+
+#[tauri::command]
+async fn leftover_scan(id: String, name: String) -> LeftoverReportDto {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = leftover::scan(&id, &name);
+        LeftoverReportDto {
+            registry: r
+                .registry
+                .into_iter()
+                .map(|x| LeftoverRegistryDto {
+                    key: x.key,
+                    name: x.name,
+                    kind: x.kind,
+                })
+                .collect(),
+            dirs: r
+                .dirs
+                .into_iter()
+                .map(|x| LeftoverDirDto {
+                    path: x.path,
+                    size: x.size,
+                })
+                .collect(),
+        }
+    })
+    .await
+    .unwrap_or_default()
+}
+
+impl Default for LeftoverReportDto {
+    fn default() -> Self {
+        Self {
+            registry: vec![],
+            dirs: vec![],
+        }
+    }
+}
+
+#[tauri::command]
+async fn leftover_clean(dirs: Vec<String>, keys: Vec<String>) -> Result<CleanReportDto, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = leftover::clean(&dirs, &keys);
+        Ok(CleanReportDto {
+            freed_bytes: r.freed_bytes,
+            dirs_deleted: r.dirs_deleted,
+            dirs_skipped: r.dirs_skipped,
+            keys_deleted: r.keys_deleted,
+            keys_skipped: r.keys_skipped,
         })
     })
     .await
@@ -1550,10 +1694,13 @@ pub fn run() {
             snapshot_load,
             snapshot_refresh,
             github_release,
+            gh_cli_status,
             release_notes,
             prefetch_release_notes,
             cleanup_scan,
             cleanup_run,
+            leftover_scan,
+            leftover_clean,
             check_tools,
             get_user_envs,
             set_user_env,
@@ -1569,6 +1716,10 @@ pub fn run() {
             quit_app,
             start_task,
             cancel_task,
+            activity_start,
+            activity_stop,
+            activity_status,
+            activity_processes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

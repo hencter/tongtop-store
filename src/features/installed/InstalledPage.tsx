@@ -16,6 +16,15 @@ export function InstalledPage() {
   const installedAt = useAppStore((s) => s.installedAt);
   const loading = useAppStore((s) => s.snapshotLoading);
   const refresh = useAppStore((s) => s.refreshSnapshot);
+  const pageQuery = useAppStore((s) => s.pageQueries.installed ?? "");
+
+  // 标题栏搜索（本页作用域）：本地过滤名称 / ID
+  const q = pageQuery.trim().toLowerCase();
+  const shown = q
+    ? (installed ?? []).filter(
+        (a) => a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q),
+      )
+    : installed;
 
   return (
     <div className="page flex h-full flex-col">
@@ -46,10 +55,14 @@ export function InstalledPage() {
         <div className="py-14 text-center text-muted-foreground">没有检测到已关联的软件。</div>
       )}
 
-      {installed && installed.length > 0 && (
+      {shown && shown.length === 0 && (installed?.length ?? 0) > 0 && (
+        <div className="py-14 text-center text-muted-foreground">没有匹配「{pageQuery.trim()}」的已安装软件。</div>
+      )}
+
+      {shown && shown.length > 0 && (
         <VirtualList
           className="min-h-0 flex-1"
-          items={installed}
+          items={shown}
           rowHeight={ROW_H}
           renderRow={(info) => (
             <AppRow

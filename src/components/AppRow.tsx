@@ -5,13 +5,14 @@
 
 import { memo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { BellOff, Check, Clock, Download, ExternalLink, FileText, Loader2, TrendingUp, X } from "lucide-react";
+import { BellOff, Clock, Download, ExternalLink, FileText, Loader2, Trash2, TrendingUp, X } from "lucide-react";
 import type { CatalogApp } from "../catalog/apps";
 import type { AppInfo } from "../ipc/types";
 import { useTaskStore, MAX_QUEUE } from "../state/taskStore";
 import { useAppStore } from "../state/appStore";
 import { useSettingsStore } from "../state/settingsStore";
 import { useDetailStore } from "../state/detailStore";
+import { deepUninstall } from "../state/leftoverStore";
 import { AppIcon } from "./AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
 
   const taskId = `winget:${effectiveMode}:${info.id}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
+  const uninstallTaskState = useTaskStore((s) => s.taskState(`winget:uninstall:${info.id}`));
   // 队列满与否合成一个布尔订阅：queue/running 的每次变化不再惊动所有行，
   // 只有结果翻转时该行才重渲染
   const queueFull = useTaskStore((s) => s.running !== null && s.queue.length >= MAX_QUEUE);
@@ -137,24 +139,46 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
               </Button>
             )}
             {showInstalled ? (
-              <Badge variant="outline" className="h-8 px-3 text-xs">
-                <Check className="size-3.5 text-ok" /> 已安装
-              </Badge>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={uninstallTaskState !== null || queueFull}
+                title="已安装 —— 点击卸载（卸载后扫描注册表与 AppData 残留）"
+                onClick={() => void deepUninstall(info.id, catalog?.name ?? info.name)}
+              >
+                {uninstallTaskState === "running" ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> 进行中
+                  </>
+                ) : uninstallTaskState === "queued" ? (
+                  <>
+                    <Clock className="size-3.5" /> 排队中
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="size-3.5" /> 卸载
+                  </>
+                )}
+              </Button>
             ) : (
               <Button
                 variant={effectiveMode === "uninstall" ? "destructive" : "default"}
                 size="sm"
                 disabled={taskState !== null || queueFull}
                 title={queueFull ? "队列已满，请稍后再试" : undefined}
-                onClick={() =>
-                  void runTask(taskId, {
-                    kind: "winget",
-                    action: effectiveMode,
-                    wingetId: info.id,
-                    silent,
-                    display: `${actionLabel} ${catalog?.name ?? info.name}`,
-                  })
-                }
+                onClick={() => {
+                  if (effectiveMode === "uninstall") {
+                    void deepUninstall(info.id, catalog?.name ?? info.name);
+                  } else {
+                    void runTask(taskId, {
+                      kind: "winget",
+                      action: effectiveMode,
+                      wingetId: info.id,
+                      silent,
+                      display: `${actionLabel} ${catalog?.name ?? info.name}`,
+                    });
+                  }
+                }}
               >
                 {taskState === "running" ? (
                   <>

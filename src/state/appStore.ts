@@ -13,7 +13,7 @@ import { create } from "zustand";
 import * as ipc from "../ipc/client";
 import type { AppInfo, UpgradeInfo } from "../ipc/types";
 
-export type Tab = "home" | "search" | "agents" | "mirrors" | "installed" | "updates" | "cleanup";
+export type Tab = "home" | "search" | "agents" | "mirrors" | "installed" | "updates" | "cleanup" | "activity";
 
 const SEARCH_CACHE_MAX = 50;
 const searchCache = new Map<string, AppInfo[]>();
@@ -44,6 +44,10 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined;
 interface AppStore {
   tab: Tab;
   setTab: (t: Tab) => void;
+
+  /** 页面级搜索：每个路由独立的本地过滤词（互不影响） */
+  pageQueries: Partial<Record<Tab, string>>;
+  setPageQuery: (tab: Tab, q: string) => void;
 
   wingetOk: boolean | null;
   checkWinget: () => Promise<void>;
@@ -81,6 +85,9 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     const ok = await ipc.wingetAvailable();
     set({ wingetOk: ok });
   },
+
+  pageQueries: {},
+  setPageQuery: (tab, q) => set({ pageQueries: { ...get().pageQueries, [tab]: q } }),
 
   searchQuery: "",
   setSearchQuery: (q) => {

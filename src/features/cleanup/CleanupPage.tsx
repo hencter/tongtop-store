@@ -5,6 +5,7 @@ import { BrushCleaning, CheckCircle2, FolderOpen, Loader2, RefreshCw, ShieldAler
 import * as ipc from "../../ipc/client";
 import type { CleanupInfo, CleanupResult } from "../../ipc/types";
 import { formatSize } from "../../domain/github";
+import { useAppStore } from "../../state/appStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,6 +26,11 @@ export function CleanupPage() {
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<CleanupResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pageQuery = useAppStore((s) => s.pageQueries.cleanup ?? "");
+
+  // 标题栏搜索（本页作用域）：过滤占用明细
+  const q = pageQuery.trim().toLowerCase();
+  const shownItems = q ? (info?.items ?? []).filter((it) => it.name.toLowerCase().includes(q)) : (info?.items ?? []);
 
   const scan = useCallback(async () => {
     setLoading(true);
@@ -129,11 +135,11 @@ export function CleanupPage() {
             </div>
           </Card>
 
-          {info.items.length > 0 && (
+          {shownItems.length > 0 && (
             <Card className="p-4">
               <div className="mb-2.5 text-[13px] font-semibold">占用最多的项目</div>
               <div className="flex flex-col">
-                {info.items.map((it) => (
+                {shownItems.map((it) => (
                   <div key={it.name} className="flex items-center gap-3 border-t border-border py-2 text-[13px] first:border-t-0">
                     <Trash2 className="size-3.5 shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate font-mono text-xs" title={it.name}>

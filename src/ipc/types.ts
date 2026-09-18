@@ -140,6 +140,55 @@ export interface CleanupResult {
   skipped: number;
 }
 
+/** GitHub CLI 状态（已认证则 Release 拉取走 gh api：5000 次/小时） */
+export interface GhCliStatus {
+  installed: boolean;
+  authed: boolean;
+}
+
+export interface LeftoverRegistry {
+  key: string;
+  name: string;
+  kind: string;
+}
+
+export interface LeftoverDir {
+  path: string;
+  size: number;
+}
+
+export interface LeftoverReport {
+  registry: LeftoverRegistry[];
+  dirs: LeftoverDir[];
+}
+
+export interface CleanReport {
+  freedBytes: number;
+  dirsDeleted: number;
+  dirsSkipped: number;
+  keysDeleted: number;
+  keysSkipped: number;
+}
+
+/** 文件活动监控：聚合批次事件 */
+export interface ActivityGroup {
+  key: string;
+  count: number;
+  latest: string[];
+}
+
+export interface ActivityBatch {
+  groups: ActivityGroup[];
+  total: number;
+  elapsedMs: number;
+}
+
+export interface ProcDto {
+  pid: number;
+  name: string;
+  startedMs: number;
+}
+
 export interface TaskDoneEvent {
   id: string;
   code: number;

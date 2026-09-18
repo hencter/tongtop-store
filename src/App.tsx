@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import { Bot, BrushCleaning, Home, Package, PackageX, Search, Settings, TrendingUp, Zap } from "lucide-react";
+import { Bot, BrushCleaning, Home, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useUpdateStore } from "./state/updateStore";
@@ -14,9 +14,11 @@ import { MirrorsPage } from "./features/mirrors/MirrorsPage";
 import { InstalledPage } from "./features/installed/InstalledPage";
 import { UpdatesPage } from "./features/updates/UpdatesPage";
 import { CleanupPage } from "./features/cleanup/CleanupPage";
+import { ActivityPage } from "./features/activity/ActivityPage";
 import { TaskPanel } from "./components/TaskPanel";
 import { DetailModal } from "./components/DetailModal";
 import { NotesDialog } from "./components/NotesDialog";
+import { LeftoverDialog } from "./components/LeftoverDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SelfUpdateDialog } from "./components/SelfUpdateDialog";
 import { Titlebar } from "./components/Titlebar";
@@ -31,6 +33,7 @@ const NAV: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "installed", label: "已安装", icon: Package },
   { id: "updates", label: "更新", icon: TrendingUp },
   { id: "cleanup", label: "缓存清理", icon: BrushCleaning },
+  { id: "activity", label: "活动监控", icon: Radar },
 ];
 
 function WingetMissing() {
@@ -162,12 +165,14 @@ export default function App() {
           {page("installed", <InstalledPage />)}
           {page("updates", <UpdatesPage />)}
           {page("cleanup", <CleanupPage />)}
+          {page("activity", <ActivityPage />)}
         </main>
       </div>
 
       <TaskPanel />
       <DetailModal />
       <NotesDialog />
+      <LeftoverDialog />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SelfUpdateDialog />
     </div>

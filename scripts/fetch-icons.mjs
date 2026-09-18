@@ -89,6 +89,7 @@ const WANTED = {
   "mirror:docker": [{ i: "logos:docker-icon" }, { i: "simple-icons:docker", c: "#2496ED" }],
   "mirror:go": [{ i: "logos:go" }, { i: "simple-icons:go", c: "#00ADD8" }],
   "mirror:github": [{ i: "simple-icons:github" }, { i: "logos:github-icon" }],
+  "github.cli": [{ i: "simple-icons:github" }, { i: "logos:github-icon" }],
 };
 
 /** 带重试的 GET：404 → null（未收录）；网络错误/5xx/429 重试后仍失败 → null。 */
