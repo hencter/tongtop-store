@@ -10,11 +10,20 @@ import { APPS, CATEGORIES } from "../lib/data";
     也可以直接在桌面客户端里一键装。
   </p>
 
-  <div class="filters" id="cats">
-    <button class="chip active" data-cat="all">全部</button>
-    {CATEGORIES.map((c) => <button class="chip" data-cat={c.id}>{c.label}</button>)}
+  <div class="filters" id="cats" aria-label="软件分类">
+    <button class="chip active" type="button" data-cat="all" aria-pressed="true">全部</button>
+    {CATEGORIES.map((c) => <button class="chip" type="button" data-cat={c.id} aria-pressed="false">{c.label}</button>)}
   </div>
-  <input id="q" type="search" placeholder="搜索名称 / ID / 标签…" style="max-width:380px" />
+
+  <label class="sr-only" for="q">搜索软件</label>
+  <input
+    id="q"
+    type="search"
+    placeholder="搜索名称 / ID / 标签…"
+    autocomplete="off"
+    style="max-width:380px"
+  />
+  <div id="result-count" class="meta" aria-live="polite" style="margin-top:8px"></div>
 
   <div class="grid" id="grid" style="margin-top:18px">
     {
@@ -35,36 +44,67 @@ import { APPS, CATEGORIES } from "../lib/data";
 
 <script>
   const grid = document.getElementById("grid");
-  const cells = Array.from(grid.querySelectorAll(".app-cell"));
+  const cells = Array.from(grid?.querySelectorAll(".app-cell") ?? []);
   const chips = Array.from(document.querySelectorAll("#cats .chip"));
   const empty = document.getElementById("empty");
   const input = document.getElementById("q");
-  let cat = new URLSearchParams(location.search).get("cat") || "all";
-  let query = "";
+  const resultCount = document.getElementById("result-count");
+
+  const initial = new URLSearchParams(location.search);
+  const allowedCats = new Set(["all", "ai", ...chips.map((chip) => chip.dataset.cat).filter(Boolean)]);
+  const requestedCat = initial.get("cat") || "all";
+  let cat = allowedCats.has(requestedCat) ? requestedCat : "all";
+  let query = (initial.get("q") || "").trim().toLowerCase();
+
+  if (input instanceof HTMLInputElement) input.value = initial.get("q") || "";
+
+  function syncUrl() {
+    const params = new URLSearchParams(location.search);
+    if (cat === "all") params.delete("cat");
+    else params.set("cat", cat);
+
+    const rawQuery = input instanceof HTMLInputElement ? input.value.trim() : "";
+    if (rawQuery) params.set("q", rawQuery);
+    else params.delete("q");
+
+    const next = params.toString();
+    history.replaceState(null, "", next ? `${location.pathname}?${next}` : location.pathname);
+  }
 
   function apply() {
     let visible = 0;
     for (const cell of cells) {
       const okCat =
         cat === "all" || cell.dataset.cat === cat || (cat === "ai" && cell.dataset.ai === "1");
-      const okQuery = !query || cell.dataset.text.includes(query);
+      const okQuery = !query || (cell.dataset.text || "").includes(query);
       const show = okCat && okQuery;
       cell.classList.toggle("hidden", !show);
       if (show) visible += 1;
     }
-    empty.classList.toggle("hidden", visible > 0);
-    for (const chip of chips) chip.classList.toggle("active", chip.dataset.cat === cat);
+
+    empty?.classList.toggle("hidden", visible > 0);
+    if (resultCount) resultCount.textContent = `显示 ${visible} / ${cells.length} 个条目`;
+
+    for (const chip of chips) {
+      const active = chip.dataset.cat === cat;
+      chip.classList.toggle("active", active);
+      chip.setAttribute("aria-pressed", active ? "true" : "false");
+    }
   }
 
   chips.forEach((chip) =>
     chip.addEventListener("click", () => {
-      cat = chip.dataset.cat;
+      cat = chip.dataset.cat || "all";
+      syncUrl();
       apply();
     }),
   );
-  input.addEventListener("input", () => {
-    query = input.value.trim().toLowerCase();
+
+  input?.addEventListener("input", () => {
+    query = input instanceof HTMLInputElement ? input.value.trim().toLowerCase() : "";
+    syncUrl();
     apply();
   });
+
   apply();
 </script>
