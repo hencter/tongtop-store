@@ -11,15 +11,41 @@ const {
   title = "TongTop Store · 应用与 AI 智能体分发站",
   description = "精选软件目录、AI 智能体一键装机配方、国内镜像源、AI 模型免费额度与密钥配置引导。",
 } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
+const socialTitle = title;
+const structuredData = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "TongTop Store",
+  url: "https://store.tongtianlu.cn/",
+  description,
+  inLanguage: "zh-CN",
+});
 ---
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#2563eb" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content="TongTop Store" />
+    <meta property="og:title" content={socialTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={socialTitle} />
+    <meta name="twitter:description" content={description} />
+    <script type="application/ld+json" set:html={structuredData}></script>
   </head>
   <body>
     <Header />
@@ -28,6 +54,29 @@ const {
     </main>
     <Footer />
     <script>
+      async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            await navigator.clipboard.writeText(text);
+            return;
+          } catch {
+            // 某些浏览器会因权限策略拒绝 Clipboard API，继续走兼容兜底。
+          }
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        textarea.style.pointerEvents = "none";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("copy failed");
+      }
+
       // 全站复制：data-copy-text 直接复制其值；否则复制按钮所在 .copy-row 里的 <pre>
       document.addEventListener("click", (event) => {
         const target = event.target;
@@ -37,11 +86,18 @@ const {
         const own = btn.getAttribute("data-copy-text");
         const text = own ?? btn.parentElement?.querySelector("pre")?.textContent ?? "";
         if (!text) return;
-        navigator.clipboard.writeText(text.trim()).then(() => {
-          const old = btn.textContent;
-          btn.textContent = "已复制";
-          setTimeout(() => (btn.textContent = old), 1200);
-        });
+
+        const old = btn.textContent;
+        void copyText(text.trim())
+          .then(() => {
+            btn.textContent = "已复制";
+          })
+          .catch(() => {
+            btn.textContent = "复制失败";
+          })
+          .finally(() => {
+            setTimeout(() => (btn.textContent = old), 1400);
+          });
       });
     </script>
   </body>
