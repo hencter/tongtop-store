@@ -15,11 +15,16 @@ export async function onRequestPost(context) {
   const action = body?.action;
   if (!id || (action !== "approve" && action !== "reject")) return err("参数不正确");
 
-  const record = await updateSubmission(env, id, {
-    status: action === "approve" ? "approved" : "rejected",
-    note: typeof body.note === "string" ? body.note.slice(0, 300) : "",
-  });
-  if (!record) return err("提交不存在", 404);
+  try {
+    const record = await updateSubmission(env, id, {
+      status: action === "approve" ? "approved" : "rejected",
+      note: typeof body.note === "string" ? body.note.slice(0, 300) : "",
+    });
+    if (!record) return err("提交不存在", 404);
 
-  return json({ ok: true, item: record });
+    return json({ ok: true, item: record });
+  } catch (error) {
+    console.error("submission review failed", error);
+    return err("审核服务暂时不可用", 502);
+  }
 }
