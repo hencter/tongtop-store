@@ -3,7 +3,7 @@
 索引站：软件库 / AI 智能体 / 镜像源 / AI 免费额度 + 环境变量配置引导 + 提交审核接口 + 安装包下载。
 
 - 纯静态构建（`astro build` → `dist/`），数据来自仓库根 `data/*.json`（与桌面客户端共用一份数据源）
-- 提交审核接口用 EdgeOne Functions（`edge-functions/`），数据存 EdgeOne KV
+- 提交审核接口用 EdgeOne Functions（`edge-functions/`），生产数据存 GitHub Issues
 - 安装包在构建时从 `src-tauri/target/release/bundle/nsis/` 拷到 `public/downloads/`
 
 ## 本地开发
@@ -28,10 +28,13 @@ pnpm build       # 拷安装包 + astro build → dist/
 2. **项目根目录填 `web`**，构建命令 `pnpm build`，输出目录 `dist`
 3. 环境变量：
    - `ADMIN_TOKEN`：审核接口令牌（务必设置）
-   - `GITHUB_TOKEN`：Fine-grained PAT，勾选本仓库 `Issues: Read and write`（提交/审核用它建 Issue、打标签）
+   - `GITHUB_TOKEN`：Fine-grained PAT，勾选本仓库 `Issues: Read and write`（提交/审核用）
    - `GITHUB_REPO`（可选）：默认 `hencter/tongtop-store`
 4. 提交审核：`POST /api/submit`；审核：`GET /api/submissions?status=pending`（Bearer 令牌）、`POST /api/review`
-5. 不依赖 EdgeOne KV：提交以 GitHub Issue 存储（标签 `submission` + `pending/approved/rejected`），也可以在 GitHub 上直接改标签审核
+5. 提交以 GitHub Issue 存储（标签 `submission` + `pending/approved/rejected`），也可以在 GitHub 上直接改标签审核
+6. 建议在 EdgeOne/WAF 再加一层 `/api/submit` 边缘限流；函数内的内存限流只作为轻量兜底
+
+> 生产环境未配置 `GITHUB_TOKEN` 时，提交接口会明确返回服务不可用，不会再以内存存储后静默丢数据。
 
 ### 安装包发布流程
 
