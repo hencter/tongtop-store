@@ -1,6 +1,6 @@
-/** AI 智能体：选择页（卡片墙）+ 装机页（流水线 + 配置 + 一键启动）。 */
+/** AI 智能体：选择页（卡片墙，CLI / 桌面端分栏）+ 装机页（流水线 + 配置 + 一键启动）。 */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import { useAgentStore, type Step } from "../../state/agentStore";
 import { useAppStore } from "../../state/appStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { AppIcon } from "../../components/AppIcon";
+import { PageTabs } from "../../components/PageTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -230,6 +231,10 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
 
 // ---------- 入口 ----------
 
+/** 分栏：desktopNames → 桌面端（GUI）；其余（含 Web 型）都算 CLI 端 */
+type AgentTab = "cli" | "desktop";
+const kindOf = (a: AgentRecipe): AgentTab => (a.desktopNames ? "desktop" : "cli");
+
 export function AgentsPage() {
   const agentId = useAgentStore((s) => s.agentId);
   const open = useAgentStore((s) => s.open);
@@ -237,6 +242,7 @@ export function AgentsPage() {
   const detectInstalled = useAgentStore((s) => s.detectInstalled);
   const pageQuery = useAppStore((s) => s.pageQueries.agents ?? "");
   const recipe = AGENTS.find((a) => a.id === agentId);
+  const [kind, setKind] = useState<AgentTab>("cli");
 
   // 进入本页重新探测一次（开机探测后用户可能又装了新东西）
   useEffect(() => {
@@ -247,7 +253,7 @@ export function AgentsPage() {
 
   // 标题栏搜索（本页作用域）：过滤名称 / 厂商 / 简介
   const q = pageQuery.trim().toLowerCase();
-  const shown = q
+  const searched = q
     ? AGENTS.filter(
         (a) =>
           a.name.toLowerCase().includes(q) ||
@@ -255,11 +261,23 @@ export function AgentsPage() {
           a.desc.toLowerCase().includes(q),
       )
     : AGENTS;
+  // 搜索时跨分栏展示全部命中；否则按当前分栏过滤
+  const shown = q ? searched : searched.filter((a) => kindOf(a) === kind);
+  const cliCount = AGENTS.filter((a) => kindOf(a) === "cli").length;
+  const desktopCount = AGENTS.length - cliCount;
 
   return (
     <div className="page h-full overflow-y-auto">
-      <header className="mb-1.5">
+      <header className="mb-1.5 flex items-center justify-between">
         <h2 className="m-0 text-lg font-semibold tracking-wide">AI 智能体</h2>
+        <PageTabs
+          tabs={[
+            { id: "cli" as const, label: "CLI 端", count: cliCount },
+            { id: "desktop" as const, label: "桌面端", count: desktopCount },
+          ]}
+          active={kind}
+          onChange={setKind}
+        />
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
         选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。

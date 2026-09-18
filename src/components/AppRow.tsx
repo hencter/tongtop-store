@@ -1,6 +1,7 @@
 /** 软件行：搜索 / 已安装 / 更新三个页面共用（memo 化，长列表滚动不重渲染）。
  *  安装态感知：已安装 → 不再显示安装按钮；有官方更新或版本检测异常 → 安装按钮变更新按钮。
  *  更新行支持「忽略此版本 / 永久忽略」。
+ *  卸载为真实卸载（winget uninstall + 残留扫描），点击需二次确认。
  */
 
 import { memo, useState } from "react";
@@ -57,6 +58,7 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
   const ignoreVersion = useSettingsStore((s) => s.ignoreVersion);
   const ignoreForever = useSettingsStore((s) => s.ignoreForever);
   const [ignoreOpen, setIgnoreOpen] = useState(false);
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
 
   const site = catalog?.site;
   const actionLabel = effectiveMode === "install" ? "安装" : effectiveMode === "upgrade" ? "更新" : "卸载";
@@ -88,7 +90,24 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
         )}
       </div>
       <div className="flex shrink-0 gap-2">
-        {ignoreOpen ? (
+        {confirmUninstall ? (
+          <>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setConfirmUninstall(false);
+                void deepUninstall(info.id, catalog?.name ?? info.name);
+              }}
+              title="真实卸载：winget 卸载后扫描注册表与 AppData 残留"
+            >
+              确认卸载
+            </Button>
+            <Button variant="ghost" size="icon" className="size-8" onClick={() => setConfirmUninstall(false)} title="取消">
+              <X className="size-4" />
+            </Button>
+          </>
+        ) : ignoreOpen ? (
           <>
             <Button
               variant="outline"
@@ -143,8 +162,8 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
                 variant="destructive"
                 size="sm"
                 disabled={uninstallTaskState !== null || queueFull}
-                title="已安装 —— 点击卸载（卸载后扫描注册表与 AppData 残留）"
-                onClick={() => void deepUninstall(info.id, catalog?.name ?? info.name)}
+                title="已安装 —— 点击卸载（需二次确认；卸载后扫描注册表与 AppData 残留）"
+                onClick={() => setConfirmUninstall(true)}
               >
                 {uninstallTaskState === "running" ? (
                   <>
@@ -168,7 +187,7 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
                 title={queueFull ? "队列已满，请稍后再试" : undefined}
                 onClick={() => {
                   if (effectiveMode === "uninstall") {
-                    void deepUninstall(info.id, catalog?.name ?? info.name);
+                    setConfirmUninstall(true);
                   } else {
                     void runTask(taskId, {
                       kind: "winget",

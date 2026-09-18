@@ -23,12 +23,28 @@ fn env_path(key: &str) -> PathBuf {
 /// 各工具的常见安装位置（winget/官方安装包的默认落点）。
 pub fn known_locations(name: &str) -> Vec<PathBuf> {
     let pf = env_path("ProgramFiles");
+    let pf86 = env_path("ProgramFiles(x86)");
     let local = env_path("LOCALAPPDATA");
     let roaming = env_path("APPDATA");
     let home = env_path("USERPROFILE");
     match name {
         "node" => vec![pf.join(r"nodejs\node.exe")],
         "npm" => vec![pf.join(r"nodejs\npm.cmd")],
+        "pnpm" => vec![local.join(r"pnpm\pnpm.cmd")],
+        "yarn" => vec![
+            pf86.join(r"Yarn\bin\yarn.cmd"),
+            pf.join(r"Yarn\bin\yarn.cmd"),
+        ],
+        "bun" => vec![home.join(r".bun\bin\bun.exe")],
+        "uv" => vec![
+            home.join(r".local\bin\uv.exe"),
+            local.join(r"Programs\uv\uv.exe"),
+        ],
+        "dotnet" => vec![pf.join(r"dotnet\dotnet.exe")],
+        "gem" => vec![
+            PathBuf::from(r"C:\Ruby34-x64\bin\gem.cmd"),
+            PathBuf::from(r"C:\Ruby33-x64\bin\gem.cmd"),
+        ],
         "python" => vec![
             local.join(r"Programs\Python\Python313\python.exe"),
             local.join(r"Programs\Python\Python312\python.exe"),
@@ -42,11 +58,21 @@ pub fn known_locations(name: &str) -> Vec<PathBuf> {
         ],
         "cargo" => vec![home.join(r".cargo\bin\cargo.exe")],
         "go" => vec![pf.join(r"Go\bin\go.exe")],
+        // Windows Terminal（应用执行别名，装完即在此）
+        "wt" => vec![local.join(r"Microsoft\WindowsApps\wt.exe")],
         "docker" => vec![pf.join(r"Docker\Docker\resources\bin\docker.exe")],
         "ollama" => vec![local.join(r"Programs\Ollama\ollama.exe")],
         "aider" => vec![
             local.join(r"Programs\Python\Python313\Scripts\aider.exe"),
             local.join(r"Programs\Python\Python312\Scripts\aider.exe"),
+        ],
+        "interpreter" => vec![
+            local.join(r"Programs\Python\Python313\Scripts\interpreter.exe"),
+            local.join(r"Programs\Python\Python312\Scripts\interpreter.exe"),
+        ],
+        "sgpt" => vec![
+            local.join(r"Programs\Python\Python313\Scripts\sgpt.exe"),
+            local.join(r"Programs\Python\Python312\Scripts\sgpt.exe"),
         ],
         // npm 全局安装的 CLI 都落在 %APPDATA%\npm（兜底规则，新增 CLI 无需逐个登记）
         _ if !name.contains('\\') && !name.contains('/') => {
@@ -84,6 +110,9 @@ pub fn resolve(name: &str) -> Option<String> {
 }
 
 /// 取版本号（`--version` 首行，截断）。.cmd 需要 cmd.exe 中转。
+/// 黑名单：wt.exe 不认 --version，且它是 GUI 启动器——调用可能直接弹出一个终端窗口。
+const NO_VERSION: &[&str] = &["wt"];
+
 pub fn version_of(resolved: &str) -> Option<String> {
     let mut cmd = if resolved.ends_with(".cmd") || resolved.ends_with(".bat") {
         let mut c = std::process::Command::new("cmd.exe");
@@ -120,7 +149,11 @@ pub fn check_tools(names: &[String]) -> Vec<ToolStatus> {
             let n = n.clone();
             std::thread::spawn(move || {
                 let path = resolve(&n);
-                let version = path.as_deref().and_then(version_of);
+                let version = if NO_VERSION.contains(&n.as_str()) {
+                    None
+                } else {
+                    path.as_deref().and_then(version_of)
+                };
                 ToolStatus {
                     installed: path.is_some(),
                     path,

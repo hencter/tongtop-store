@@ -11,6 +11,7 @@ import * as ipc from "../ipc/client";
 import type { TaskLogEvent, TaskSpec } from "../ipc/types";
 import { useTaskStore } from "./taskStore";
 import { useSettingsStore } from "./settingsStore";
+import { useTerminalStore } from "./terminalStore";
 
 export type StepStatus = "pending" | "running" | "ok" | "fail" | "skipped";
 
@@ -256,31 +257,39 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
     if (recipe.desktopNames) {
       // 桌面端（GUI）：经开始菜单 AppID 启动，无需知道 exe 落点
       await ipc.launchDesktopApp(recipe.desktopNames);
-    } else if (recipe.webPort) {
-      // Web 型：后台拉起本地服务（独立控制台常驻），稍后自动打开浏览器
-      await ipc.launchAgent({
-        program: recipe.bin,
-        args: recipe.launchArgs ?? [],
-        env,
-        pathExtra: recipe.pathExtra,
-      });
-      // 等服务就绪再开浏览器（若此刻退出商店，setTimeout 会随窗口销毁）
-      await new Promise((r) => setTimeout(r, 3000));
-      await openUrl(`http://localhost:${recipe.webPort}`);
-    } else if (recipe.keepOpen) {
-      await ipc.launchAgent({
-        program: "cmd.exe",
-        args: ["/k", [recipe.bin, ...(recipe.launchArgs ?? [])].join(" ")],
-        env,
-        pathExtra: recipe.pathExtra,
-      });
     } else {
-      await ipc.launchAgent({
-        program: recipe.bin,
-        args: recipe.launchArgs ?? [],
-        env,
-        pathExtra: recipe.pathExtra,
-      });
+      // CLI 型一键启动：优先 Windows Terminal；未装则弹窗建议（可一键安装 / 旧版控制台 / 取消）
+      const term = await useTerminalStore.getState().ensureTerminal(recipe.name);
+      if (term === "cancel") return;
+      const wt = term === "wt";
+      if (recipe.webPort) {
+        // Web 型：拉起本地服务（窗口常驻），稍后自动打开浏览器
+        await ipc.launchAgent({
+          program: wt ? "wt" : recipe.bin,
+          args: wt ? [recipe.bin, ...(recipe.launchArgs ?? [])] : (recipe.launchArgs ?? []),
+          env,
+          pathExtra: recipe.pathExtra,
+        });
+        // 等服务就绪再开浏览器（若此刻退出商店，setTimeout 会随窗口销毁）
+        await new Promise((r) => setTimeout(r, 3000));
+        await openUrl(`http://localhost:${recipe.webPort}`);
+      } else if (recipe.keepOpen) {
+        // 非 REPL 型工具用 cmd /k 保持窗口
+        const joined = [recipe.bin, ...(recipe.launchArgs ?? [])].join(" ");
+        await ipc.launchAgent({
+          program: wt ? "wt" : "cmd.exe",
+          args: wt ? ["cmd", "/k", joined] : ["/k", joined],
+          env,
+          pathExtra: recipe.pathExtra,
+        });
+      } else {
+        await ipc.launchAgent({
+          program: wt ? "wt" : recipe.bin,
+          args: wt ? [recipe.bin, ...(recipe.launchArgs ?? [])] : (recipe.launchArgs ?? []),
+          env,
+          pathExtra: recipe.pathExtra,
+        });
+      }
     }
     // “任务结束”：启动成功后商店真正退出（关窗口默认只收进托盘）
     if (useSettingsStore.getState().autoExit) {

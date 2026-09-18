@@ -22,6 +22,7 @@ const PLACEHOLDERS: Record<Tab, string> = {
   updates: "搜索可更新…",
   cleanup: "搜索缓存项…",
   activity: "搜索活动记录…",
+  github: "搜索 GitHub 项目…",
 };
 
 /** 中央搜索：作用域 = 当前页面；搜索页绑定 winget 搜索状态，其余页各自独立过滤。 */

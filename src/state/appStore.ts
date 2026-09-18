@@ -13,7 +13,16 @@ import { create } from "zustand";
 import * as ipc from "../ipc/client";
 import type { AppInfo, UpgradeInfo } from "../ipc/types";
 
-export type Tab = "home" | "search" | "agents" | "mirrors" | "installed" | "updates" | "cleanup" | "activity";
+export type Tab =
+  | "home"
+  | "search"
+  | "agents"
+  | "mirrors"
+  | "installed"
+  | "updates"
+  | "cleanup"
+  | "activity"
+  | "github";
 
 const SEARCH_CACHE_MAX = 50;
 const searchCache = new Map<string, AppInfo[]>();

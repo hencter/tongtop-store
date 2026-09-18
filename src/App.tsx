@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import { Bot, BrushCleaning, Home, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
+import { Bot, BrushCleaning, GitFork, Home, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useUpdateStore } from "./state/updateStore";
@@ -10,6 +10,7 @@ import { wireAgentLog, useAgentStore } from "./state/agentStore";
 import { HomePage } from "./features/home/HomePage";
 import { SearchPage } from "./features/search/SearchPage";
 import { AgentsPage } from "./features/agents/AgentsPage";
+import { GitHubPage } from "./features/github/GitHubPage";
 import { MirrorsPage } from "./features/mirrors/MirrorsPage";
 import { InstalledPage } from "./features/installed/InstalledPage";
 import { UpdatesPage } from "./features/updates/UpdatesPage";
@@ -18,6 +19,7 @@ import { ActivityPage } from "./features/activity/ActivityPage";
 import { TaskPanel } from "./components/TaskPanel";
 import { DetailModal } from "./components/DetailModal";
 import { NotesDialog } from "./components/NotesDialog";
+import { TerminalPromptDialog } from "./components/TerminalPromptDialog";
 import { LeftoverDialog } from "./components/LeftoverDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SelfUpdateDialog } from "./components/SelfUpdateDialog";
@@ -29,6 +31,7 @@ const NAV: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "home", label: "首页", icon: Home },
   { id: "search", label: "搜索", icon: Search },
   { id: "agents", label: "AI 智能体", icon: Bot },
+  { id: "github", label: "GitHub 专区", icon: GitFork },
   { id: "mirrors", label: "镜像中心", icon: Zap },
   { id: "installed", label: "已安装", icon: Package },
   { id: "updates", label: "更新", icon: TrendingUp },
@@ -161,6 +164,7 @@ export default function App() {
           {page("home", <HomePage />)}
           {page("search", <SearchPage />)}
           {page("agents", <AgentsPage />)}
+          {page("github", <GitHubPage />)}
           {page("mirrors", <MirrorsPage />)}
           {page("installed", <InstalledPage />)}
           {page("updates", <UpdatesPage />)}
@@ -172,6 +176,7 @@ export default function App() {
       <TaskPanel />
       <DetailModal />
       <NotesDialog />
+      <TerminalPromptDialog />
       <LeftoverDialog />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SelfUpdateDialog />

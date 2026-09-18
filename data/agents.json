@@ -257,6 +257,216 @@
     "desktopNames": ["扣子", "Coze"]
   },
   {
+    "id": "copilot",
+    "name": "GitHub Copilot CLI",
+    "vendor": "GitHub",
+    "desc": "GitHub 官方终端智能体：写代码、改 bug、操作仓库一气呵成",
+    "homepage": "https://github.com/features/copilot/cli",
+    "runtime": "node",
+    "runtimeWinget": "OpenJS.NodeJS.LTS",
+    "runtimeLabel": "Node.js LTS",
+    "install": { "kind": "npm", "package": "@github/copilot" },
+    "bin": "copilot",
+    "pathExtra": ["%ProgramFiles%\\nodejs", "%APPDATA%\\npm"],
+    "env": [
+      {
+        "name": "GH_TOKEN",
+        "label": "GitHub Token（可选）",
+        "placeholder": "ghp_...",
+        "secret": true,
+        "hint": "留空则启动后交互登录 GitHub 账号"
+      }
+    ]
+  },
+  {
+    "id": "opencode",
+    "name": "OpenCode",
+    "vendor": "开源社区",
+    "desc": "人气开源终端编程智能体：模型自由切换，TUI 交互丝滑",
+    "homepage": "https://opencode.ai/",
+    "runtime": "node",
+    "runtimeWinget": "OpenJS.NodeJS.LTS",
+    "runtimeLabel": "Node.js LTS",
+    "install": { "kind": "npm", "package": "opencode-ai" },
+    "bin": "opencode",
+    "pathExtra": ["%ProgramFiles%\\nodejs", "%APPDATA%\\npm"],
+    "env": [
+      {
+        "name": "ANTHROPIC_API_KEY",
+        "label": "模型 Provider 密钥（可选）",
+        "placeholder": "sk-ant-...",
+        "secret": true,
+        "hint": "也可启动后 opencode auth login 配置任意 Provider"
+      }
+    ]
+  },
+  {
+    "id": "codebuddy",
+    "name": "CodeBuddy CLI",
+    "vendor": "腾讯",
+    "desc": "腾讯 CodeBuddy 终端编程智能体，国内直连、中文友好",
+    "homepage": "https://www.codebuddy.ai/",
+    "runtime": "node",
+    "runtimeWinget": "OpenJS.NodeJS.LTS",
+    "runtimeLabel": "Node.js LTS",
+    "install": { "kind": "npm", "package": "@tencent-ai/codebuddy-code" },
+    "bin": "codebuddy",
+    "pathExtra": ["%ProgramFiles%\\nodejs", "%APPDATA%\\npm"],
+    "env": [],
+    "notes": ["首次运行按终端提示登录 CodeBuddy 账号"]
+  },
+  {
+    "id": "amp",
+    "name": "Amp",
+    "vendor": "Sourcegraph",
+    "desc": "Sourcegraph 出品的前沿编程智能体，不设限的 token 用量",
+    "homepage": "https://ampcode.com/",
+    "runtime": "node",
+    "runtimeWinget": "OpenJS.NodeJS.LTS",
+    "runtimeLabel": "Node.js LTS",
+    "install": { "kind": "npm", "package": "@sourcegraph/amp" },
+    "bin": "amp",
+    "pathExtra": ["%ProgramFiles%\\nodejs", "%APPDATA%\\npm"],
+    "env": [
+      {
+        "name": "AMP_API_KEY",
+        "label": "Amp API Key（可选）",
+        "placeholder": "sgamp_...",
+        "secret": true,
+        "hint": "ampcode.com；也可启动后交互登录"
+      }
+    ]
+  },
+  {
+    "id": "interpreter",
+    "name": "Open Interpreter",
+    "vendor": "开源社区",
+    "desc": "让大模型直接在本机跑代码：数据分析、文件处理、系统操作",
+    "homepage": "https://github.com/OpenInterpreter/open-interpreter",
+    "runtime": "python",
+    "runtimeWinget": "Python.Python.3.13",
+    "runtimeLabel": "Python 3.13",
+    "install": { "kind": "pip", "package": "open-interpreter" },
+    "bin": "interpreter",
+    "pathExtra": ["%LOCALAPPDATA%\\Programs\\Python\\Python313", "%LOCALAPPDATA%\\Programs\\Python\\Python313\\Scripts"],
+    "env": [
+      {
+        "name": "OPENAI_API_KEY",
+        "label": "API Key（可选）",
+        "placeholder": "sk-...",
+        "secret": true,
+        "hint": "按你用的模型服务商填；也可启动后交互配置"
+      }
+    ],
+    "notes": ["默认用 OpenAI 兼容接口，--model 可切换 DeepSeek 等百家模型"]
+  },
+  {
+    "id": "sgpt",
+    "name": "ShellGPT",
+    "vendor": "开源社区",
+    "desc": "命令行 AI 快手：一句话生成 shell 命令、代码片段与解释",
+    "homepage": "https://github.com/TheR1D/shell_gpt",
+    "runtime": "python",
+    "runtimeWinget": "Python.Python.3.13",
+    "runtimeLabel": "Python 3.13",
+    "install": { "kind": "pip", "package": "shell-gpt" },
+    "bin": "sgpt",
+    "pathExtra": ["%LOCALAPPDATA%\\Programs\\Python\\Python313", "%LOCALAPPDATA%\\Programs\\Python\\Python313\\Scripts"],
+    "env": [
+      {
+        "name": "OPENAI_API_KEY",
+        "label": "OpenAI API Key",
+        "placeholder": "sk-...",
+        "secret": true,
+        "required": true,
+        "hint": "platform.openai.com 或你的中转服务商"
+      },
+      {
+        "name": "OPENAI_BASE_URL",
+        "label": "Base URL（可选）",
+        "placeholder": "https://api.openai.com/v1"
+      }
+    ]
+  },
+  {
+    "id": "claude-desktop",
+    "name": "Claude 桌面端",
+    "vendor": "Anthropic",
+    "desc": "Anthropic 官方桌面助手：对话、写作、编程，与 Claude Code 同源",
+    "homepage": "https://claude.ai/download",
+    "runtime": "none",
+    "install": { "kind": "winget", "package": "Anthropic.Claude" },
+    "bin": "claude-desktop",
+    "pathExtra": [],
+    "env": [],
+    "desktopNames": ["Claude"]
+  },
+  {
+    "id": "lmstudio",
+    "name": "LM Studio",
+    "vendor": "Element Labs",
+    "desc": "本地大模型工作台：发现、下载、运行开源模型，自带 OpenAI 兼容服务",
+    "homepage": "https://lmstudio.ai/",
+    "runtime": "none",
+    "install": { "kind": "winget", "package": "ElementLabs.LMStudio" },
+    "bin": "lmstudio",
+    "pathExtra": [],
+    "env": [],
+    "desktopNames": ["LM Studio"]
+  },
+  {
+    "id": "cherrystudio",
+    "name": "Cherry Studio",
+    "vendor": "开源社区",
+    "desc": "国产开源 AI 聚合桌面端：接百家模型、知识库、智能体市场",
+    "homepage": "https://cherry-ai.com/",
+    "runtime": "none",
+    "install": { "kind": "winget", "package": "kangfenmao.CherryStudio" },
+    "bin": "cherrystudio",
+    "pathExtra": [],
+    "env": [],
+    "desktopNames": ["Cherry Studio"]
+  },
+  {
+    "id": "chatbox",
+    "name": "Chatbox",
+    "vendor": "开源社区",
+    "desc": "老牌开源 AI 客户端：简洁好用，兼容 OpenAI 及百家模型",
+    "homepage": "https://chatboxai.app/",
+    "runtime": "none",
+    "install": { "kind": "winget", "package": "Bin-Huang.Chatbox" },
+    "bin": "chatbox",
+    "pathExtra": [],
+    "env": [],
+    "desktopNames": ["Chatbox"]
+  },
+  {
+    "id": "jan",
+    "name": "Jan",
+    "vendor": "开源社区",
+    "desc": "开源本地 AI 助手：数据不出机，也能接远程模型",
+    "homepage": "https://jan.ai/",
+    "runtime": "none",
+    "install": { "kind": "winget", "package": "Jan.Jan" },
+    "bin": "jan",
+    "pathExtra": [],
+    "env": [],
+    "desktopNames": ["Jan"]
+  },
+  {
+    "id": "gpt4all",
+    "name": "GPT4All",
+    "vendor": "Nomic AI",
+    "desc": "本地跑开源大模型的老牌桌面端：零密钥、零联网",
+    "homepage": "https://www.nomic.ai/gpt4all",
+    "runtime": "none",
+    "install": { "kind": "winget", "package": "nomic.gpt4all" },
+    "bin": "gpt4all",
+    "pathExtra": [],
+    "env": [],
+    "desktopNames": ["GPT4All"]
+  },
+  {
     "id": "lobehub",
     "name": "LobeHub",
     "vendor": "开源社区",
