@@ -229,7 +229,7 @@ export async function mirrorLatencies(urls: string[]): Promise<MirrorLatency[]> 
 /** 商店自更新：检查 GitHub Releases 上的新版本 */
 export async function checkSelfUpdate(): Promise<SelfUpdateInfo> {
   if (!isTauri()) {
-    return { current: "0.5.0", latest: "0.5.0", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false, expectedSha256: null };
+    return { current: "0.5.0", latest: "0.5.0", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false, expectedSha256: null, assetKind: "exe" };
   }
   return invoke<SelfUpdateInfo>("check_self_update");
 }
@@ -252,14 +252,15 @@ export async function downloadSelfUpdate(url: string): Promise<string> {
   return invoke<string>("download_self_update", { url });
 }
 
-/** 静默更新看门狗：sha256 校验 → NSIS /S → 自动拉起新版本；成败按版本对照在下次启动揭示 */
+/** 静默更新看门狗：sha256 校验 → 应用资产（exe 覆盖 / NSIS 回退）→ 自动拉起新版本 */
 export async function applySelfUpdate(
   installerPath: string,
   expectedSha256: string | null,
   targetVersion: string,
+  assetKind: string,
 ): Promise<void> {
   if (!isTauri()) return;
-  return invoke("apply_self_update", { installerPath, expectedSha256, targetVersion });
+  return invoke("apply_self_update", { installerPath, expectedSha256, targetVersion, assetKind });
 }
 
 /** 读取并清除上次更新失败标记（安装器非零退出时由看门狗留证） */

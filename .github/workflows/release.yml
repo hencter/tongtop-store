@@ -71,6 +71,9 @@ jobs:
           cd src-tauri/target/release/bundle/nsis
           cp tongtop-store_*_x64-setup.exe tongtop-store-setup.exe
           sha256sum tongtop-store-setup.exe > tongtop-store-setup.exe.sha256
+          # 裸 exe：自更新不再走 NSIS（看门狗 Copy 覆盖），这是更新路径的主资产
+          cp ../../tongtop-store.exe tongtop-store.exe
+          sha256sum tongtop-store.exe > tongtop-store.exe.sha256
           ls -la
 
       - name: 生成 winget 清单
@@ -90,4 +93,5 @@ jobs:
           generate_release_notes: true
           files: |
             src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/tongtop-store.exe
             src-tauri/target/release/bundle/nsis/*.sha256

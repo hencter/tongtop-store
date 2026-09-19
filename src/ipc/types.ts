@@ -213,4 +213,6 @@ export interface SelfUpdateInfo {
   hasUpdate: boolean;
   /** 安装包 sha256（同 Release 的 .sha256 资产；老版本没有则为 null） */
   expectedSha256: string | null;
+  /** 更新资产形态："exe"（裸 exe 自有更新机制）| "nsis"（安装器回退） */
+  assetKind: string;
 }

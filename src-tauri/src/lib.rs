@@ -1498,6 +1498,8 @@ struct SelfUpdateInfo {
     has_update: bool,
     /// 安装包 sha256（来自同 Release 的 .sha256 资产；老版本没有则为空）
     expected_sha256: Option<String>,
+    /// 更新资产形态："exe"（裸 exe，看门狗 Copy 覆盖）| "nsis"（安装器 /S，老版本回退）
+    asset_kind: String,
 }
 
 /// 直连官方 URL 拉文本（不经任何第三方代理：完整性元数据的信任根）。
@@ -1534,30 +1536,45 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
         };
         let current = env!("CARGO_PKG_VERSION").to_string();
         let latest = r.tag.trim_start_matches('v').to_string();
-        // 自更新下载固定走 latest slug（永久指向最新发布的固定名资产）；
-        // 老版本发布没有该资产时回退到版本资产直链
-        const SELF_ASSET: &str = "tongtop-store-setup.exe";
-        let (asset_url, asset_size) = match r.assets.iter().find(|a| a.name == SELF_ASSET) {
-            Some(a) => (
-                format!("https://github.com/{SELF_REPO}/releases/latest/download/{SELF_ASSET}"),
-                a.size,
-            ),
-            None => {
+        // 更新资产优先级：裸 exe（自有更新机制，Copy 覆盖）> NSIS 固定名 > 首个 setup.exe。
+        // 老版本 Release 没有裸 exe 资产时回退 NSIS 链路。
+        const EXE_ASSET: &str = "tongtop-store.exe";
+        const NSIS_ASSET: &str = "tongtop-store-setup.exe";
+        let (asset_url, asset_size, asset_kind, sha_asset) =
+            if let Some(a) = r.assets.iter().find(|a| a.name == EXE_ASSET) {
+                (
+                    format!("https://github.com/{SELF_REPO}/releases/latest/download/{EXE_ASSET}"),
+                    a.size,
+                    "exe",
+                    format!("{EXE_ASSET}.sha256"),
+                )
+            } else if let Some(a) = r.assets.iter().find(|a| a.name == NSIS_ASSET) {
+                (
+                    format!("https://github.com/{SELF_REPO}/releases/latest/download/{NSIS_ASSET}"),
+                    a.size,
+                    "nsis",
+                    format!("{NSIS_ASSET}.sha256"),
+                )
+            } else {
                 let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
                 (
                     asset.map(|a| a.url.clone()).unwrap_or_default(),
                     asset.map(|a| a.size).unwrap_or(0),
+                    "nsis",
+                    String::new(),
                 )
-            }
-        };
+            };
         // 完整性元数据：同 Release 的 .sha256 sidecar（经官方 API 资产地址直连获取）
-        let expected_sha256 = r
-            .assets
-            .iter()
-            .find(|a| a.name == format!("{SELF_ASSET}.sha256"))
-            .and_then(|a| http_get_text(&a.url).ok())
-            .and_then(|text| text.split_whitespace().next().map(|h| h.to_lowercase()))
-            .filter(|h| h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()));
+        let expected_sha256 = if sha_asset.is_empty() {
+            None
+        } else {
+            r.assets
+                .iter()
+                .find(|a| a.name == sha_asset)
+                .and_then(|a| http_get_text(&a.url).ok())
+                .and_then(|text| text.split_whitespace().next().map(|h| h.to_lowercase()))
+                .filter(|h| h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()))
+        };
         Ok(SelfUpdateInfo {
             has_update: semver_gt(&latest, &current),
             current,
@@ -1567,6 +1584,7 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
             asset_url,
             asset_size,
             expected_sha256,
+            asset_kind: asset_kind.to_string(),
         })
     })
     .await
@@ -1640,15 +1658,17 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
     .map_err(|e| e.to_string())?
 }
 
-/// 静默更新看门狗：等本进程退出（文件解锁）→ NSIS /S 静默安装 → 拉起新版本。
+/// 自有更新机制看门狗：等本进程退出（文件解锁）→ 应用新资产 → 拉起新版本。
+/// asset_kind="exe"：PowerShell Copy-Item 直接覆盖（自有机制，无 NSIS 版本检查/注册表错位）；
+/// asset_kind="nsis"：NSIS /S 静默安装（兼容老版本 Release 的回退路径）。
 /// 有发布摘要时先过 sha256 校验（issue #13：下载内容未经完整性校验不得执行）。
-/// NSIS 静默退出码不可靠（同版本拒装时 0/2 不定、exit 0 也可能没装），
-/// 故另写 update-target 标记：下次启动按「目标版本 vs 运行版本」的事实判定成败。
+/// 成败不按退出码（NSIS 静默码不可靠），写 update-target 标记，下次启动按版本对照判定。
 #[tauri::command]
 fn apply_self_update(
     installer_path: String,
     expected_sha256: Option<String>,
     target_version: String,
+    asset_kind: String,
 ) -> Result<(), String> {
     if let Some(expected) = expected_sha256 {
         let actual = sha256_file(std::path::Path::new(&installer_path))?;
@@ -1664,8 +1684,44 @@ fn apply_self_update(
     let marker_dir = std::env::temp_dir().join("tongtop-dl");
     let _ = std::fs::create_dir_all(&marker_dir);
     let _ = std::fs::write(marker_dir.join("update-target.txt"), &target_version);
-    // timeout 给本进程留退出时间；/S 走 NSIS 静默（用户级安装，无需管理员）；
-    // start 无条件拉起——成功与否由下次启动的版本对照揭示
+
+    if asset_kind == "exe" {
+        // 裸 exe 覆盖：运行中的 exe 被锁，等退出后 Copy；重试 15 次防关停慢。
+        // 失败也照常拉起（旧版），下次启动的版本对照会如实提示。
+        let install_dir = current
+            .parent()
+            .ok_or_else(|| "无法定位安装目录".to_string())?
+            .to_path_buf();
+        let ps = format!(
+            "Start-Sleep -Seconds 2\n\
+             foreach ($i in 1..15) {{ try {{ Copy-Item -LiteralPath '{}' -Destination '{}' -Force -ErrorAction Stop; break }} catch {{ Start-Sleep -Seconds 1 }} }}\n\
+             Start-Process -FilePath '{}'\n",
+            installer_path,
+            install_dir.display(),
+            current.display()
+        );
+        let ps1 = marker_dir.join("apply-update.ps1");
+        std::fs::write(&ps1, ps).map_err(|e| format!("写入更新脚本失败：{e}"))?;
+        let mut cmd = std::process::Command::new("powershell.exe");
+        cmd.args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-File",
+            &ps1.to_string_lossy(),
+        ]);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000 | 0x0000_0008); // CREATE_NO_WINDOW | DETACHED_PROCESS
+        }
+        cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
+        return Ok(());
+    }
+
+    // NSIS 回退路径（老版本 Release 没有裸 exe 资产）
     let script = format!(
         "timeout /t 2 /nobreak >nul & \"{}\" /S & start \"\" \"{}\"",
         installer_path,
@@ -1704,6 +1760,20 @@ fn take_update_error() -> Option<String> {
     // 版本已达标（更新成功）或无更新：清掉标记
     let _ = std::fs::remove_file(&marker);
     None
+}
+
+/// 自有更新机制配套：裸 exe 覆盖安装后，ARP（卸载列表）里的 DisplayVersion 仍是
+/// 首次 NSIS 安装时的旧值——winget list / 已安装页会永远显示旧版本。
+/// 启动时对照并同步（HKCU 用户键，无需管理员；找不到卸载项就跳过）。
+fn sync_arp_display_version() {
+    let cur = env!("CARGO_PKG_VERSION");
+    let script = format!(
+        "Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall' | \
+         ForEach-Object {{ $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue; \
+         if ($p.DisplayName -eq 'tongtop-store' -and $p.DisplayVersion -ne '{cur}') {{ \
+         Set-ItemProperty -Path $_.PSPath -Name DisplayVersion -Value '{cur}' }} }}"
+    );
+    let _ = tools::powershell(&script);
 }
 
 /// 文件 sha256（流式读取，安装包 ~3MB 一次性亦可，但流式对大包稳）
@@ -1804,6 +1874,9 @@ pub fn run() {
         .setup(|app| {
             use tauri::menu::{MenuBuilder, MenuItemBuilder};
             use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+
+            // 自有更新机制配套：同步 ARP DisplayVersion（覆盖安装后 winget list 才看到新版本）
+            std::thread::spawn(sync_arp_display_version);
 
             let show = MenuItemBuilder::with_id("show", "显示主界面").build(app)?;
             let tune = MenuItemBuilder::with_id("tune", "镜像自动测速").build(app)?;
