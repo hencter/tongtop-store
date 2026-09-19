@@ -6,6 +6,7 @@ import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useUpdateStore } from "./state/updateStore";
+import * as ipc from "./ipc/client";
 import { initTaskListeners } from "./state/taskStore";
 import { wireAgentLog, useAgentStore } from "./state/agentStore";
 import { HomePage } from "./features/home/HomePage";
@@ -93,6 +94,10 @@ export default function App() {
     void useAgentStore.getState().detectInstalled();
     // 首页推荐核心：启动即后台拉取网站 API 最新目录（内置数据已先渲染，拉到即换）
     void useCatalogStore.getState().refresh();
+    // 上次自动更新若失败（安装器非零退出），启动即如实提示
+    void ipc.takeUpdateError().then((msg) => {
+      if (msg) useUpdateStore.setState({ error: msg, open: true });
+    });
     void (async () => {
       await checkWinget();
       // 启动即后台跑一遍 winget 快照（陈旧才真跑），界面先读 SQLite 毫秒渲染

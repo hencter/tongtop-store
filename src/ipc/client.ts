@@ -252,10 +252,20 @@ export async function downloadSelfUpdate(url: string): Promise<string> {
   return invoke<string>("download_self_update", { url });
 }
 
-/** 静默更新看门狗：有发布摘要时先过 sha256 校验，再等退出 → NSIS /S → 自动拉起新版本 */
-export async function applySelfUpdate(installerPath: string, expectedSha256: string | null): Promise<void> {
+/** 静默更新看门狗：sha256 校验 → NSIS /S → 自动拉起新版本；成败按版本对照在下次启动揭示 */
+export async function applySelfUpdate(
+  installerPath: string,
+  expectedSha256: string | null,
+  targetVersion: string,
+): Promise<void> {
   if (!isTauri()) return;
-  return invoke("apply_self_update", { installerPath, expectedSha256 });
+  return invoke("apply_self_update", { installerPath, expectedSha256, targetVersion });
+}
+
+/** 读取并清除上次更新失败标记（安装器非零退出时由看门狗留证） */
+export async function takeUpdateError(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("take_update_error");
 }
 
 /** 真正退出应用（关窗口默认收进托盘） */

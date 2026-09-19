@@ -71,7 +71,7 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       const path = await ipc.downloadSelfUpdate(info.assetUrl);
       // 静默更新：watcher 接管（等退出 → NSIS /S → 自动重启新版），本应用立即退出；
       // 有发布摘要时先过 sha256 校验（摘要走官方 API，与安装包同源 GitHub）
-      await ipc.applySelfUpdate(path, info.expectedSha256 ?? null);
+      await ipc.applySelfUpdate(path, info.expectedSha256 ?? null, info.latest);
       set({ open: false });
       setTimeout(() => void ipc.quitApp(), 300);
     } catch (e) {

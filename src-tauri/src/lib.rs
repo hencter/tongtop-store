@@ -1642,8 +1642,14 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
 
 /// 静默更新看门狗：等本进程退出（文件解锁）→ NSIS /S 静默安装 → 拉起新版本。
 /// 有发布摘要时先过 sha256 校验（issue #13：下载内容未经完整性校验不得执行）。
+/// NSIS 静默退出码不可靠（同版本拒装时 0/2 不定、exit 0 也可能没装），
+/// 故另写 update-target 标记：下次启动按「目标版本 vs 运行版本」的事实判定成败。
 #[tauri::command]
-fn apply_self_update(installer_path: String, expected_sha256: Option<String>) -> Result<(), String> {
+fn apply_self_update(
+    installer_path: String,
+    expected_sha256: Option<String>,
+    target_version: String,
+) -> Result<(), String> {
     if let Some(expected) = expected_sha256 {
         let actual = sha256_file(std::path::Path::new(&installer_path))?;
         if !actual.eq_ignore_ascii_case(&expected) {
@@ -1654,8 +1660,12 @@ fn apply_self_update(installer_path: String, expected_sha256: Option<String>) ->
         }
     }
     let current = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
+    // 目标版本落标记（下次启动对照自身版本判定是否真的更新成功）
+    let marker_dir = std::env::temp_dir().join("tongtop-dl");
+    let _ = std::fs::create_dir_all(&marker_dir);
+    let _ = std::fs::write(marker_dir.join("update-target.txt"), &target_version);
     // timeout 给本进程留退出时间；/S 走 NSIS 静默（用户级安装，无需管理员）；
-    // start 拉起的是同一路径的新版本（NSIS 覆盖安装到原位置）
+    // start 无条件拉起——成功与否由下次启动的版本对照揭示
     let script = format!(
         "timeout /t 2 /nobreak >nul & \"{}\" /S & start \"\" \"{}\"",
         installer_path,
@@ -1671,6 +1681,29 @@ fn apply_self_update(installer_path: String, expected_sha256: Option<String>) ->
     }
     cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
     Ok(())
+}
+
+/// 更新结果判定：目标版本标记仍在且高于运行版本 = 上次自动更新没成功（如实告知）。
+#[tauri::command]
+fn take_update_error() -> Option<String> {
+    let marker = std::env::temp_dir()
+        .join("tongtop-dl")
+        .join("update-target.txt");
+    let target = std::fs::read_to_string(&marker).ok()?.trim().to_string();
+    if target.is_empty() {
+        return None;
+    }
+    let current = env!("CARGO_PKG_VERSION");
+    if semver_gt(&target, current) {
+        // 版本没上来：保留提示，删标记（只提醒一次）
+        let _ = std::fs::remove_file(&marker);
+        return Some(format!(
+            "上次自动更新未成功（目标 v{target}，当前仍 v{current}）。常见原因：已安装版本不低于安装包（安装器拒绝同版本覆盖）、多版本并存导致写到了其他位置，或安装器被安全软件拦截。可到官网下载页手动安装。"
+        ));
+    }
+    // 版本已达标（更新成功）或无更新：清掉标记
+    let _ = std::fs::remove_file(&marker);
+    None
 }
 
 /// 文件 sha256（流式读取，安装包 ~3MB 一次性亦可，但流式对大包稳）
@@ -1858,6 +1891,7 @@ pub fn run() {
             check_self_update,
             download_self_update,
             apply_self_update,
+            take_update_error,
             catalog_fetch,
             terminal::term_spawn,
             terminal::term_backlog,
