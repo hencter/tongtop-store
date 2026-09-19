@@ -79,7 +79,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
           <div className="flex items-center justify-between border-t border-border pt-3.5">
             <div className="text-[13px]">
-              <div className="font-medium">应用商店 v{info?.current ?? "0.5.0"}</div>
+              <div className="font-medium">应用商店 v{info?.current ?? "0.5.1"}</div>
               <div className="text-[11px] text-muted-foreground">发布渠道：GitHub Releases</div>
             </div>
             <Button variant="outline" size="sm" disabled={checking} onClick={() => void check(true)}>
