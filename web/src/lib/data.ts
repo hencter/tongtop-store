@@ -44,6 +44,7 @@ export interface AgentEntry {
   env: EnvSpec[];
   webPort?: number;
   desktopNames?: string[];
+  concerns?: string[];
   notes?: string[];
 }
 

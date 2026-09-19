@@ -33,6 +33,11 @@
         "placeholder": "https://your-relay.example.com",
         "hint": "直连官方 API 可留空"
       }
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -68,6 +73,10 @@
         "label": "Base URL（可选）",
         "placeholder": "https://api.openai.com/v1"
       }
+    ],
+    "concerns": [
+      "data",
+      "restriction"
     ]
   },
   {
@@ -98,6 +107,10 @@
         "hint": "aistudio.google.com 免费申请",
         "url": "https://aistudio.google.com/apikey"
       }
+    ],
+    "concerns": [
+      "data",
+      "restriction"
     ]
   },
   {
@@ -138,6 +151,9 @@
         "label": "模型",
         "defaultValue": "qwen3-coder-plus"
       }
+    ],
+    "concerns": [
+      "data"
     ]
   },
   {
@@ -235,6 +251,10 @@
     ],
     "notes": [
       "Web 端首次启动会自动初始化 profile；点「启动」拉起本地服务并自动打开浏览器"
+    ],
+    "concerns": [
+      "closed",
+      "data"
     ]
   },
   {
@@ -259,6 +279,11 @@
     "keepOpen": true,
     "notes": [
       "首次运行按终端提示登录账号"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -288,6 +313,11 @@
       "Kimi Code CLI",
       "Kimi Code",
       "Kimi"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -307,6 +337,11 @@
     "desktopNames": [
       "豆包",
       "Doubao"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -327,6 +362,11 @@
       "腾讯元宝",
       "元宝",
       "Yuanbao"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -346,6 +386,11 @@
     "desktopNames": [
       "扣子",
       "Coze"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -375,6 +420,11 @@
         "hint": "留空则启动后交互登录 GitHub 账号",
         "url": "https://github.com/settings/tokens"
       }
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -427,6 +477,11 @@
     "env": [],
     "notes": [
       "首次运行按终端提示登录 CodeBuddy 账号"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {
@@ -456,6 +511,10 @@
         "hint": "ampcode.com；也可启动后交互登录",
         "url": "https://ampcode.com/"
       }
+    ],
+    "concerns": [
+      "closed",
+      "data"
     ]
   },
   {
@@ -541,6 +600,11 @@
     "env": [],
     "desktopNames": [
       "Claude"
+    ],
+    "concerns": [
+      "closed",
+      "data",
+      "restriction"
     ]
   },
   {

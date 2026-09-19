@@ -5,7 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, Trash2, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
 import { type CatalogApp, type CategoryId } from "../../catalog/apps";
-import { type AgentRecipe } from "../../catalog/agents";
+import { CONCERN_CAUTION, CONCERN_LABEL, type AgentRecipe } from "../../catalog/agents";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { deepUninstall } from "../../state/leftoverStore";
@@ -116,11 +116,18 @@ const AgentCard = memo(function AgentCard({
     <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
       <div className="flex items-start justify-between">
         <AppIcon id={`agent:${recipe.id}`} name={recipe.name} size={42} />
-        {installed && (
-          <Badge variant="outline">
-            <Check className="size-3.5 text-ok" /> 已安装
-          </Badge>
-        )}
+        <div className="flex flex-col items-end gap-1">
+          {installed && (
+            <Badge variant="outline">
+              <Check className="size-3.5 text-ok" /> 已安装
+            </Badge>
+          )}
+          {recipe.concerns?.map((c) => (
+            <Badge key={c} variant="outline" className="border-gold/40 text-[10px] text-gold" title={CONCERN_CAUTION[c]}>
+              {CONCERN_LABEL[c]}
+            </Badge>
+          ))}
+        </div>
       </div>
       <div className="mt-1 font-semibold">{recipe.name}</div>
       <div className="line-clamp-2 h-8 text-xs text-muted-foreground" title={recipe.desc}>
@@ -290,18 +297,19 @@ export function HomePage() {
           {showAgents && (
           <section className="mt-8">
             <div className="mb-3.5 flex items-baseline justify-between">
-              <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体</h2>
+              <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体 · 桌面端</h2>
               <Button
                 variant="link"
                 size="sm"
                 className="h-auto p-0 text-xs text-muted-foreground"
                 onClick={() => setTab("agents")}
               >
-                查看全部 {AGENTS.length} 个 <ChevronRight className="size-3.5" />
+                查看全部 {AGENTS.length} 个（含 CLI 端） <ChevronRight className="size-3.5" />
               </Button>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
-              {AGENTS.map((a) => (
+              {/* 首页只放桌面端智能体（CLI 端在智能体页） */}
+              {AGENTS.filter((a) => a.desktopNames).map((a) => (
                 <AgentCard key={a.id} recipe={a} installed={agentsInstalled[a.id] === true} onOpen={() => pickAgent(a.id)} />
               ))}
             </div>

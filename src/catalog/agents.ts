@@ -48,7 +48,24 @@ export interface AgentRecipe {
   webPort?: number;
   /** 桌面端（GUI）：经开始菜单 AppID 启动（值为快捷方式名匹配词） */
   desktopNames?: string[];
+  /** 风险提示标签：闭源 / 上传数据 / 使用限制（卡片与装机页隐约标记） */
+  concerns?: ConcernTag[];
   notes?: string[];
 }
+
+/** 风险标签定义（标签 → 短徽标文案 + 完整警示文案） */
+export type ConcernTag = "closed" | "data" | "restriction";
+
+export const CONCERN_LABEL: Record<ConcernTag, string> = {
+  closed: "闭源",
+  data: "上传数据",
+  restriction: "使用限制",
+};
+
+export const CONCERN_CAUTION: Record<ConcernTag, string> = {
+  closed: "闭源：无法审计其代码与数据去向",
+  data: "上传数据：代码与对话内容会上传至厂商服务器，存在被收集（甚至用于训练）的风险",
+  restriction: "使用限制：绑定厂商账号，受条款/地域/订阅限制，可能随时不可用——不具备公平性",
+};
 
 export const AGENTS: AgentRecipe[] = agents as AgentRecipe[];

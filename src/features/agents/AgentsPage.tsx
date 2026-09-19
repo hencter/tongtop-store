@@ -10,11 +10,12 @@ import {
   Loader2,
   Play,
   Rocket,
+  ShieldAlert,
   Trash2,
   X,
   XCircle,
 } from "lucide-react";
-import { type AgentRecipe } from "../../catalog/agents";
+import { CONCERN_CAUTION, CONCERN_LABEL, type AgentRecipe } from "../../catalog/agents";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAgentStore, type Step } from "../../state/agentStore";
 import { useAppStore } from "../../state/appStore";
@@ -45,6 +46,11 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
               <CheckCircle2 className="size-3 text-ok" /> 已安装
             </Badge>
           )}
+          {recipe.concerns?.map((c) => (
+            <Badge key={c} variant="outline" className="border-gold/40 text-gold" title={CONCERN_CAUTION[c]}>
+              <ShieldAlert className="size-3" /> {CONCERN_LABEL[c]}
+            </Badge>
+          ))}
           <Badge variant="outline">{kindLabel}</Badge>
           {recipe.env.length === 0 && <Badge variant="secondary">免密钥</Badge>}
         </div>
@@ -195,6 +201,18 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
               使用国内镜像加速安装
               <Switch checked={useMirror} onCheckedChange={setUseMirror} disabled={running || finished} />
             </label>
+          )}
+
+          {recipe.concerns && recipe.concerns.length > 0 && (
+            <div className="m-0 flex items-start gap-2 rounded-lg border border-gold/40 bg-gold/5 px-3.5 py-2.5 text-[11px] leading-relaxed text-gold">
+              <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
+              <div>
+                涉及企业开发/涉密项目请勿安装（数据安全）：
+                {recipe.concerns.map((c) => (
+                  <div key={c}>· {CONCERN_CAUTION[c]}</div>
+                ))}
+              </div>
+            </div>
           )}
 
           {recipe.notes?.map((n) => (

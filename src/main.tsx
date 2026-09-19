@@ -12,6 +12,11 @@ const params = new URLSearchParams(window.location.search);
 const termId = params.get("term");
 const termTitle = params.get("title") ?? "终端";
 
+// 主应用按桌面应用对待：禁用 webview 默认右键菜单（终端窗口保留，复制粘贴要用）
+if (!termId) {
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
+}
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     {termId ? <TerminalWindow id={termId} title={termTitle} /> : <App />}
