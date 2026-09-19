@@ -1628,9 +1628,10 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
         let digest = asset.digest.as_deref()
             .ok_or("GitHub 发布资产没有 SHA-256 摘要，已拒绝更新")?;
         // 校验摘要格式要先于网络下载，旧版没有 digest 时安全地停止更新。
-        verify_sha256(std::io::empty(), digest).err()
-            .filter(|e| e.contains("缺少有效"))
-            .map_or(Ok(()), Err)?;
+        let raw = digest.strip_prefix("sha256:").ok_or("发布资产缺少有效的 SHA-256 摘要")?;
+        if raw.len() != 64 || !raw.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("发布资产缺少有效的 SHA-256 摘要，已拒绝更新".into());
+        }
         if !url.starts_with("https://")
             || !(url == asset.url || url.ends_with(&asset.url))
         {
@@ -1688,7 +1689,7 @@ fn apply_self_update(app: AppHandle, installer_path: String) -> Result<(), Strin
     verify_sha256(file, digest)?;
     let current = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
     let script = format!(
-        "timeout /t 2 /nobreak >nul & \\"{}\\" /S & start \\"\\" \\"{}\\"",
+        "timeout /t 2 /nobreak >nul & \"{}\" /S & start \"\" \"{}\"",
         installer_path,
         current.display()
     );
