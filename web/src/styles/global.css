@@ -5,7 +5,8 @@
   --muted: #6b7280;
   --card: #ffffff;
   --border: #e5e7eb;
-  --accent: #2563eb;
+  /* 主题链接/强调色：品牌青铜（白底用深一号保对比度） */
+  --accent: #a0661f;
   --accent-fg: #ffffff;
   --ok: #16a34a;
   --code-bg: #f3f4f6;
@@ -24,8 +25,8 @@
     --muted: #9aa0a6;
     --card: #171a20;
     --border: #262b33;
-    --accent: #4f8cff;
-    --accent-fg: #0b0d10;
+    --accent: #d29a4b;
+    --accent-fg: #14161a;
     --ok: #34d399;
     --code-bg: #1d2129;
     --brand: #d29a4b;
@@ -185,7 +186,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
   padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border);
   background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer;
 }
-.filters .chip.active { color: var(--accent-fg); background: var(--accent); border-color: var(--accent); }
+.filters .chip.active { color: var(--ink-fg); background: var(--ink); border-color: var(--ink); }
 
 .site-footer {
   border-top: 1px solid var(--border); padding: 22px 0; color: var(--muted); font-size: 12.5px;
