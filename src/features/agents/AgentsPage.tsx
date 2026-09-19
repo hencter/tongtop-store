@@ -19,6 +19,7 @@ import { CONCERN_CAUTION, CONCERN_LABEL, type AgentRecipe } from "../../catalog/
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAgentStore, type Step } from "../../state/agentStore";
 import { useAppStore } from "../../state/appStore";
+import { useT } from "../../i18n";
 import { useSettingsStore } from "../../state/settingsStore";
 import { AppIcon } from "../../components/AppIcon";
 import { PageTabs } from "../../components/PageTabs";
@@ -31,7 +32,8 @@ import { Switch } from "@/components/ui/switch";
 // ---------- 选择页 ----------
 
 function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; installed: boolean; onPick: () => void }) {
-  const kindLabel = recipe.desktopNames ? "桌面端" : recipe.webPort ? "Web" : "CLI";
+  const t = useT();
+  const kindLabel = recipe.desktopNames ? t("桌面端") : recipe.webPort ? "Web" : "CLI";
   return (
     <Card className="flex flex-col gap-2 p-4 transition-colors hover:border-foreground/20">
       <div className="flex items-center gap-3">
@@ -52,7 +54,7 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
             </Badge>
           ))}
           <Badge variant="outline">{kindLabel}</Badge>
-          {recipe.env.length === 0 && <Badge variant="secondary">免密钥</Badge>}
+          {recipe.env.length === 0 && <Badge variant="secondary">{t("免密钥")}</Badge>}
         </div>
       </div>
       <div className="min-h-8 text-xs text-muted-foreground">{recipe.desc}</div>
@@ -94,6 +96,7 @@ function StepIcon({ status }: { status: Step["status"] }) {
 }
 
 function SetupPage({ recipe }: { recipe: AgentRecipe }) {
+  const t = useT();
   const steps = useAgentStore((s) => s.steps);
   const running = useAgentStore((s) => s.running);
   const finished = useAgentStore((s) => s.finished);
@@ -131,11 +134,11 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
         <div>
           <div className="font-semibold">{recipe.name}</div>
           <div className="text-[11px] text-muted-foreground">
-            {recipe.vendor} · {recipe.install.kind === "npm" ? "npm" : recipe.install.kind === "pip" ? "pip" : "winget"} 安装
+            {recipe.vendor} · {recipe.install.kind === "npm" ? "npm" : recipe.install.kind === "pip" ? "pip" : "winget"} {t("安装")}
           </div>
         </div>
         <Button variant="link" className="ml-auto text-xs" onClick={() => void openUrl(recipe.homepage)}>
-          官方文档 <ExternalLink className="size-3" />
+          {t("官方文档")} <ExternalLink className="size-3" />
         </Button>
       </header>
 
@@ -143,7 +146,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
         {/* 左：流水线 + 配置 */}
         <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
           <Card className="p-4">
-            <div className="mb-2.5 text-[13px] font-semibold">装机流水线</div>
+            <div className="mb-2.5 text-[13px] font-semibold">{t("装机流水线")}</div>
             <div className="flex flex-col gap-2">
               {steps.map((s) => (
                 <div key={s.id} className="flex items-start gap-2.5 text-[13px]">
@@ -159,7 +162,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
 
           {recipe.env.length > 0 && (
             <Card className="p-4">
-              <div className="mb-2.5 text-[13px] font-semibold">密钥与端点</div>
+              <div className="mb-2.5 text-[13px] font-semibold">{t("密钥与端点")}</div>
               <div className="flex flex-col gap-3">
                 {recipe.env.map((e) => (
                   <div key={e.name}>
@@ -172,9 +175,9 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                         <button
                           className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
                           onClick={() => void openUrl(e.url!)}
-                          title={`前往申请：${e.url}`}
+                          title={t("前往申请：") + e.url}
                         >
-                          {e.hint ?? "获取 Key"} <ExternalLink className="size-2.5" />
+                          {e.hint ?? t("获取 Key")} <ExternalLink className="size-2.5" />
                         </button>
                       ) : (
                         e.hint && <span className="text-[10px] text-muted-foreground">{e.hint}</span>
@@ -190,7 +193,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                   </div>
                 ))}
                 <p className="m-0 text-[11px] leading-relaxed text-muted-foreground">
-                  写入用户级环境变量（启动时也会直接注入进程），不写入任何文件。
+                  {t("写入用户级环境变量（启动时也会直接注入进程），不写入任何文件。")}
                 </p>
               </div>
             </Card>
@@ -198,7 +201,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
 
           {recipe.install.kind !== "winget" && (
             <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border px-3.5 py-2.5 text-[13px]">
-              使用国内镜像加速安装
+              {t("使用国内镜像加速安装")}
               <Switch checked={useMirror} onCheckedChange={setUseMirror} disabled={running || finished} />
             </label>
           )}
@@ -207,7 +210,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
             <div className="m-0 flex items-start gap-2 rounded-lg border border-gold/40 bg-gold/5 px-3.5 py-2.5 text-[11px] leading-relaxed text-gold">
               <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
               <div>
-                涉及企业开发/涉密项目请勿安装（数据安全）：
+                {t("涉及企业开发/涉密项目请勿安装（数据安全）：")}
                 {recipe.concerns.map((c) => (
                   <div key={c}>· {CONCERN_CAUTION[c]}</div>
                 ))}
@@ -234,27 +237,27 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
             {!finished ? (
               <Button size="lg" className="flex-1" disabled={running || missingRequired} onClick={() => void start()}>
                 {running ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
-                {running ? "装机中…" : anyFail ? "重试装机" : "开始装机"}
+                {running ? t("装机中…") : anyFail ? t("重试装机") : t("开始装机")}
               </Button>
             ) : (
               <>
                 <Button size="lg" className="flex-1" onClick={() => void launch()}>
-                  <Play className="size-4" /> {recipe.webPort ? "启动并打开浏览器" : `启动 ${recipe.name}`}
+                  <Play className="size-4" /> {recipe.webPort ? t("启动并打开浏览器") : `${t("启动 ")}${recipe.name}`}
                 </Button>
                 {installed && !confirmUninstall && (
                   <>
                     <Button variant="outline" size="lg" className="shrink-0" onClick={reset}>
-                      重新装机
+                      {t("重新装机")}
                     </Button>
                     <Button
                       variant="outline"
                       size="lg"
                       className="shrink-0 text-destructive hover:text-destructive"
                       disabled={running}
-                      title="卸载本体（保留已写入的密钥环境变量）"
+                      title={t("卸载本体（保留已写入的密钥环境变量）")}
                       onClick={() => setConfirmUninstall(true)}
                     >
-                      <Trash2 className="size-4" /> 卸载
+                      <Trash2 className="size-4" /> {t("卸载")}
                     </Button>
                   </>
                 )}
@@ -270,7 +273,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                         void uninstall();
                       }}
                     >
-                      {running ? <Loader2 className="size-4 animate-spin" /> : "确认卸载"}
+                      {running ? <Loader2 className="size-4 animate-spin" /> : t("确认卸载")}
                     </Button>
                     <Button variant="ghost" size="icon" className="size-10 shrink-0" onClick={() => setConfirmUninstall(false)} title="取消">
                       <X className="size-4" />
@@ -279,13 +282,13 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                 )}
                 <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-muted-foreground" title="仅对桌面端智能体生效：开启则启动后真正退出商店。CLI 智能体在内嵌终端运行，商店始终常驻托盘">
                   <Switch checked={autoExit} onCheckedChange={setAutoExit} />
-                  启动后退出商店
+                  {t("启动后退出商店")}
                 </label>
               </>
             )}
           </div>
           {missingRequired && !finished && (
-            <div className="shrink-0 text-[11px] text-destructive">请先填写带 * 的必填项</div>
+            <div className="shrink-0 text-[11px] text-destructive">{t("请先填写带 * 的必填项")}</div>
           )}
         </div>
       </div>
@@ -300,6 +303,7 @@ type AgentTab = "cli" | "desktop";
 const kindOf = (a: AgentRecipe): AgentTab => (a.desktopNames ? "desktop" : "cli");
 
 export function AgentsPage() {
+  const t = useT();
   const agentId = useAgentStore((s) => s.agentId);
   const open = useAgentStore((s) => s.open);
   const installedMap = useAgentStore((s) => s.installedMap);
@@ -338,19 +342,19 @@ export function AgentsPage() {
         <h2 className="m-0 text-lg font-semibold tracking-wide">AI 智能体</h2>
         <PageTabs
           tabs={[
-            { id: "desktop" as const, label: "桌面端", count: desktopCount },
-            { id: "cli" as const, label: "CLI 端", count: cliCount },
+            { id: "desktop" as const, label: t("桌面端"), count: desktopCount },
+            { id: "cli" as const, label: t("CLI 端"), count: cliCount },
           ]}
           active={kind}
           onChange={setKind}
         />
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
-        选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。
-        最后点「启动」—— 商店退出，任务结束。已安装的会自动识别，直接启动即可。
+        {t("选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。")}
+        {t("最后点「启动」—— 商店退出，任务结束。已安装的会自动识别，直接启动即可。")}
       </p>
       {shown.length === 0 ? (
-        <div className="py-14 text-center text-sm text-muted-foreground">没有匹配「{pageQuery.trim()}」的智能体。</div>
+        <div className="py-14 text-center text-sm text-muted-foreground">{t("没有匹配「")}{pageQuery.trim()}{t("」的智能体。")}</div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
           {shown.map((a) => (

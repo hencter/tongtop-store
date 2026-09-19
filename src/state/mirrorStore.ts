@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import * as ipc from "../ipc/client";
-import { MIRROR_TOOLS } from "../catalog/mirrors";
+import { useCatalogStore } from "./catalogStore";
 import type { MirrorStatus } from "../ipc/types";
 
 /** 取镜像值的主机名（sparse+ 前缀与协议头剥掉），用于"当前源是否为它"的判断 */
@@ -39,7 +39,7 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
     if (get().loading) return;
     set({ loading: true });
     try {
-      const status = await ipc.mirrorStatus(MIRROR_TOOLS.map((t) => t.id));
+      const status = await ipc.mirrorStatus(useCatalogStore.getState().mirrorTools.map((t) => t.id));
       set({ status, loading: false });
     } catch {
       set({ loading: false });
@@ -66,9 +66,9 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
     set({ tuning: true });
     try {
       // 1. 检测各工具当前源状态
-      const status = await ipc.mirrorStatus(MIRROR_TOOLS.map((t) => t.id));
+      const status = await ipc.mirrorStatus(useCatalogStore.getState().mirrorTools.map((t) => t.id));
       set({ status });
-      const tools = MIRROR_TOOLS.filter(
+      const tools = useCatalogStore.getState().mirrorTools.filter(
         (t) => !t.needsTool || status.find((s) => s.tool === t.id)?.installed,
       );
       // 2. 收集全部候选 URL（官方 + 预设）并行测速
@@ -106,7 +106,7 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
         }
       }
       // 4. 回读状态 + 落延迟表
-      const status2 = await ipc.mirrorStatus(MIRROR_TOOLS.map((t) => t.id));
+      const status2 = await ipc.mirrorStatus(useCatalogStore.getState().mirrorTools.map((t) => t.id));
       set({
         status: status2,
         latencies: lat,

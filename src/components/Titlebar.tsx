@@ -8,6 +8,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Loader2, Minus, Search, Square, X } from "lucide-react";
 import { useAppStore, type Tab } from "../state/appStore";
+import { useT } from "../i18n";
 import { AppLogo } from "./AppLogo";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -27,6 +28,7 @@ const PLACEHOLDERS: Record<Tab, string> = {
 
 /** 中央搜索：作用域 = 当前页面；搜索页绑定 winget 搜索状态，其余页各自独立过滤。 */
 function TitleSearch() {
+  const t = useT();
   const tab = useAppStore((s) => s.tab);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
@@ -45,7 +47,7 @@ function TitleSearch() {
       <Search className="size-3.5 shrink-0" />
       <input
         className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
-        placeholder={PLACEHOLDERS[tab]}
+        placeholder={t(PLACEHOLDERS[tab])}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -73,6 +75,7 @@ function TitleSearch() {
 }
 
 export function Titlebar() {
+  const t = useT();
   const win = isTauri() ? getCurrentWindow() : null;
 
   return (
@@ -82,7 +85,7 @@ export function Titlebar() {
     >
       <div data-tauri-drag-region className="flex shrink-0 items-center gap-2.5 pl-3">
         <AppLogo className="size-6 shrink-0 rounded-md" />
-        <span className="text-[13px] font-semibold tracking-wide">应用商店</span>
+        <span className="text-[13px] font-semibold tracking-wide">{t("应用商店")}</span>
       </div>
 
       <div data-tauri-drag-region className="flex min-w-0 flex-1 justify-center px-6">
@@ -96,21 +99,21 @@ export function Titlebar() {
             <button
               className="grid h-full w-11 place-items-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => void win.minimize()}
-              title="最小化"
+              title={t("最小化")}
             >
               <Minus className="size-4" />
             </button>
             <button
               className="grid h-full w-11 place-items-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => void win.toggleMaximize()}
-              title="最大化 / 还原"
+              title={t("最大化 / 还原")}
             >
               <Square className="size-3.5" />
             </button>
             <button
               className="grid h-full w-11 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
               onClick={() => void win.close()}
-              title="关闭"
+              title={t("关闭")}
             >
               <X className="size-4" />
             </button>

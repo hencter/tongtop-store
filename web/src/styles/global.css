@@ -77,6 +77,11 @@ p { margin: 0 0 1em; }
   width: 190px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px;
   border: 1px solid var(--border); background: var(--card);
 }
+.lang-toggle {
+  flex-shrink: 0; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card); color: var(--muted); font-size: 12px; cursor: pointer;
+}
+.lang-toggle:hover { color: var(--fg); }
 .header-cta { flex-shrink: 0; }
 @media (max-width: 980px) {
   .site-search { display: none; }

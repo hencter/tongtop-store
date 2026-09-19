@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { Bot, ChevronRight, Zap } from "lucide-react";
 import { useCatalogStore } from "../../state/catalogStore";
-import { MIRROR_TOOLS } from "../../catalog/mirrors";
+import { useT } from "../../i18n";
 import { useAppStore, type Tab } from "../../state/appStore";
 import { useAgentStore } from "../../state/agentStore";
 import { useNotesStore } from "../../state/notesStore";
@@ -43,6 +43,7 @@ function SectionHeader({
 }
 
 export function SearchPage() {
+  const t = useT();
   const query = useAppStore((s) => s.searchQuery);
   const results = useAppStore((s) => s.searchResults);
   const searching = useAppStore((s) => s.searching);
@@ -57,6 +58,7 @@ export function SearchPage() {
   const CATALOG = useCatalogStore((s) => s.apps);
   const AGENTS = useCatalogStore((s) => s.agents);
   const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
+  const MIRROR_TOOLS = useCatalogStore((s) => s.mirrorTools);
 
   const q = query.trim().toLowerCase();
 
@@ -92,7 +94,7 @@ export function SearchPage() {
     return MIRROR_TOOLS.filter(
       (t) => t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.id.includes(q),
     );
-  }, [q]);
+  }, [q, MIRROR_TOOLS]);
 
   const installedHits = useMemo(() => {
     if (!q) return [];
@@ -181,7 +183,7 @@ export function SearchPage() {
 
       {mirrorHits.length > 0 && (
         <section>
-          <SectionHeader title="镜像源" count={mirrorHits.length} onMore={() => go("mirrors")} />
+          <SectionHeader title={t("镜像源")} count={mirrorHits.length} onMore={() => go("mirrors")} />
           {mirrorHits.slice(0, CAP).map((t) => (
             <div key={t.id} className="flex h-14 items-center gap-3 rounded-lg border border-transparent px-3 transition-colors hover:border-border hover:bg-card">
               <AppIcon id={`mirror:${t.id}`} name={t.name} size={30} />
@@ -199,7 +201,7 @@ export function SearchPage() {
 
       {installedHits.length > 0 && (
         <section>
-          <SectionHeader title="已安装" count={installedHits.length} onMore={() => go("installed")} />
+          <SectionHeader title={t("已安装")} count={installedHits.length} onMore={() => go("installed")} />
           {installedHits.slice(0, CAP).map((a) => (
             <AppRow key={a.id} info={a} catalog={CATALOG_BY_ID.get(a.id.toLowerCase())} mode="uninstall" />
           ))}
@@ -208,7 +210,7 @@ export function SearchPage() {
 
       {upgradeHits.length > 0 && (
         <section>
-          <SectionHeader title="可更新" count={upgradeHits.length} onMore={() => go("updates")} />
+          <SectionHeader title={t("可更新")} count={upgradeHits.length} onMore={() => go("updates")} />
           {upgradeHits.slice(0, CAP).map((u) => (
             <AppRow
               key={u.id}

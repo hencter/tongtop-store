@@ -28,6 +28,43 @@ const {
     </main>
     <Footer />
     <script>
+      import { EN } from "../i18n";
+
+      // 客户端 i18n：data-i18n 属性驱动，中文为原文（SSG），英文查表替换
+      const originals = new WeakMap<object, string>();
+
+      function applyLang(lang: string) {
+        localStorage.setItem("tongtop.lang", lang);
+        document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          if (!originals.has(el)) originals.set(el, el.textContent ?? "");
+          const key = el.getAttribute("data-i18n") ?? "";
+          el.textContent = lang === "en" ? (EN[key] ?? originals.get(el) ?? "") : originals.get(el)!;
+        });
+        document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+          if (!originals.has(el)) originals.set(el, el.getAttribute("placeholder") ?? "");
+          const key = el.getAttribute("data-i18n-ph") ?? "";
+          el.setAttribute("placeholder", lang === "en" ? (EN[key] ?? originals.get(el)!) : originals.get(el)!);
+        });
+        const btn = document.getElementById("lang-toggle");
+        if (btn) btn.textContent = lang === "zh" ? "EN" : "中";
+      }
+
+      (window as unknown as { __setLang: (l: string) => void }).__setLang = applyLang;
+      // ?lang=en / ?lang=zh 可指定语言（分享链接/测试），否则读 localStorage/系统
+      const urlLang = new URLSearchParams(location.search).get("lang");
+      applyLang(
+        urlLang === "en" || urlLang === "zh"
+          ? urlLang
+          : (localStorage.getItem("tongtop.lang") ??
+              (navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en")),
+      );
+
+      document.getElementById("lang-toggle")?.addEventListener("click", () => {
+        applyLang(localStorage.getItem("tongtop.lang") === "en" ? "zh" : "en");
+      });
+    </script>
+    <script>
       // 全站复制：data-copy-text 直接复制其值；否则复制按钮所在 .copy-row 里的 <pre>
       document.addEventListener("click", (event) => {
         const target = event.target;

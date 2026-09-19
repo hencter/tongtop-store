@@ -10,10 +10,12 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import * as ipc from "../ipc/client";
 import { AppLogo } from "./AppLogo";
+import { useT } from "../i18n";
 import "@xterm/xterm/css/xterm.css";
 
 /** 无边框窗口的品牌标题栏（拖动区 + 状态灯 + 窗口按钮） */
 function TermTitlebar({ title, exitCode }: { title: string; exitCode: number | null }) {
+  const t = useT();
   const win = getCurrentWindow();
   return (
     <header
@@ -26,27 +28,27 @@ function TermTitlebar({ title, exitCode }: { title: string; exitCode: number | n
       </span>
       <span className="ml-1 flex items-center gap-1.5 text-[10px] text-white/40">
         <span className={`size-1.5 rounded-full ${exitCode === null ? "animate-pulse bg-emerald-400" : "bg-white/30"}`} />
-        {exitCode === null ? "运行中" : `已退出 ${exitCode}`}
+        {exitCode === null ? t("运行中") : `${t("已退出 ")}${exitCode}`}
       </span>
       <div className="ml-auto flex h-full">
         <button
           className="grid h-full w-10 place-items-center text-white/50 transition-colors hover:bg-white/10 hover:text-white"
           onClick={() => void win.minimize()}
-          title="最小化"
+          title={t("最小化")}
         >
           <Minus className="size-3.5" />
         </button>
         <button
           className="grid h-full w-10 place-items-center text-white/50 transition-colors hover:bg-white/10 hover:text-white"
           onClick={() => void win.toggleMaximize()}
-          title="最大化 / 还原"
+          title={t("最大化 / 还原")}
         >
           <Square className="size-3" />
         </button>
         <button
           className="grid h-full w-10 place-items-center text-white/50 transition-colors hover:bg-destructive hover:text-white"
           onClick={() => void win.close()}
-          title="关闭（结束进程）"
+          title={t("关闭（结束进程）")}
         >
           <X className="size-4" />
         </button>

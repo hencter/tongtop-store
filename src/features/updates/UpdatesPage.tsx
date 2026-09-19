@@ -11,6 +11,7 @@ import { useSettingsStore } from "../../state/settingsStore";
 import { useUpdateStore } from "../../state/updateStore";
 import { timeLabel } from "../../domain/format";
 import { AppLogo } from "../../components/AppLogo";
+import { useT } from "../../i18n";
 import { AppRow } from "../../components/AppRow";
 import { VirtualList } from "../../components/VirtualList";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ import {
 const ROW_H = 64;
 
 export function UpdatesPage() {
+  const t = useT();
   const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
   const upgrades = useAppStore((s) => s.upgrades);
   const upgradesAt = useAppStore((s) => s.upgradesAt);
@@ -86,14 +88,14 @@ export function UpdatesPage() {
   return (
     <div className="page flex h-full flex-col">
       <header className="mb-1.5 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold tracking-wide">可更新{upgrades ? `（${count}）` : ""}</h2>
+        <h2 className="m-0 text-lg font-semibold tracking-wide">{t("可更新")}{upgrades ? `（${count}）` : ""}</h2>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">{timeLabel(upgradesAt)}</span>
           <Button variant="outline" size="sm" onClick={() => void refresh(true)} disabled={loading}>
-            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> 刷新
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> {t("刷新")}
           </Button>
           <Button size="sm" disabled={count === 0 || running !== null} onClick={() => setConfirming(true)}>
-            <Rocket className="size-3.5" /> 一键更新
+            <Rocket className="size-3.5" /> {t("一键更新")}
           </Button>
         </div>
       </header>
@@ -112,12 +114,12 @@ export function UpdatesPage() {
           <AppLogo className="size-9 shrink-0 rounded-md" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 font-semibold">
-              通天路软件商店
+              {t("通天路软件商店")}
               <Badge>
-                <Pin className="size-3" /> 置顶
+                <Pin className="size-3" /> {t("置顶")}
               </Badge>
             </div>
-            <div className="truncate text-[11px] text-muted-foreground">商店自身更新 · 静默安装并自动重启</div>
+            <div className="truncate text-[11px] text-muted-foreground">{t("商店自身更新 · 静默安装并自动重启")}</div>
           </div>
           <div className="w-36 shrink-0 text-right text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -126,19 +128,19 @@ export function UpdatesPage() {
             </span>
           </div>
           <Button size="sm" className="shrink-0" onClick={selfShow}>
-            <Rocket className="size-3.5" /> 立即更新
+            <Rocket className="size-3.5" /> {t("立即更新")}
           </Button>
         </div>
       )}
 
       {upgrades && count === 0 && (
         <div className="py-14 text-center text-muted-foreground">
-          {hidden.length > 0 ? "没有待处理的更新（部分已忽略）。" : "所有软件都是最新版本。"}
+          {hidden.length > 0 ? t("没有待处理的更新（部分已忽略）。") : t("所有软件都是最新版本。")}
         </div>
       )}
 
       {count > 0 && shown.length === 0 && (
-        <div className="py-14 text-center text-muted-foreground">没有匹配「{pageQuery.trim()}」的待更新软件。</div>
+        <div className="py-14 text-center text-muted-foreground">{t("没有匹配「")}{pageQuery.trim()}{t("」的待更新软件。")}</div>
       )}
 
       {shown.length > 0 && (
@@ -165,7 +167,7 @@ export function UpdatesPage() {
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setShowIgnored((v) => !v)}
           >
-            <BellOff className="size-3.5" /> 已忽略（{hidden.length}）{showIgnored ? "收起" : "展开"}
+            <BellOff className="size-3.5" /> {t("已忽略（")}{hidden.length}）{showIgnored ? t("收起") : t("展开")}
           </button>
           {showIgnored && (
             <div className="mt-2 flex flex-col gap-1">
@@ -175,11 +177,11 @@ export function UpdatesPage() {
                     {CATALOG_BY_ID.get(u.id.toLowerCase())?.name ?? u.name}
                     <span className="ml-1.5">
                       {u.version} → {u.available}
-                      {ignored[u.id.toLowerCase()] === "*" ? "（永久忽略）" : "（已忽略此版本）"}
+                      {ignored[u.id.toLowerCase()] === "*" ? t("（永久忽略）") : t("（已忽略此版本）")}
                     </span>
                   </span>
                   <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => unignore(u.id)}>
-                    恢复
+                    {t("恢复")}
                   </Button>
                 </div>
               ))}
@@ -191,9 +193,9 @@ export function UpdatesPage() {
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent className="w-[440px]">
           <DialogHeader>
-            <DialogTitle>一键更新全部</DialogTitle>
+            <DialogTitle>{t("一键更新全部")}</DialogTitle>
             <DialogDescription>
-              将依次更新 {count} 个软件（winget upgrade --all），过程可随时取消。
+              {t("将依次更新 ")}{count}{t(" 个软件（winget upgrade --all），过程可随时取消。")}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-48 overflow-y-auto p-4 pt-0">
@@ -209,10 +211,10 @@ export function UpdatesPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirming(false)}>
-              再想想
+              {t("再想想")}
             </Button>
             <Button onClick={upgradeAll}>
-              <Rocket className="size-3.5" /> 开始更新
+              <Rocket className="size-3.5" /> {t("开始更新")}
             </Button>
           </DialogFooter>
         </DialogContent>

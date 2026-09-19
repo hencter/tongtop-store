@@ -6,6 +6,7 @@ import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useUpdateStore } from "./state/updateStore";
+import { useT } from "./i18n";
 import * as ipc from "./ipc/client";
 import { initTaskListeners } from "./state/taskStore";
 import { wireAgentLog, useAgentStore } from "./state/agentStore";
@@ -41,6 +42,7 @@ const NAV: { id: Tab; label: string; icon: typeof Home }[] = [
 ];
 
 function WingetMissing() {
+  const t = useT();
   const checkWinget = useAppStore((s) => s.checkWinget);
   const [checking, setChecking] = useState(false);
   const recheck = async () => {
@@ -61,16 +63,16 @@ function WingetMissing() {
         <div className="grid size-14 place-items-center rounded-full bg-muted">
           <PackageX className="size-7 text-muted-foreground" />
         </div>
-        <h1 className="m-0 text-lg font-semibold">未检测到 winget</h1>
+        <h1 className="m-0 text-lg font-semibold">{t("未检测到 winget")}</h1>
         <p className="m-0 max-w-[480px] text-sm leading-7 text-muted-foreground">
-          应用商店通过 winget（微软「应用安装程序」）从官方源下载软件。请先安装它，然后点下方重新检测。
+          {t("应用商店通过 winget（微软「应用安装程序」）从官方源下载软件。请先安装它，然后点下方重新检测。")}
         </p>
         <div className="flex gap-3">
           <Button size="lg" onClick={() => void openUrl("https://apps.microsoft.com/detail/9NBLGGH4NNS1")}>
-            前往微软商店安装「应用安装程序」
+            {t("前往微软商店安装「应用安装程序」")}
           </Button>
           <Button size="lg" variant="outline" disabled={checking} onClick={() => void recheck()}>
-            {checking ? "检测中…" : "重新检测"}
+            {checking ? t("检测中…") : t("重新检测")}
           </Button>
         </div>
       </div>
@@ -79,6 +81,7 @@ function WingetMissing() {
 }
 
 export default function App() {
+  const t = useT();
   const tab = useAppStore((s) => s.tab);
   const setTab = useAppStore((s) => s.setTab);
   const wingetOk = useAppStore((s) => s.wingetOk);
@@ -150,17 +153,17 @@ export default function App() {
                 onClick={() => setTab(n.id)}
               >
                 <n.icon className="size-4" />
-                {n.label}
+                {t(n.label)}
               </button>
             ))}
           </nav>
           <div className="flex items-center gap-2 border-t border-border px-3 pt-3 text-[11.5px] text-muted-foreground">
             <span className={`size-2 rounded-full ${wingetOk ? "bg-ok" : "bg-muted-foreground"}`} />
-            winget {wingetOk ? "已就绪" : "检测中…"}
+            winget {wingetOk ? t("已就绪") : t("检测中…")}
             <button
               className="ml-auto rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               onClick={() => setSettingsOpen(true)}
-              title="设置"
+              title={t("设置")}
             >
               <Settings className="size-3.5" />
             </button>

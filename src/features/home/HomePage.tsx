@@ -1,6 +1,6 @@
 /** 首页：AI 智能体精选 + 软件分类目录（静态数据，首屏零 IPC）+ 分类筛选。 */
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, Trash2, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
@@ -12,6 +12,7 @@ import { deepUninstall } from "../../state/leftoverStore";
 import { useAgentStore } from "../../state/agentStore";
 import { useTaskStore } from "../../state/taskStore";
 import { timeLabel } from "../../domain/format";
+import { useT } from "../../i18n";
 import { AppIcon } from "../../components/AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { Card } from "@/components/ui/card";
 type CardState = "none" | "installed" | "upgrade";
 
 const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: CardState }) {
+  const t = useT();
   const runTask = useTaskStore((s) => s.runTask);
   const silent = useTaskStore((s) => s.silent);
   // 已安装 → 按钮变卸载（深度卸载：winget 卸载 + 注册表/AppData 残留扫描）；
@@ -45,20 +47,20 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
             variant="destructive"
             size="sm"
             disabled={uninstallState !== null}
-            title="已安装 —— 点击卸载（卸载后扫描注册表与 AppData 残留）"
+            title={t("已安装 —— 点击卸载（卸载后扫描注册表与 AppData 残留）")}
             onClick={() => void deepUninstall(app.id, app.name)}
           >
             {uninstallState === "running" ? (
               <>
-                <Loader2 className="size-3.5 animate-spin" /> 进行中
+                <Loader2 className="size-3.5 animate-spin" /> {t("进行中")}
               </>
             ) : uninstallState === "queued" ? (
               <>
-                <Clock className="size-3.5" /> 排队中
+                <Clock className="size-3.5" /> {t("排队中")}
               </>
             ) : (
               <>
-                <Trash2 className="size-3.5" /> 卸载
+                <Trash2 className="size-3.5" /> {t("卸载")}
               </>
             )}
           </Button>
@@ -78,25 +80,25 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
           >
             {taskState === "running" ? (
               <>
-                <Loader2 className="size-3.5 animate-spin" /> 进行中
+                <Loader2 className="size-3.5 animate-spin" /> {t("进行中")}
               </>
             ) : taskState === "queued" ? (
               <>
-                <Clock className="size-3.5" /> 排队中
+                <Clock className="size-3.5" /> {t("排队中")}
               </>
             ) : state === "upgrade" ? (
               <>
-                <TrendingUp className="size-3.5" /> 更新
+                <TrendingUp className="size-3.5" /> {t("更新")}
               </>
             ) : (
               <>
-                <Download className="size-3.5" /> 安装
+                <Download className="size-3.5" /> {t("安装")}
               </>
             )}
           </Button>
         )}
         <Button variant="outline" size="sm" onClick={() => void openUrl(app.site)} title={app.site}>
-          <ExternalLink className="size-3.5" /> 官网
+          <ExternalLink className="size-3.5" /> {t("官网")}
         </Button>
       </div>
     </Card>
@@ -112,6 +114,7 @@ const AgentCard = memo(function AgentCard({
   installed: boolean;
   onOpen: () => void;
 }) {
+  const t = useT();
   return (
     <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
       <div className="flex items-start justify-between">
@@ -138,11 +141,11 @@ const AgentCard = memo(function AgentCard({
         <Button size="sm" className="flex-1" onClick={onOpen}>
           {installed ? (
             <>
-              <Play className="size-3.5" /> 打开
+              <Play className="size-3.5" /> {t("打开")}
             </>
           ) : (
             <>
-              <Rocket className="size-3.5" /> 一键装机
+              <Rocket className="size-3.5" /> {t("一键装机")}
             </>
           )}
         </Button>
@@ -155,6 +158,7 @@ const AgentCard = memo(function AgentCard({
 });
 
 export function HomePage() {
+  const t = useT();
   const setTab = useAppStore((s) => s.setTab);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
   const installed = useAppStore((s) => s.installed);
@@ -168,7 +172,13 @@ export function HomePage() {
   const CATEGORIES = useCatalogStore((s) => s.categories);
   const catalogAt = useCatalogStore((s) => s.updatedAt);
   const catalogSource = useCatalogStore((s) => s.source);
+  const tab = useAppStore((s) => s.tab);
   const [cat, setCat] = useState<CategoryId | "all">("all");
+
+  // 首页推荐是核心内容：每次回到首页都触发一次目录刷新（store 内 5 分钟冷却）
+  useEffect(() => {
+    if (tab === "home") void useCatalogStore.getState().refresh();
+  }, [tab]);
   const shown = cat === "all" ? CATEGORIES : CATEGORIES.filter((c) => c.id === cat);
   // 智能体区也参与分类筛选：选具体分类后不再占位（否则被选分类被顶到视口外，感觉像没切换）
   const showAgents = cat === "all" || cat === "ai";
@@ -217,16 +227,16 @@ export function HomePage() {
         <AppLogo className="mx-auto mb-4 size-14 rounded-xl" />
         <h1 className="m-0 text-2xl font-semibold tracking-tight">应用商店</h1>
         <p className="mb-5 mt-2 text-sm text-muted-foreground">
-          不托管任何安装包，只做官方软件下载链接的分发
+          {t("不托管任何安装包，只做官方软件下载链接的分发")}
         </p>
         <p className="mb-3 -mt-3 text-[10px] text-muted-foreground/70">
-          {catalogSource === "remote" ? `推荐内容实时更新 · ${timeLabel(catalogAt)}` : "推荐内容：内置快照（联网后自动更新）"}
+          {catalogSource === "remote" ? t("推荐内容实时更新 · ") + timeLabel(catalogAt) : t("推荐内容：内置快照（联网后自动更新）")}
         </p>
         <div className="mx-auto flex h-10 max-w-[540px] items-center gap-2.5 rounded-md border border-input bg-background px-3 text-muted-foreground transition-shadow focus-within:ring-2 focus-within:ring-ring/40">
           <Search className="size-4" />
           <input
             className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            placeholder="搜索软件，回车直达…"
+            placeholder={t("搜索软件，回车直达…")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const q = e.currentTarget.value.trim();
@@ -245,7 +255,7 @@ export function HomePage() {
             className="rounded-full"
             onClick={() => setCat("all")}
           >
-            全部
+            {t("全部")}
           </Button>
           {CATEGORIES.map((c) => (
             <Button
@@ -255,7 +265,7 @@ export function HomePage() {
               className="rounded-full"
               onClick={() => setCat(c.id)}
             >
-              {c.label}
+              {t(c.label)}
             </Button>
           ))}
         </div>
@@ -264,11 +274,11 @@ export function HomePage() {
       {filteredApps ? (
         <section className="mt-8">
           <h2 className="mb-3.5 text-sm font-semibold tracking-wide">
-            筛选结果（{filteredAgents.length + filteredApps.length}）
+            {t("筛选结果（")}{filteredAgents.length + filteredApps.length}）
           </h2>
           {filteredAgents.length + filteredApps.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
-              本页没有「{pageQuery.trim()}」相关内容 —— 试试切换到「搜索」页查 winget 全量源。
+              {t("本页没有「")}{pageQuery.trim()}{t("」相关内容 —— 试试切换到「搜索」页查 winget 全量源。")}
             </div>
           ) : (
             <>
@@ -297,14 +307,14 @@ export function HomePage() {
           {showAgents && (
           <section className="mt-8">
             <div className="mb-3.5 flex items-baseline justify-between">
-              <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体 · 桌面端</h2>
+              <h2 className="m-0 text-sm font-semibold tracking-wide">{t("AI 智能体 · 桌面端")}</h2>
               <Button
                 variant="link"
                 size="sm"
                 className="h-auto p-0 text-xs text-muted-foreground"
                 onClick={() => setTab("agents")}
               >
-                查看全部 {AGENTS.length} 个（含 CLI 端） <ChevronRight className="size-3.5" />
+                {t("查看全部 ")}{AGENTS.length}{t(" 个（含 CLI 端）")} <ChevronRight className="size-3.5" />
               </Button>
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">

@@ -95,3 +95,50 @@ jobs:
             src-tauri/target/release/bundle/nsis/*-setup.exe
             src-tauri/target/release/bundle/nsis/tongtop-store.exe
             src-tauri/target/release/bundle/nsis/*.sha256
+
+  # macOS 端（尝试性）：dmg 资产。平台特定功能（winget/注册表/开始菜单）降级为明确报错或 /Applications 方案
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 解析 tag 并校验三处版本号一致
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${{ inputs.version }}"
+          fi
+          PKG=$(node -p "require('./package.json').version")
+          CONF=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          CARGO=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          if [ "$TAG" != "v$PKG" ] || [ "$PKG" != "$CONF" ] || [ "$PKG" != "$CARGO" ]; then
+            echo "::error::版本号不一致：tag($TAG) / package.json($PKG) / tauri.conf.json($CONF) / Cargo.toml($CARGO)"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        id: v
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 构建 macOS 安装包（DMG）
+        run: pnpm tauri build
+
+      - name: 上传 dmg 到 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          files: src-tauri/target/release/bundle/dmg/*.dmg

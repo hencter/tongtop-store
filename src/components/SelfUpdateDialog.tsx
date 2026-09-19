@@ -1,8 +1,9 @@
-/** 自更新弹窗：新版本信息 + 更新日志 + 下载进度；立即更新 / 忽略此版本。 */
+/** 自更新弹窗：新版本信息 + 更新日志 + 下载进度；立即更新 / {t("忽略此版本")}。 */
 
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Download, Loader2 } from "lucide-react";
 import { useUpdateStore } from "../state/updateStore";
+import { useT } from "../i18n";
 import { formatSize } from "../domain/github";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 
 export function SelfUpdateDialog() {
+  const t = useT();
   const info = useUpdateStore((s) => s.info);
   const open = useUpdateStore((s) => s.open);
   const progress = useUpdateStore((s) => s.progress);
@@ -30,12 +32,12 @@ export function SelfUpdateDialog() {
       <DialogContent className="w-[520px]">
         <DialogHeader>
           <DialogTitle>
-            {upToDate ? "已是最新版本" : `发现新版本 v${info?.latest}`}
+            {upToDate ? t("已是最新版本") : `${t("发现新版本 v")}${info?.latest}`}
           </DialogTitle>
           <DialogDescription>
             {upToDate
-              ? `当前版本 v${info?.current}，无需更新。`
-              : `当前 v${info?.current} → 最新 v${info?.latest}${info?.assetSize ? `（${formatSize(info.assetSize)}）` : ""}`}
+              ? `${t("当前版本 v")}${info?.current}${t("，无需更新。")}`
+              : `${t("当前 v")}${info?.current} → ${t("最新 v".replace("最新 v", "最新 v"))}${info?.latest}${info?.assetSize ? `（${formatSize(info.assetSize)}）` : ""}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -68,7 +70,7 @@ export function SelfUpdateDialog() {
         <DialogFooter>
           {!upToDate && info?.releaseUrl && (
             <Button variant="link" className="mr-auto" onClick={() => void openUrl(info.releaseUrl)}>
-              查看发布页
+              {t("查看发布页")}
             </Button>
           )}
           {upToDate ? (
@@ -76,16 +78,16 @@ export function SelfUpdateDialog() {
           ) : (
             <>
               <Button variant="ghost" disabled={downloading} onClick={() => dismiss(true)}>
-                忽略此版本
+                {t("忽略此版本")}
               </Button>
               <Button disabled={downloading || !info?.assetUrl} onClick={() => void start()} title="下载后静默安装并自动重启，全程无弹窗">
                 {downloading ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" /> 下载中…
+                    <Loader2 className="size-3.5 animate-spin" /> {t("下载中…")}
                   </>
                 ) : (
                   <>
-                    <Download className="size-3.5" /> 立即更新
+                    <Download className="size-3.5" /> {t("立即更新")}
                   </>
                 )}
               </Button>

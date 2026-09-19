@@ -54,25 +54,25 @@ const download =
   <!-- Hero：左文案右产品 mockup -->
   <section class="hero2">
     <div class="hero2-text">
-      <div class="hero2-badge">更开放的应用生态 · 更高效的 AI 时代</div>
-      <h1>更好的软件入口</h1>
-      <p class="hero2-sub">精选软件目录 · AI 智能体 · 一键装机</p>
-      <p class="hero2-desc">
+      <div class="hero2-badge" data-i18n="更开放的应用生态 · 更高效的 AI 时代">更开放的应用生态 · 更高效的 AI 时代</div>
+      <h1 data-i18n="更好的软件入口">更好的软件入口</h1>
+      <p class="hero2-sub" data-i18n="精选软件目录 · AI 智能体 · 一键装机">精选软件目录 · AI 智能体 · 一键装机</p>
+      <p class="hero2-desc" data-i18n="应用商店不托管任何安装包，只做官方软件下载链接的分发。为开发者与用户提供更便捷、更可信的工具获取方式。">
         应用商店不托管任何安装包，只做官方软件下载链接的分发。
         为开发者与用户提供更便捷、更可信的工具获取方式。
       </p>
       <div class="hero2-cta">
         <a class="btn primary lg" href="/download">
-          <svg viewBox="0 0 24 24" set:html={download} />下载桌面客户端
+          <svg viewBox="0 0 24 24" set:html={download} /><span data-i18n="下载桌面客户端">下载桌面客户端</span>
         </a>
-        <a class="btn lg" href="/apps">浏览软件库 <svg viewBox="0 0 24 24" set:html={arrow} /></a>
-        <a class="btn lg" href="/agents">查看 AI 智能体 <svg viewBox="0 0 24 24" set:html={arrow} /></a>
+        <a class="btn lg" href="/apps"><span data-i18n="浏览软件库">浏览软件库</span> <svg viewBox="0 0 24 24" set:html={arrow} /></a>
+        <a class="btn lg" href="/agents"><span data-i18n="查看 AI 智能体">查看 AI 智能体</span> <svg viewBox="0 0 24 24" set:html={arrow} /></a>
       </div>
       <div class="hero2-stats">
         {stats.map((s) => (
           <div class="hero2-stat">
             <b>{s.n}</b>
-            <span>{s.label}</span>
+            <span data-i18n={s.label}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -114,8 +114,8 @@ const download =
           </div>
         </div>
         <div class="mock-note mock-note-a">
-          <b>高效 · 开放 · 可信</b>
-          <span>让好软件触手可及</span>
+          <b data-i18n="高效 · 开放 · 可信">高效 · 开放 · 可信</b>
+          <span data-i18n="让好软件触手可及">让好软件触手可及</span>
         </div>
         <div class="mock-note mock-note-b">Tools for a<br />Better Tomorrow</div>
       </div>
@@ -128,8 +128,8 @@ const download =
       <a class="home-feature" href={f.href}>
         <span class="home-feature-icon"><svg viewBox="0 0 24 24" set:html={f.icon} /></span>
         <span class="home-feature-text">
-          <b>{f.title}</b>
-          <small>{f.desc}</small>
+          <b data-i18n={f.title}>{f.title}</b>
+          <small data-i18n={f.desc}>{f.desc}</small>
         </span>
         <svg class="home-feature-arrow" viewBox="0 0 24 24" set:html={arrow} />
       </a>
@@ -139,8 +139,8 @@ const download =
   <!-- AI 应用精选 -->
   <section class="section">
     <div class="section-head">
-      <h2>AI 应用精选 <small class="section-sub">精选当下优秀的 AI 应用，提升你的工作与创作效率</small></h2>
-      <a class="more" href="/apps?cat=ai">查看更多 →</a>
+      <h2><span data-i18n="AI 应用精选">AI 应用精选</span> <small class="section-sub" data-i18n="精选当下优秀的 AI 应用，提升你的工作与创作效率">精选当下优秀的 AI 应用，提升你的工作与创作效率</small></h2>
+      <a class="more" href="/apps?cat=ai"><span data-i18n="查看更多">查看更多</span> →</a>
     </div>
     <div class="grid home-cards">
       {aiApps.map((a) => (
@@ -157,7 +157,7 @@ const download =
             {(a.tags ?? []).slice(0, 2).map((t) => <span class="badge">{t}</span>)}
           </div>
           <div class="actions">
-            <button class="btn primary sm home-cmd" data-copy-text={`winget install --id ${a.id} -e`}>复制安装命令</button>
+            <button class="btn primary sm home-cmd" data-copy-text={`winget install --id ${a.id} -e`} data-i18n="复制安装命令">复制安装命令</button>
             <a class="btn sm" href={a.site} target="_blank" rel="noopener" title={a.site}>
               <svg viewBox="0 0 24 24" set:html={extLink} />
             </a>
@@ -170,8 +170,8 @@ const download =
   <!-- AI 智能体（一键装机） -->
   <section class="section">
     <div class="section-head">
-      <h2>AI 智能体（一键装机） <small class="section-sub">精选实用的 AI 智能体，支持一键安装，快速开始使用</small></h2>
-      <a class="more" href="/agents">查看更多 →</a>
+      <h2><span data-i18n="AI 智能体（一键装机）">AI 智能体（一键装机）</span> <small class="section-sub" data-i18n="精选实用的 AI 智能体，支持一键安装，快速开始使用">精选实用的 AI 智能体，支持一键安装，快速开始使用</small></h2>
+      <a class="more" href="/agents"><span data-i18n="查看更多">查看更多</span> →</a>
     </div>
     <div class="grid home-cards">
       {agents.map((a) => (
@@ -189,7 +189,7 @@ const download =
           </div>
           <div class="actions">
             <button class="btn primary sm home-cmd" data-copy-text={installCommand(a)}>
-              <svg viewBox="0 0 24 24" set:html={rocket} />一键装机
+              <svg viewBox="0 0 24 24" set:html={rocket} /><span data-i18n="一键装机">一键装机</span>
             </button>
             <a class="btn sm" href={a.homepage} target="_blank" rel="noopener" title={a.homepage}>
               <svg viewBox="0 0 24 24" set:html={extLink} />

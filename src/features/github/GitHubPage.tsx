@@ -14,6 +14,7 @@ import { useTaskStore, MAX_QUEUE } from "../../state/taskStore";
 import { timeLabel } from "../../domain/format";
 import { formatDate, formatDownloads, formatSize, pickWindowsAssets } from "../../domain/github";
 import { AppIcon } from "../../components/AppIcon";
+import { useT } from "../../i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,7 @@ const GithubMark = ({ className }: { className?: string }) => (
 );
 
 function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: string; desc: string }) {
+  const t = useT();
   const release = useGithubZoneStore((s) => s.releases[repo]);
   const error = useGithubZoneStore((s) => s.errors[repo]);
   const lid = id.toLowerCase();
@@ -57,10 +59,10 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
         <div className="ml-auto shrink-0">
           {installedVersion ? (
             <Badge variant="outline">
-              <Check className="size-3 text-ok" /> 已安装
+              <Check className="size-3 text-ok" /> {t("已安装")}
             </Badge>
           ) : (
-            <Badge variant="secondary">开源</Badge>
+            <Badge variant="secondary">{t("开源")}</Badge>
           )}
         </div>
       </div>
@@ -71,16 +73,16 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
       <div className="rounded-md bg-muted px-2.5 py-2 text-[11px] text-muted-foreground">
         {!release && !error && (
           <span className="flex items-center gap-1.5">
-            <Loader2 className="size-3 animate-spin" /> 正在获取最新发布…
+            <Loader2 className="size-3 animate-spin" /> {t("正在获取最新发布…")}
           </span>
         )}
-        {error && <span className="text-destructive">获取失败：{error}</span>}
+        {error && <span className="text-destructive">{t("获取失败：")}{error}</span>}
         {release && (
           <span className="flex items-center gap-1.5">
             <Tag className="size-3 shrink-0 text-primary" />
             <span className="font-medium text-foreground">{release.tag}</span>
             <span>· {formatDate(release.publishedAt)}</span>
-            {totalDownloads > 0 && <span className="ml-auto">{formatDownloads(totalDownloads)} 次下载</span>}
+            {totalDownloads > 0 && <span className="ml-auto">{formatDownloads(totalDownloads)}{t(" 次下载")}</span>}
           </span>
         )}
       </div>
@@ -115,7 +117,7 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
             }
           >
             {taskState === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-            winget 安装
+            {t("winget 安装")}
           </Button>
         ) : null}
         <Button
@@ -123,7 +125,7 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
           size="sm"
           className="shrink-0"
           onClick={() => void openUrl(`https://github.com/${repo}/releases`)}
-          title="查看全部发布"
+          title={t("查看全部发布")}
         >
           <ExternalLink className="size-3.5" />
         </Button>
@@ -133,6 +135,7 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
 }
 
 export function GitHubPage() {
+  const t = useT();
   const fetchAll = useGithubZoneStore((s) => s.fetchAll);
   const loading = useGithubZoneStore((s) => s.loading);
   const loadedOnce = useGithubZoneStore((s) => s.loadedOnce);
@@ -169,13 +172,13 @@ export function GitHubPage() {
             <span className="text-[11px] text-muted-foreground">{timeLabel(Math.floor(fetchedAt / 1000))}</span>
           )}
           <Button variant="outline" size="sm" onClick={() => void fetchAll(true)} disabled={loading}>
-            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> 刷新
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> {t("刷新")}
           </Button>
         </div>
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
-        精选目录中开源在 GitHub 的软件：最新 Release、下载量与 Windows 安装包直链，一站直达。
-        直链经官方 Releases 分发（可在镜像中心开启加速）；安装仍走 winget 官方源。
+        {t("精选目录中开源在 GitHub 的软件：最新 Release、下载量与 Windows 安装包直链，一站直达。")}
+        {t("直链经官方 Releases 分发（可在镜像中心开启加速）；安装仍走 winget 官方源。")}
       </p>
 
       {!loadedOnce && loading ? (
@@ -185,7 +188,7 @@ export function GitHubPage() {
           ))}
         </div>
       ) : shown.length === 0 ? (
-        <div className="py-14 text-center text-sm text-muted-foreground">没有匹配「{pageQuery.trim()}」的项目。</div>
+        <div className="py-14 text-center text-sm text-muted-foreground">{t("没有匹配「")}{pageQuery.trim()}{t("」的项目。")}</div>
       ) : (
         <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3 overflow-y-auto">
           {shown.map((g) => (

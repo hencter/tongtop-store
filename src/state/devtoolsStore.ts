@@ -4,7 +4,7 @@
  */
 
 import { create } from "zustand";
-import { DEVTOOLS } from "../catalog/devtools";
+import { useCatalogStore } from "./catalogStore";
 import * as ipc from "../ipc/client";
 import type { ToolStatus } from "../ipc/types";
 
@@ -23,7 +23,7 @@ export const useDevtoolsStore = create<DevtoolsStore>()((set, get) => ({
     if (get().detecting) return;
     set({ detecting: true });
     try {
-      const tools = await ipc.checkTools(DEVTOOLS.map((d) => d.bin));
+      const tools = await ipc.checkTools(useCatalogStore.getState().devtools.map((d) => d.bin));
       const status: Record<string, ToolStatus> = {};
       for (const t of tools) status[t.name.toLowerCase()] = t;
       set({ status });

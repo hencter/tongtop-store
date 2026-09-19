@@ -1599,6 +1599,8 @@ struct CatalogDto {
     apps: serde_json::Value,
     agents: serde_json::Value,
     categories: serde_json::Value,
+    devtools: serde_json::Value,
+    mirrors: serde_json::Value,
     updated_at: u64,
 }
 
@@ -1628,6 +1630,8 @@ async fn catalog_fetch(base: String) -> Result<CatalogDto, String> {
             apps: get("apps.json")?,
             agents: get("agents.json")?,
             categories: get("categories.json")?,
+            devtools: get("devtools.json")?,
+            mirrors: get("mirrors.json")?,
             updated_at: meta.get("updatedAt").and_then(|v| v.as_u64()).unwrap_or(0),
         })
     })
@@ -1684,6 +1688,24 @@ fn apply_self_update(
     let marker_dir = std::env::temp_dir().join("tongtop-dl");
     let _ = std::fs::create_dir_all(&marker_dir);
     let _ = std::fs::write(marker_dir.join("update-target.txt"), &target_version);
+
+    if asset_kind == "exe" && !cfg!(windows) {
+        // Unix 看门狗：sleep 等退出 → cp 覆盖 → open 拉起（同样 15 次重试）
+        let install_dir = current
+            .parent()
+            .ok_or_else(|| "无法定位安装目录".to_string())?
+            .to_path_buf();
+        let sh = format!(
+            "sleep 2; for i in $(seq 1 15); do cp '{}' '{}' && break || sleep 1; done; open '{}'",
+            installer_path,
+            install_dir.display(),
+            current.display()
+        );
+        let mut cmd = std::process::Command::new("sh");
+        cmd.args(["-c", &sh]);
+        cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
+        return Ok(());
+    }
 
     if asset_kind == "exe" {
         // 裸 exe 覆盖：运行中的 exe 被锁，等退出后 Copy；重试 15 次防关停慢。
@@ -1765,6 +1787,7 @@ fn take_update_error() -> Option<String> {
 /// 自有更新机制配套：裸 exe 覆盖安装后，ARP（卸载列表）里的 DisplayVersion 仍是
 /// 首次 NSIS 安装时的旧值——winget list / 已安装页会永远显示旧版本。
 /// 启动时对照并同步（HKCU 用户键，无需管理员；找不到卸载项就跳过）。
+#[cfg(windows)]
 fn sync_arp_display_version() {
     let cur = env!("CARGO_PKG_VERSION");
     let script = format!(
@@ -1876,6 +1899,7 @@ pub fn run() {
             use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 
             // 自有更新机制配套：同步 ARP DisplayVersion（覆盖安装后 winget list 才看到新版本）
+            #[cfg(windows)]
             std::thread::spawn(sync_arp_display_version);
 
             let show = MenuItemBuilder::with_id("show", "显示主界面").build(app)?;

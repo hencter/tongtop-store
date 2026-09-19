@@ -53,3 +53,15 @@ jobs:
           workspaces: src-tauri
       - run: cargo test --locked
         working-directory: src-tauri
+
+  # macOS 编译验证（尝试性支持：平台特定功能降级，打包出 dmg 即里程碑）
+  rust-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo check --locked
+        working-directory: src-tauri

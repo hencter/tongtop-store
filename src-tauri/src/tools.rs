@@ -89,7 +89,12 @@ pub fn resolve(name: &str) -> Option<String> {
     if let Some(p) = known_locations(name).into_iter().find(|p| p.is_file()) {
         return Some(p.to_string_lossy().into_owned());
     }
-    let mut cmd = std::process::Command::new("where.exe");
+    // 平台查找器：Windows 用 where.exe（CREATE_NO_WINDOW 防闪窗），Unix 用 which
+    #[cfg(windows)]
+    let finder = "where.exe";
+    #[cfg(not(windows))]
+    let finder = "which";
+    let mut cmd = std::process::Command::new(finder);
     cmd.arg(name)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null());
@@ -259,6 +264,7 @@ fn ps_escape(s: &str) -> String {
     s.replace('\'', "''")
 }
 
+#[cfg(windows)]
 pub fn powershell(script: &str) -> Result<String, String> {
     let mut cmd = Command::new("powershell.exe");
     cmd.args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -279,6 +285,13 @@ pub fn powershell(script: &str) -> Result<String, String> {
 }
 
 /// 批量读用户级环境变量（一次 PowerShell 调用拿全部）。
+#[cfg(not(windows))]
+pub fn powershell(_script: &str) -> Result<String, String> {
+    Err("当前平台不支持 PowerShell".to_string())
+}
+
+/// 批量读用户级环境变量（一次 PowerShell 调用拿全部）。
+#[cfg(windows)]
 pub fn get_user_envs(names: &[String]) -> HashMap<String, String> {
     let mut out = HashMap::new();
     if names.is_empty() {
@@ -308,7 +321,22 @@ pub fn get_user_envs(names: &[String]) -> HashMap<String, String> {
     out
 }
 
+/// 非 Windows：从进程环境读取（用户级注册表语义不存在；启动注入不受影响）
+#[cfg(not(windows))]
+pub fn get_user_envs(names: &[String]) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for n in names {
+        if let Ok(v) = std::env::var(n) {
+            if !v.is_empty() {
+                out.insert(n.to_string(), v);
+            }
+        }
+    }
+    out
+}
+
 /// 写用户级环境变量（新开的终端/进程可见；本进程内不生效）。
+#[cfg(windows)]
 pub fn set_user_env(name: &str, value: &str) -> Result<(), String> {
     let script = format!(
         "[Environment]::SetEnvironmentVariable('{}','{}','User')",
@@ -320,6 +348,12 @@ pub fn set_user_env(name: &str, value: &str) -> Result<(), String> {
         return Err(out);
     }
     Ok(())
+}
+
+/// 非 Windows：用户级环境变量暂不支持（需写 shell rc，后续版本支持）
+#[cfg(not(windows))]
+pub fn set_user_env(_name: &str, _value: &str) -> Result<(), String> {
+    Err("当前平台暂不支持写入用户环境变量（macOS / Linux 支持规划中）".to_string())
 }
 
 /// 静默跑一个命令并收集输出（无窗口；.cmd/.bat 自动走 cmd.exe 中转）。
@@ -353,7 +387,40 @@ pub fn run_quiet(program: &str, args: &[&str]) -> Result<String, String> {
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID 解析 ----------
 
+/// 非 Windows（macOS）：扫 /Applications 与 ~/Applications 的 .app 包名
+#[cfg(not(windows))]
+pub fn list_start_apps() -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let home = std::env::var("HOME").unwrap_or_default();
+    for dir in ["/Applications".to_string(), format!("{home}/Applications")] {
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if name.ends_with(".app") {
+                    let stem = name.trim_end_matches(".app").to_string();
+                    out.push((stem.clone(), stem));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// 非 Windows：open -a 启动 .app
+#[cfg(not(windows))]
+pub fn launch_start_app(names: &[String]) -> Result<(), String> {
+    let app = find_start_app(names)
+        .ok_or_else(|| "未找到该应用（/Applications 中无匹配项）".to_string())?;
+    std::process::Command::new("open")
+        .args(["-a", &app])
+        .spawn()
+        .map_err(|e| format!("启动失败：{e}"))?;
+    Ok(())
+}
+
+
 /// 列出开始菜单全部应用（一次 PowerShell 调用；批量检测桌面端安装状态用）。
+#[cfg(windows)]
 pub fn list_start_apps() -> Vec<(String, String)> {
     let script = "Get-StartApps | ForEach-Object { $_.Name + '|' + $_.AppID }";
     let out = match powershell(script) {
@@ -383,6 +450,7 @@ pub fn find_start_app(names: &[String]) -> Option<String> {
 }
 
 /// 经 shell:AppsFolder 启动开始菜单里的应用（GUI 桌面端通用启动法）。
+#[cfg(windows)]
 pub fn launch_start_app(names: &[String]) -> Result<(), String> {
     let appid = find_start_app(names)
         .ok_or_else(|| "开始菜单中未找到该应用（可能尚未安装完成）".to_string())?;

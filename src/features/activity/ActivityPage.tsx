@@ -7,6 +7,7 @@ import { Activity, CirclePlay, CircleStop, FolderOpen, Loader2, Radar, RefreshCw
 import * as ipc from "../../ipc/client";
 import type { ActivityBatch, ActivityGroup, ProcDto } from "../../ipc/types";
 import { useAppStore } from "../../state/appStore";
+import { useT } from "../../i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,6 +30,7 @@ interface FeedRow extends ActivityGroup {
 }
 
 export function ActivityPage() {
+  const t = useT();
   const pageQuery = useAppStore((s) => s.pageQueries.activity ?? "");
   const [roots, setRoots] = useState(DEFAULT_ROOTS);
   const [active, setActive] = useState(false);
@@ -121,7 +123,7 @@ export function ActivityPage() {
   return (
     <div className="page flex h-full flex-col">
       <header className="mb-1.5 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold tracking-wide">文件活动监控</h2>
+        <h2 className="m-0 text-lg font-semibold tracking-wide">{t("活动监控")}</h2>
         <div className="flex items-center gap-2">
           {active && (
             <span className="text-[11px] text-muted-foreground">

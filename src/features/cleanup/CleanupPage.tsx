@@ -6,6 +6,7 @@ import * as ipc from "../../ipc/client";
 import type { CleanupInfo, CleanupResult } from "../../ipc/types";
 import { formatSize } from "../../domain/github";
 import { useAppStore } from "../../state/appStore";
+import { useT } from "../../i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 
 export function CleanupPage() {
+  const t = useT();
   const [info, setInfo] = useState<CleanupInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [cleaning, setCleaning] = useState(false);
@@ -69,7 +71,7 @@ export function CleanupPage() {
   return (
     <div className="page h-full overflow-y-auto">
       <header className="mb-1.5 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold tracking-wide">缓存清理</h2>
+        <h2 className="m-0 text-lg font-semibold tracking-wide">{t("缓存清理")}</h2>
         <Button variant="outline" size="sm" onClick={() => void scan()} disabled={loading}>
           <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> 重新检查
         </Button>

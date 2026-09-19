@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, RefreshCw, RotateCcw, Zap } from "lucide-react";
-import { GH_PROXY_PRESETS, MIRROR_TOOLS, type MirrorTool } from "../../catalog/mirrors";
+import { type MirrorTool } from "../../catalog/mirrors";
+import { useCatalogStore } from "../../state/catalogStore";
+import { useT } from "../../i18n";
 import * as ipc from "../../ipc/client";
 import { useMirrorStore } from "../../state/mirrorStore";
 import { useAppStore } from "../../state/appStore";
@@ -15,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { Select, Skeleton } from "@/components/ui/skeleton";
 
 function ToolCard({ tool }: { tool: MirrorTool }) {
+  const t = useT();
   const status = useMirrorStore((s) => s.status?.find((x) => x.tool === tool.id));
   const applying = useMirrorStore((s) => s.applying === tool.id);
   const message = useMirrorStore((s) => s.message[tool.id]);
@@ -37,18 +40,18 @@ function ToolCard({ tool }: { tool: MirrorTool }) {
           {tool.name}
         </div>
         {!status ? null : unavailable ? (
-          <Badge variant="destructive">{tool.needsTool} 未安装</Badge>
+          <Badge variant="destructive">{tool.needsTool}{t(" 未安装")}</Badge>
         ) : onMirror ? (
           <Badge variant="ok">
-            <CheckCircle2 className="size-3" /> 已用镜像
+            <CheckCircle2 className="size-3" /> {t("已用镜像")}
           </Badge>
         ) : (
-          <Badge variant="secondary">官方源</Badge>
+          <Badge variant="secondary">{t("官方源")}</Badge>
         )}
       </div>
       <div className="text-xs text-muted-foreground">{tool.desc}</div>
       <div className="truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground" title={status?.current}>
-        当前：{status ? status.current || "—" : "检测中…"}
+        {t("当前：")}{status ? status.current || "—" : t("检测中…")}
       </div>
       <div className="mt-auto flex gap-2">
         <Select
@@ -79,7 +82,7 @@ function ToolCard({ tool }: { tool: MirrorTool }) {
           size="sm"
           disabled={unavailable || applying}
           onClick={() => void apply(tool.id, tool.official)}
-          title="恢复官方默认"
+          title={t("恢复官方默认")}
         >
           <RotateCcw className="size-3.5" />
         </Button>
@@ -90,6 +93,8 @@ function ToolCard({ tool }: { tool: MirrorTool }) {
 }
 
 function GhProxyCard() {
+  const t = useT();
+  const GH_PROXY_PRESETS = useCatalogStore((s) => s.ghProxyPresets);
   const ghProxy = useSettingsStore((s) => s.ghProxy);
   const setGhProxy = useSettingsStore((s) => s.setGhProxy);
   const [gh, setGh] = useState<{ installed: boolean; authed: boolean } | null>(null);
@@ -105,23 +110,23 @@ function GhProxyCard() {
           <AppIcon id="mirror:github" name="GitHub" size={26} />
           GitHub 下载加速
         </div>
-        {ghProxy ? <Badge variant="ok">加速中</Badge> : <Badge variant="secondary">直连</Badge>}
+        {ghProxy ? <Badge variant="ok">{t("加速中")}</Badge> : <Badge variant="secondary">{t("直连")}</Badge>}
       </div>
       <div className="text-xs text-muted-foreground">
-        只影响本商店打开的 GitHub 资产链接（详情页的安装包直链），不改系统配置
+        {t("只影响本商店打开的 GitHub 资产链接（详情页的安装包直链），不改系统配置")}
       </div>
       <div className="truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground">
-        当前：{ghProxy || "直连"}
+        {t("当前：")}{ghProxy || t("直连")}
       </div>
       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
         {gh?.authed ? (
           <>
             <CheckCircle2 className="size-3 text-ok" />
-            gh CLI 已认证 —— Release 拉取走 gh api（5000 次/小时）
+            {t("gh CLI 已认证 —— Release 拉取走 gh api（5000 次/小时）")}
           </>
         ) : (
           <>
-            Release 拉取走匿名 API（60 次/小时）—— 安装 GitHub CLI 并 gh auth login 可提速
+            {t("Release 拉取走匿名 API（60 次/小时）—— 安装 GitHub CLI 并 gh auth login 可提速")}
           </>
         )}
       </div>
@@ -140,12 +145,14 @@ function GhProxyCard() {
 }
 
 export function MirrorsPage() {
+  const t = useT();
   const refresh = useMirrorStore((s) => s.refresh);
   const loading = useMirrorStore((s) => s.loading);
   const tuning = useMirrorStore((s) => s.tuning);
   const tunedAt = useMirrorStore((s) => s.tunedAt);
   const autoTune = useMirrorStore((s) => s.autoTune);
   const pageQuery = useAppStore((s) => s.pageQueries.mirrors ?? "");
+  const MIRROR_TOOLS = useCatalogStore((s) => s.mirrorTools);
 
   // 标题栏搜索（本页作用域）：过滤工具名 / 描述
   const q = pageQuery.trim().toLowerCase();
@@ -169,7 +176,7 @@ export function MirrorsPage() {
         <div className="flex items-center gap-2">
           {tuning && (
             <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> 自动测速中…
+              <Loader2 className="size-3 animate-spin" /> {t("自动测速中…")}
             </span>
           )}
           {!tuning && tunedAt > 0 && (
@@ -178,15 +185,15 @@ export function MirrorsPage() {
             </span>
           )}
           <Button variant="outline" size="sm" onClick={() => void autoTune()} disabled={tuning}>
-            <RefreshCw className={`size-3.5 ${tuning ? "animate-spin" : ""}`} /> 重新测速
+            <RefreshCw className={`size-3.5 ${tuning ? "animate-spin" : ""}`} /> {t("重新测速")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
-            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> 重新检测
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> {t("重新检测")}
           </Button>
         </div>
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
-        无需任何配置：每次启动都会在后台自动测速，把每个工具切换到延迟最低的镜像。也可手动指定。
+        {t("无需任何配置：每次启动都会在后台自动测速，把每个工具切换到延迟最低的镜像。也可手动指定。")}
       </p>
 
       {loading && !useMirrorStore.getState().status && (
