@@ -67,7 +67,7 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       set({ progress: e.payload });
     });
     try {
-      // 固定 latest slug 直链；镜像中心开了加速就套前缀（国内直连 GitHub 慢）
+      // 使用版本固定直链；镜像只传输安装包，Rust 从 GitHub 官方 API 独立取摘要并验证
       const ghProxy = useSettingsStore.getState().ghProxy;
       const url = ghProxy ? ghProxy + info.assetUrl : info.assetUrl;
       const path = await ipc.downloadSelfUpdate(url);
