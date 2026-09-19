@@ -20,6 +20,9 @@ pub struct GhAsset {
     pub url: String,
     pub size: u64,
     pub downloads: u64,
+    /// GitHub Release asset digest (sha256:<64 hex chars>); older releases may omit it.
+    #[serde(default)]
+    pub digest: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -73,6 +76,7 @@ pub fn parse_release(repo: &str, json: &str) -> Result<GhRelease, String> {
                             .get("download_count")
                             .and_then(|s| s.as_u64())
                             .unwrap_or(0),
+                        digest: a.get("digest").and_then(|d| d.as_str()).map(str::to_string),
                     })
                 })
                 .collect()
@@ -135,17 +139,21 @@ pub fn fetch_latest(repo: &str) -> Result<GhRelease, String> {
         return Err(format!("非法仓库名：{repo}"));
     }
     let api_path = format!("repos/{repo}/releases/latest");
-
-    // 1) gh CLI（已认证 5000 次/小时，且继承用户的 gh 代理/镜像配置）
     if let Some(gh) = gh_cli() {
-        match tools::run_quiet(gh, &["api", &api_path]) {
-            Ok(body) => return parse_release(repo, &body),
-            Err(_) => {} // gh 失败（网络/限额）→ 回落匿名
+        if let Ok(body) = tools::run_quiet(gh, &["api", &api_path]) {
+            return parse_release(repo, &body);
         }
     }
+    fetch_latest_direct(repo)
+}
 
-    // 2) 匿名 api.github.com（60 次/小时）
-    let url = format!("https://api.github.com/{api_path}");
+/// 自更新的可信元数据来源：直连 GitHub API，不继承 gh CLI 的代理配置。
+/// 下载字节可走第三方镜像，但期望摘要必须来自这里。
+pub fn fetch_latest_direct(repo: &str) -> Result<GhRelease, String> {
+    if !valid_repo(repo) {
+        return Err(format!("非法仓库名：{repo}"));
+    }
+    let url = format!("https://api.github.com/repos/{repo}/releases/latest");
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(std::time::Duration::from_secs(20)))
         .user_agent("tongtop-store/0.1")
@@ -196,6 +204,14 @@ mod tests {
         assert_eq!(r.assets[0].name, "Git-2.55.0.5-64-bit.exe");
         assert_eq!(r.assets[0].size, 65343712);
         assert_eq!(r.assets[0].downloads, 3414503);
+        assert!(r.assets[0].digest.is_none());
+    }
+
+    #[test]
+    fn parse_release_asset_digest() {
+        let json = r#"{"tag_name":"v1.0.0","assets":[{"name":"setup.exe","browser_download_url":"https://github.com/x/y/releases/download/v1.0.0/setup.exe","digest":"sha256:abc"}]}"#;
+        let r = parse_release("x/y", json).unwrap();
+        assert_eq!(r.assets[0].digest.as_deref(), Some("sha256:abc"));
     }
 
     #[test]

@@ -1460,6 +1460,44 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
 
 /// 商店自身的发布仓库（GitHub Releases 里的 NSIS 安装包即更新源）
 const SELF_REPO: &str = "hencter/tongtop-store";
+const SELF_ASSET: &str = "tongtop-store-setup.exe";
+
+/// 只接受本仓库官方发布的版本固定直链，不使用 /latest/download，
+/// 避免下载时新版本发布导致摘要和实际安装包不匹配。
+fn self_update_asset(release: &gh::GhRelease) -> Result<&gh::GhAsset, String> {
+    let asset = release.assets.iter()
+        .find(|a| a.name == SELF_ASSET)
+        .or_else(|| release.assets.iter().find(|a| a.name.ends_with("setup.exe")))
+        .ok_or("当前 Release 没有可用的 Windows 安装包")?;
+    let prefix = format!("https://github.com/{SELF_REPO}/releases/download/");
+    if !asset.url.starts_with(&prefix) {
+        return Err("安装包地址不是本仓库的 GitHub Release 直链".into());
+    }
+    Ok(asset)
+}
+
+/// 使用来自 GitHub 官方 API 的摘要验证文件字节，绝不以第三方代理提供的摘要为准。
+fn verify_sha256<R: std::io::Read>(mut input: R, digest: &str) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    let expected = digest.strip_prefix("sha256:")
+        .filter(|v| v.len() == 64 && v.bytes().all(|b| b.is_ascii_hexdigit()))
+        .ok_or("发布资产缺少有效的 GitHub SHA-256 摘要，已拒绝更新")?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 65_536];
+    loop {
+        let n = input.read(&mut buf).map_err(|e| format!("读取安装包失败：{e}"))?;
+        if n == 0 { break; }
+        hasher.update(&buf[..n]);
+    }
+    if format!("{:x}", hasher.finalize()) != expected.to_ascii_lowercase() {
+        return Err("安装包 SHA-256 与 GitHub 官方发布资产不一致，已拒绝更新".into());
+    }
+    Ok(())
+}
+
+#[derive(Default)]
+struct VerifiedSelfUpdate(std::sync::Mutex<Option<(std::path::PathBuf, String)>>);
+
 
 /// semver 比较：a > b ?（按 主.次.修订 数值段，正式版优先于预发布）
 fn semver_gt(a: &str, b: &str) -> bool {
@@ -1501,13 +1539,14 @@ struct SelfUpdateInfo {
 #[tauri::command]
 async fn check_self_update() -> Result<SelfUpdateInfo, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let key = format!("gh:{}", SELF_REPO.to_lowercase());
+        // 独立缓存：不能沿用 gh CLI 获取的普通 Release 数据（可能走自定义代理）。
+        let key = format!("self-update:direct:v1:{SELF_REPO}");
         let cached = index_db::kv_get(&key, GH_TTL)
             .and_then(|c| serde_json::from_str::<gh::GhRelease>(&c).ok());
         let r = match cached {
-            Some(r) => r,
-            None => {
-                let r = gh::fetch_latest(SELF_REPO)?;
+            Some(r) if r.assets.iter().any(|a| a.digest.is_some()) => r,
+            _ => {
+                let r = gh::fetch_latest_direct(SELF_REPO)?;
                 if let Ok(json) = serde_json::to_string(&r) {
                     index_db::kv_set(&key, &json);
                 }
@@ -1516,22 +1555,9 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
         };
         let current = env!("CARGO_PKG_VERSION").to_string();
         let latest = r.tag.trim_start_matches('v').to_string();
-        // 自更新下载固定走 latest slug（永久指向最新发布的固定名资产）；
-        // 老版本发布没有该资产时回退到版本资产直链
-        const SELF_ASSET: &str = "tongtop-store-setup.exe";
-        let (asset_url, asset_size) = match r.assets.iter().find(|a| a.name == SELF_ASSET) {
-            Some(a) => (
-                format!("https://github.com/{SELF_REPO}/releases/latest/download/{SELF_ASSET}"),
-                a.size,
-            ),
-            None => {
-                let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
-                (
-                    asset.map(|a| a.url.clone()).unwrap_or_default(),
-                    asset.map(|a| a.size).unwrap_or(0),
-                )
-            }
-        };
+        // 仅使用当前发布版本的固定直链，避免 latest slug 切换版本造成摘要竞态。
+        let asset = self_update_asset(&r)?;
+        let (asset_url, asset_size) = (asset.url.clone(), asset.size);
         Ok(SelfUpdateInfo {
             has_update: semver_gt(&latest, &current),
             current,
@@ -1590,36 +1616,78 @@ async fn catalog_fetch(base: String) -> Result<CatalogDto, String> {
     .map_err(|e| e.to_string())?
 }
 
-/// 下载新版安装包到临时目录（进度走 self-update-progress 事件），返回落盘路径。
+/// 从（可选）代理下载安装包，但先从 GitHub 官方 API 独立获取该版本的摘要。
+/// 摘要缺失、版本变化、字节被替换时，均拒绝执行并清理临时文件。
 #[tauri::command]
 async fn download_self_update(app: AppHandle, url: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let dest = std::env::temp_dir()
-            .join("tongtop-dl")
-            .join(url_filename(&url));
-        let mut last = 0u8;
-        http_download(&url, &dest, |got, total| {
-            if let Some(t) = total.filter(|t| *t > 0) {
-                let pct = (got * 100 / t).min(100) as u8;
-                if pct != last {
-                    last = pct;
-                    let _ = app.emit("self-update-progress", pct);
+        // 注意：只有本函数可以向 VerifiedSelfUpdate 登记可执行路径。
+        *app.state::<VerifiedSelfUpdate>().0.lock().map_err(|e| e.to_string())? = None;
+        let release = gh::fetch_latest_direct(SELF_REPO)?;
+        let asset = self_update_asset(&release)?;
+        let digest = asset.digest.as_deref()
+            .ok_or("GitHub 发布资产没有 SHA-256 摘要，已拒绝更新")?;
+        // 校验摘要格式要先于网络下载，旧版没有 digest 时安全地停止更新。
+        let raw = digest.strip_prefix("sha256:").ok_or("发布资产缺少有效的 SHA-256 摘要")?;
+        if raw.len() != 64 || !raw.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("发布资产缺少有效的 SHA-256 摘要，已拒绝更新".into());
+        }
+        if !url.starts_with("https://")
+            || !(url == asset.url || url.ends_with(&asset.url))
+        {
+            return Err("安装包 URL 与 GitHub 官方发布资产不一致".into());
+        }
+        let filename = format!(
+            "{}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|e| e.to_string())?
+                .as_nanos(),
+            url_filename(&asset.url)
+        );
+        let dest = std::env::temp_dir().join("tongtop-dl").join(filename);
+        let result = (|| -> Result<(), String> {
+            let mut last = 0u8;
+            http_download(&url, &dest, |got, total| {
+                if let Some(t) = total.filter(|t| *t > 0) {
+                    let pct = (got * 100 / t).min(100) as u8;
+                    if pct != last {
+                        last = pct;
+                        let _ = app.emit("self-update-progress", pct);
+                    }
                 }
-            }
-        })?;
+            })?;
+            let file = std::fs::File::open(&dest)
+                .map_err(|e| format!("无法读取已下载安装包：{e}"))?;
+            verify_sha256(file, digest)
+        })();
+        if let Err(e) = result {
+            let _ = std::fs::remove_file(&dest);
+            return Err(e);
+        }
+        *app.state::<VerifiedSelfUpdate>().0.lock().map_err(|e| e.to_string())? =
+            Some((dest.clone(), digest.to_string()));
         Ok(dest.to_string_lossy().into_owned())
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-/// 静默更新看门狗：等本进程退出（文件解锁）→ NSIS /S 静默安装 → 拉起新版本。
-/// 独立脱离进程后台执行（无窗口），本应用随后即可放心 quit。
+/// 只允许执行本进程下载并验证过的安装包；执行前再次哈希以阻止中途被替换。
 #[tauri::command]
-fn apply_self_update(installer_path: String) -> Result<(), String> {
+fn apply_self_update(app: AppHandle, installer_path: String) -> Result<(), String> {
+    let state = app.state::<VerifiedSelfUpdate>();
+    let mut verified = state.0.lock().map_err(|e| e.to_string())?;
+    let (expected_path, digest) = verified.as_ref()
+        .ok_or("尚无通过完整性校验的更新安装包")?;
+    if std::path::Path::new(&installer_path) != expected_path {
+        return Err("安装包路径未经验证，已拒绝执行".into());
+    }
+    let file = std::fs::File::open(expected_path)
+        .map_err(|e| format!("无法读取安装包：{e}"))?;
+    verify_sha256(file, digest)?;
     let current = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
-    // timeout 给本进程留退出时间；/S 走 NSIS 静默（用户级安装，无需管理员）；
-    // start 拉起的是同一路径的新版本（NSIS 覆盖安装到原位置）
     let script = format!(
         "timeout /t 2 /nobreak >nul & \"{}\" /S & start \"\" \"{}\"",
         installer_path,
@@ -1630,11 +1698,30 @@ fn apply_self_update(installer_path: String) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        // CREATE_NO_WINDOW | DETACHED_PROCESS：静默后台看门狗
         cmd.creation_flags(0x0800_0000 | 0x0000_0008);
     }
     cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
+    *verified = None;
     Ok(())
+}
+
+#[cfg(test)]
+mod self_update_integrity_tests {
+    use super::*;
+    use sha2::Digest;
+
+    #[test]
+    fn accept_official_bytes_and_reject_tampering() {
+        let expected = format!("sha256:{:x}", sha2::Sha256::digest(b"official installer"));
+        assert!(verify_sha256(&b"official installer"[..], &expected).is_ok());
+        assert!(verify_sha256(&b"tampered installer"[..], &expected).is_err());
+    }
+
+    #[test]
+    fn missing_or_malformed_digest_is_rejected() {
+        assert!(verify_sha256(&b"installer"[..], "").is_err());
+        assert!(verify_sha256(&b"installer"[..], "sha256:wrong").is_err());
+    }
 }
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID ----------
@@ -1722,6 +1809,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
         .manage(terminal::TermState::default())
+        .manage(VerifiedSelfUpdate::default())
         // 系统托盘：关窗口不退出，常驻后台（右键菜单：显示主界面 / 镜像测速 / 退出）
         .setup(|app| {
             use tauri::menu::{MenuBuilder, MenuItemBuilder};
