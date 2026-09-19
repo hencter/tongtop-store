@@ -452,6 +452,8 @@ async fn snapshot_refresh(force: bool) -> Result<SnapshotDto, String> {
         };
         if force || stale {
             // list / upgrade 均为只读查询，并行跑（各需数秒），刷新耗时减半
+            // 容错：任一命令失败（源抽风/限流）只丢对应部分，成功的照样落库——
+            // 不能整单丢弃，否则「装完界面不同步」
             let inst_handle = std::thread::spawn(|| {
                 process::run_capture(&[
                     "list".into(),
@@ -461,38 +463,46 @@ async fn snapshot_refresh(force: bool) -> Result<SnapshotDto, String> {
                     "--disable-interactivity".into(),
                 ])
             });
-            let ups_out = process::run_capture(&[
-                "upgrade".into(),
-                "--source".into(),
-                "winget".into(),
-                "--accept-source-agreements".into(),
-                "--disable-interactivity".into(),
-            ])?;
-            let inst_out = inst_handle
-                .join()
-                .map_err(|_| "list 线程异常".to_string())??;
+            let ups_handle = std::thread::spawn(|| {
+                process::run_capture(&[
+                    "upgrade".into(),
+                    "--source".into(),
+                    "winget".into(),
+                    "--accept-source-agreements".into(),
+                    "--disable-interactivity".into(),
+                ])
+            });
+            let inst_out = inst_handle.join().ok().and_then(|r| r.ok());
+            let ups_out = ups_handle.join().ok().and_then(|r| r.ok());
+            if inst_out.is_none() && ups_out.is_none() {
+                return Err("winget list/upgrade 均失败".to_string());
+            }
 
-            let inst: Vec<index_db::AppRow> = table::parse_list(&inst_out)
-                .into_iter()
-                .map(|r| index_db::AppRow {
-                    id: r.id,
-                    name: r.name,
-                    version: r.version,
-                    available: None,
-                })
-                .collect();
-            index_db::write_kind("installed", &inst)?;
+            if let Some(out) = inst_out {
+                let inst: Vec<index_db::AppRow> = table::parse_list(&out)
+                    .into_iter()
+                    .map(|r| index_db::AppRow {
+                        id: r.id,
+                        name: r.name,
+                        version: r.version,
+                        available: None,
+                    })
+                    .collect();
+                index_db::write_kind("installed", &inst)?;
+            }
 
-            let ups: Vec<index_db::AppRow> = table::parse_upgrade(&ups_out)
-                .into_iter()
-                .map(|r| index_db::AppRow {
-                    id: r.id,
-                    name: r.name,
-                    version: r.version,
-                    available: r.extra,
-                })
-                .collect();
-            index_db::write_kind("upgrade", &ups)?;
+            if let Some(out) = ups_out {
+                let ups: Vec<index_db::AppRow> = table::parse_upgrade(&out)
+                    .into_iter()
+                    .map(|r| index_db::AppRow {
+                        id: r.id,
+                        name: r.name,
+                        version: r.version,
+                        available: r.extra,
+                    })
+                    .collect();
+                index_db::write_kind("upgrade", &ups)?;
+            }
         }
         snapshot_from_db()
     })

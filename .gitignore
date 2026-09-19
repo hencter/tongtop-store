@@ -25,3 +25,6 @@ dist-ssr
 
 # Build artifacts
 /*.exe
+
+# 网站目录 API 的构建产物（每次构建都变，部署时重新生成）
+web/public/api/data/meta.json

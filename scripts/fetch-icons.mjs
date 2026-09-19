@@ -110,6 +110,10 @@ const WANTED = {
   "bin-huang.chatbox": [{ fav: "chatboxai.app" }],
   "jan.jan": [{ fav: "jan.ai" }],
   "nomic.gpt4all": [{ fav: "www.nomic.ai" }],
+  "anthropic.claude": [{ i: "simple-icons:anthropic", c: "#D97757" }],
+  "anysphere.cursor": [{ i: "simple-icons:cursor" }, { fav: "cursor.com" }],
+  "codeium.windsurf": [{ i: "simple-icons:windsurf", c: "#0B100F" }, { fav: "windsurf.com" }],
+  "elementlabs.lmstudio": [{ fav: "lmstudio.ai" }],
 
   // ---- 镜像中心 ----
   "mirror:winget": [{ i: "simple-icons:windows11", c: "#0078D4" }, { i: "logos:microsoft-icon" }],

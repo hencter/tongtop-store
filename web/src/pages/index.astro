@@ -1,99 +1,202 @@
 ---
 import Base from "../layouts/Base.astro";
-import AppCard from "../components/AppCard.astro";
-import AgentCard from "../components/AgentCard.astro";
-import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory } from "../lib/data";
+import Icon from "../components/Icon.astro";
+import BrandLogo from "../components/BrandLogo.astro";
+import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory, installCommand } from "../lib/data";
 
 const aiApps = appsByCategory("ai").slice(0, 8);
-const featured = APPS.filter((a) => a.category !== "ai").slice(0, 8);
-const providers = FREE_MODELS.providers.slice(0, 6);
+const agents = AGENTS.slice(0, 8);
+const mockAgents = AGENTS.filter((a) => !a.desktopNames).slice(0, 4);
 const stats = [
   { n: APPS.length, label: "收录软件" },
   { n: AGENTS.length, label: "AI 智能体" },
   { n: MIRRORS.length, label: "镜像源" },
   { n: FREE_MODELS.providers.length, label: "免费额度渠道" },
 ];
+
+const features = [
+  {
+    href: "/apps",
+    title: "装软件",
+    desc: "精选优质软件，一键直达官方",
+    icon: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  },
+  {
+    href: "/agents",
+    title: "装智能体",
+    desc: "热门 AI 智能体，开箱即用",
+    icon: '<rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" x2="8" y1="16" y2="16"/><line x1="16" x2="16" y1="16" y2="16"/>',
+  },
+  {
+    href: "/mirrors",
+    title: "国内镜像加速",
+    desc: "GitHub、PyPI 等镜像加速",
+    icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  },
+  {
+    href: "/ai",
+    title: "免费模型额度",
+    desc: "整合多平台免费模型资源",
+    icon: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+  },
+];
+
+const arrow = '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>';
+const extLink =
+  '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>';
+const rocket =
+  '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>';
+const download =
+  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
 ---
+
 <Base>
-<section class="hero">
-  <h1>TongTop Store</h1>
-  <p>
-    精选软件目录 · AI 智能体一键装机 · 国内镜像加速 · 免费大模型额度与密钥配置引导。
-    桌面端只管装，网站负责索引与说明书。
-  </p>
-  <div class="cta">
-    <a class="btn primary" href="/download">下载桌面客户端</a>
-    <a class="btn" href="/apps">浏览软件库</a>
-    <a class="btn" href="/ai">AI 白嫖指南</a>
-  </div>
-  <div class="stats">
-    {stats.map((s) => (
-      <div>
-        <b>{s.n}</b>
-        <span>{s.label}</span>
+  <!-- Hero：左文案右产品 mockup -->
+  <section class="hero2">
+    <div class="hero2-text">
+      <div class="hero2-badge">更开放的应用生态 · 更高效的 AI 时代</div>
+      <h1>更好的软件入口</h1>
+      <p class="hero2-sub">精选软件目录 · AI 智能体 · 一键装机</p>
+      <p class="hero2-desc">
+        应用商店不托管任何安装包，只做官方软件下载链接的分发。
+        为开发者与用户提供更便捷、更可信的工具获取方式。
+      </p>
+      <div class="hero2-cta">
+        <a class="btn primary lg" href="/download">
+          <svg viewBox="0 0 24 24" set:html={download} />下载桌面客户端
+        </a>
+        <a class="btn lg" href="/apps">浏览软件库 <svg viewBox="0 0 24 24" set:html={arrow} /></a>
+        <a class="btn lg" href="/agents">查看 AI 智能体 <svg viewBox="0 0 24 24" set:html={arrow} /></a>
       </div>
-    ))}
-  </div>
-</section>
-
-<section class="section">
-  <div class="section-head">
-    <h2>AI 应用精选</h2>
-    <a class="more" href="/apps?cat=ai">全部 {appsByCategory("ai").length} 个 →</a>
-  </div>
-  <div class="grid">
-    {aiApps.map((app) => <AppCard app={app} />)}
-  </div>
-</section>
-
-<section class="section">
-  <div class="section-head">
-    <h2>AI 智能体（一键装机）</h2>
-    <a class="more" href="/agents">全部 {AGENTS.length} 个 →</a>
-  </div>
-  <div class="grid">
-    {AGENTS.slice(0, 6).map((agent) => <AgentCard agent={agent} />)}
-  </div>
-</section>
-
-<section class="section">
-  <div class="section-head">
-    <h2>免费大模型额度</h2>
-    <a class="more" href="/ai">配置引导 →</a>
-  </div>
-  <div class="grid wide">
-    {
-      providers.map((p) => (
-        <article class="card">
-          <div class="row">
-            <div style="flex:1;min-width:0">
-              <h3>{p.name}</h3>
-              <div class="meta">{p.vendor} · 核验 {p.verifiedAt}</div>
-            </div>
-            <span class="badge ok">免费</span>
+      <div class="hero2-stats">
+        {stats.map((s) => (
+          <div class="hero2-stat">
+            <b>{s.n}</b>
+            <span>{s.label}</span>
           </div>
-          <p class="desc">{p.summary}</p>
+        ))}
+      </div>
+    </div>
+
+    <div class="hero2-visual">
+      <div class="mock">
+        <div class="mock-win">
+          <div class="mock-titlebar">
+            <BrandLogo size={13} />
+            <span class="mock-title">应用商店</span>
+            <span class="mock-searchbar">搜索精选软件…</span>
+            <span class="mock-wins"><i /><i /><i /></span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-nav">
+              <span class="on">首页</span><span>搜索</span><span>AI 智能体</span><span>GitHub 专区</span>
+              <span>镜像中心</span><span>已安装</span><span>更新</span>
+            </div>
+            <div class="mock-main">
+              <div class="mock-logo"><BrandLogo size={30} /><b>应用商店</b></div>
+              <div class="mock-searchbox">搜索软件，回车直达…</div>
+              <div class="mock-chips">
+                <span class="on">全部</span><span>AI 应用</span><span>浏览器</span><span>开发工具</span><span>系统工具</span>
+              </div>
+              <div class="mock-cards">
+                {mockAgents.map((a) => (
+                  <div class="mock-card">
+                    <Icon id={`agent:${a.id}`} name={a.name} size={20} />
+                    <div>
+                      <b>{a.name}</b>
+                      <i>{a.vendor}</i>
+                    </div>
+                    <em>一键装机</em>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mock-note mock-note-a">
+          <b>高效 · 开放 · 可信</b>
+          <span>让好软件触手可及</span>
+        </div>
+        <div class="mock-note mock-note-b">Tools for a<br />Better Tomorrow</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 特性四卡 -->
+  <section class="home-features">
+    {features.map((f) => (
+      <a class="home-feature" href={f.href}>
+        <span class="home-feature-icon"><svg viewBox="0 0 24 24" set:html={f.icon} /></span>
+        <span class="home-feature-text">
+          <b>{f.title}</b>
+          <small>{f.desc}</small>
+        </span>
+        <svg class="home-feature-arrow" viewBox="0 0 24 24" set:html={arrow} />
+      </a>
+    ))}
+  </section>
+
+  <!-- AI 应用精选 -->
+  <section class="section">
+    <div class="section-head">
+      <h2>AI 应用精选 <small class="section-sub">精选当下优秀的 AI 应用，提升你的工作与创作效率</small></h2>
+      <a class="more" href="/apps?cat=ai">查看更多 →</a>
+    </div>
+    <div class="grid home-cards">
+      {aiApps.map((a) => (
+        <article class="card home-card">
+          <div class="row">
+            <Icon id={a.id} name={a.name} size={40} />
+            <div style="flex:1;min-width:0">
+              <h3>{a.name}</h3>
+              <div class="meta">{a.desc}</div>
+            </div>
+          </div>
+          <div class="home-tags">
+            <span class="badge">AI 应用</span>
+            {(a.tags ?? []).slice(0, 2).map((t) => <span class="badge">{t}</span>)}
+          </div>
           <div class="actions">
-            <a class="btn sm primary" href={p.official} target="_blank" rel="noopener">
-              去领 Key
-            </a>
-            <a class="btn sm" href={`/ai#${p.id}`}>
-              配置方法
+            <button class="btn primary sm home-cmd" data-copy-text={`winget install --id ${a.id} -e`}>复制安装命令</button>
+            <a class="btn sm" href={a.site} target="_blank" rel="noopener" title={a.site}>
+              <svg viewBox="0 0 24 24" set:html={extLink} />
             </a>
           </div>
         </article>
-      ))
-    }
-  </div>
-</section>
+      ))}
+    </div>
+  </section>
 
-<section class="section">
-  <div class="section-head">
-    <h2>常用软件</h2>
-    <a class="more" href="/apps">全部 {APPS.length} 个 →</a>
-  </div>
-  <div class="grid">
-    {featured.map((app) => <AppCard app={app} />)}
-  </div>
-</section>
+  <!-- AI 智能体（一键装机） -->
+  <section class="section">
+    <div class="section-head">
+      <h2>AI 智能体（一键装机） <small class="section-sub">精选实用的 AI 智能体，支持一键安装，快速开始使用</small></h2>
+      <a class="more" href="/agents">查看更多 →</a>
+    </div>
+    <div class="grid home-cards">
+      {agents.map((a) => (
+        <article class="card home-card">
+          <div class="row">
+            <Icon id={`agent:${a.id}`} name={a.name} size={40} />
+            <div style="flex:1;min-width:0">
+              <h3>{a.name}</h3>
+              <div class="meta">{a.desc}</div>
+            </div>
+          </div>
+          <div class="home-tags">
+            <span class="badge">{a.vendor}</span>
+            {a.env.length === 0 && <span class="badge ok">免密钥</span>}
+          </div>
+          <div class="actions">
+            <button class="btn primary sm home-cmd" data-copy-text={installCommand(a)}>
+              <svg viewBox="0 0 24 24" set:html={rocket} />一键装机
+            </button>
+            <a class="btn sm" href={a.homepage} target="_blank" rel="noopener" title={a.homepage}>
+              <svg viewBox="0 0 24 24" set:html={extLink} />
+            </a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
 </Base>

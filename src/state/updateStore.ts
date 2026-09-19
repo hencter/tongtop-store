@@ -21,6 +21,8 @@ interface UpdateStore {
   error: string | null;
   /** manual=true 时无论有无更新都弹窗（设置里点「检查更新」） */
   check: (manual?: boolean) => Promise<void>;
+  /** 打开更新弹窗（更新页置顶条目用） */
+  show: () => void;
   dismiss: (skipVersion: boolean) => void;
   start: () => Promise<void>;
 }
@@ -53,6 +55,8 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
     if (skipVersion && info) localStorage.setItem(SKIP_KEY, info.latest);
     set({ open: false, error: null });
   },
+
+  show: () => set({ open: true }),
 
   start: async () => {
     const info = get().info;

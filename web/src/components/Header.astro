@@ -1,26 +1,37 @@
 ---
+import BrandLogo from "./BrandLogo.astro";
+
 const path = Astro.url.pathname;
 const links = [
   { href: "/", label: "首页" },
   { href: "/apps", label: "软件库" },
-  { href: "/agents", label: "智能体" },
+  { href: "/agents", label: "AI 智能体" },
+  { href: "/mirrors", label: "镜像中心" },
   { href: "/ai", label: "AI 白嫖" },
-  { href: "/mirrors", label: "镜像" },
   { href: "/community", label: "社区提交" },
-  { href: "/download", label: "下载" },
 ];
 const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 ---
 <header class="site-header">
   <div class="container">
     <a class="logo" href="/">
-      <span class="logo-mark">T</span>
-      <span>TongTop Store</span>
+      <BrandLogo size={30} />
+      <span class="logo-text">
+        <strong>应用商店</strong>
+        <small>TongTop Store</small>
+      </span>
     </a>
     <nav class="site-nav">
       {links.map((l) => (
         <a href={l.href} class={isActive(l.href) ? "active" : ""}>{l.label}</a>
       ))}
     </nav>
+    <form class="site-search" action="/apps" method="get" role="search">
+      <input type="search" name="q" placeholder="搜索软件、智能体、工具…" aria-label="搜索" />
+    </form>
+    <a class="btn primary header-cta" href="/download">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      下载客户端
+    </a>
   </div>
 </header>

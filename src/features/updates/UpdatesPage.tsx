@@ -1,16 +1,19 @@
 /** 更新页：快照首渲 + 一键更新全部（winget upgrade --all，确认后单任务流式执行）。
  *  忽略机制：每行可「忽略此版本 / 永久忽略」，被忽略的进底部「已忽略」区，可恢复。 */
 
-import { useMemo, useState } from "react";
-import { BellOff, RefreshCw, Rocket } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BellOff, Pin, RefreshCw, Rocket } from "lucide-react";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { useTaskStore } from "../../state/taskStore";
 import { useNotesStore } from "../../state/notesStore";
 import { useSettingsStore } from "../../state/settingsStore";
+import { useUpdateStore } from "../../state/updateStore";
 import { timeLabel } from "../../domain/format";
+import { AppLogo } from "../../components/AppLogo";
 import { AppRow } from "../../components/AppRow";
 import { VirtualList } from "../../components/VirtualList";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -36,8 +39,16 @@ export function UpdatesPage() {
   const openNotes = useNotesStore((s) => s.open);
   const ignored = useSettingsStore((s) => s.ignored);
   const unignore = useSettingsStore((s) => s.unignore);
+  const selfInfo = useUpdateStore((s) => s.info);
+  const selfShow = useUpdateStore((s) => s.show);
+  const selfCheck = useUpdateStore((s) => s.check);
   const [confirming, setConfirming] = useState(false);
   const [showIgnored, setShowIgnored] = useState(false);
+
+  // 商店自更新：启动时查过一次；进本页若尚无结果（失败/未完成）静默补一次
+  useEffect(() => {
+    if (!useUpdateStore.getState().info) void selfCheck(false);
+  }, [selfCheck]);
 
   // 忽略规则：永久（"*"）或精确版本号命中即隐藏
   const { visible, hidden } = useMemo(() => {
@@ -92,6 +103,31 @@ export function UpdatesPage() {
           {Array.from({ length: 5 }, (_, i) => (
             <Skeleton key={i} className="h-[54px]" />
           ))}
+        </div>
+      )}
+
+      {/* 商店自身更新：置顶第一条（静默安装并自动重启） */}
+      {selfInfo?.hasUpdate && (
+        <div className="mb-3 flex h-16 shrink-0 items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3">
+          <AppLogo className="size-9 shrink-0 rounded-md" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 font-semibold">
+              通天路软件商店
+              <Badge>
+                <Pin className="size-3" /> 置顶
+              </Badge>
+            </div>
+            <div className="truncate text-[11px] text-muted-foreground">商店自身更新 · 静默安装并自动重启</div>
+          </div>
+          <div className="w-36 shrink-0 text-right text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              v{selfInfo.current} <Rocket className="size-3" />{" "}
+              <span className="font-medium text-foreground">v{selfInfo.latest}</span>
+            </span>
+          </div>
+          <Button size="sm" className="shrink-0" onClick={selfShow}>
+            <Rocket className="size-3.5" /> 立即更新
+          </Button>
         </div>
       )}
 

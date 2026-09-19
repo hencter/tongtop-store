@@ -40,7 +40,9 @@ import { APPS, CATEGORIES } from "../lib/data";
   const empty = document.getElementById("empty");
   const input = document.getElementById("q");
   let cat = new URLSearchParams(location.search).get("cat") || "all";
-  let query = "";
+  // 顶栏搜索框跳转带来的关键词（?q=）：进入即过滤
+  let query = new URLSearchParams(location.search).get("q")?.trim().toLowerCase() || "";
+  if (query) input.value = query;
 
   function apply() {
     let visible = 0;
