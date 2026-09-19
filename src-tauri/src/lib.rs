@@ -11,6 +11,7 @@ mod gh;
 mod index_db;
 mod leftover;
 mod mirror;
+mod terminal;
 mod tools;
 mod winget;
 
@@ -1505,15 +1506,74 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
         };
         let current = env!("CARGO_PKG_VERSION").to_string();
         let latest = r.tag.trim_start_matches('v').to_string();
-        let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
+        // 自更新下载固定走 latest slug（永久指向最新发布的固定名资产）；
+        // 老版本发布没有该资产时回退到版本资产直链
+        const SELF_ASSET: &str = "tongtop-store-setup.exe";
+        let (asset_url, asset_size) = match r.assets.iter().find(|a| a.name == SELF_ASSET) {
+            Some(a) => (
+                format!("https://github.com/{SELF_REPO}/releases/latest/download/{SELF_ASSET}"),
+                a.size,
+            ),
+            None => {
+                let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
+                (
+                    asset.map(|a| a.url.clone()).unwrap_or_default(),
+                    asset.map(|a| a.size).unwrap_or(0),
+                )
+            }
+        };
         Ok(SelfUpdateInfo {
             has_update: semver_gt(&latest, &current),
             current,
             latest,
             notes: r.body,
             release_url: r.url,
-            asset_url: asset.map(|a| a.url.clone()).unwrap_or_default(),
-            asset_size: asset.map(|a| a.size).unwrap_or(0),
+            asset_url,
+            asset_size,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// 目录数据远程拉取（网站静态 JSON API：首页推荐实时更新的数据源）。
+/// 原始 JSON 透传为 serde_json::Value，前端按既有类型消费（schema 与 /data 一致）。
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CatalogDto {
+    apps: serde_json::Value,
+    agents: serde_json::Value,
+    categories: serde_json::Value,
+    updated_at: u64,
+}
+
+#[tauri::command]
+async fn catalog_fetch(base: String) -> Result<CatalogDto, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base = base.trim_end_matches('/');
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(std::time::Duration::from_secs(12)))
+            .user_agent("tongtop-store/0.4")
+            .build()
+            .into();
+        let get = |path: &str| -> Result<serde_json::Value, String> {
+            let url = format!("{base}/api/data/{path}");
+            let mut resp = agent.get(&url).call().map_err(|e| match e {
+                ureq::Error::StatusCode(code) => format!("{path} 返回 {code}"),
+                other => format!("无法连接目录 API：{other}"),
+            })?;
+            let body = resp
+                .body_mut()
+                .read_to_string()
+                .map_err(|e| format!("读取响应失败：{e}"))?;
+            serde_json::from_str(&body).map_err(|e| format!("{path} 不是合法 JSON：{e}"))
+        };
+        let meta = get("meta.json")?;
+        Ok(CatalogDto {
+            apps: get("apps.json")?,
+            agents: get("agents.json")?,
+            categories: get("categories.json")?,
+            updated_at: meta.get("updatedAt").and_then(|v| v.as_u64()).unwrap_or(0),
         })
     })
     .await
@@ -1541,6 +1601,30 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// 静默更新看门狗：等本进程退出（文件解锁）→ NSIS /S 静默安装 → 拉起新版本。
+/// 独立脱离进程后台执行（无窗口），本应用随后即可放心 quit。
+#[tauri::command]
+fn apply_self_update(installer_path: String) -> Result<(), String> {
+    let current = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
+    // timeout 给本进程留退出时间；/S 走 NSIS 静默（用户级安装，无需管理员）；
+    // start 拉起的是同一路径的新版本（NSIS 覆盖安装到原位置）
+    let script = format!(
+        "timeout /t 2 /nobreak >nul & \"{}\" /S & start \"\" \"{}\"",
+        installer_path,
+        current.display()
+    );
+    let mut cmd = std::process::Command::new("cmd.exe");
+    cmd.args(["/c", &script]);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW | DETACHED_PROCESS：静默后台看门狗
+        cmd.creation_flags(0x0800_0000 | 0x0000_0008);
+    }
+    cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
+    Ok(())
 }
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID ----------
@@ -1627,6 +1711,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
+        .manage(terminal::TermState::default())
         // 系统托盘：关窗口不退出，常驻后台（右键菜单：显示主界面 / 镜像测速 / 退出）
         .setup(|app| {
             use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -1713,6 +1798,13 @@ pub fn run() {
             list_start_apps,
             check_self_update,
             download_self_update,
+            apply_self_update,
+            catalog_fetch,
+            terminal::term_spawn,
+            terminal::term_backlog,
+            terminal::term_write,
+            terminal::term_resize,
+            terminal::term_kill,
             quit_app,
             start_task,
             cancel_task,

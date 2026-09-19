@@ -3,6 +3,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
 import { Bot, BrushCleaning, GitFork, Home, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
+import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useUpdateStore } from "./state/updateStore";
 import { initTaskListeners } from "./state/taskStore";
@@ -19,7 +20,6 @@ import { ActivityPage } from "./features/activity/ActivityPage";
 import { TaskPanel } from "./components/TaskPanel";
 import { DetailModal } from "./components/DetailModal";
 import { NotesDialog } from "./components/NotesDialog";
-import { TerminalPromptDialog } from "./components/TerminalPromptDialog";
 import { LeftoverDialog } from "./components/LeftoverDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { SelfUpdateDialog } from "./components/SelfUpdateDialog";
@@ -91,6 +91,8 @@ export default function App() {
   useEffect(() => {
     // 后台探测已安装的智能体（bin + 开始菜单），不阻塞首屏
     void useAgentStore.getState().detectInstalled();
+    // 首页推荐核心：启动即后台拉取网站 API 最新目录（内置数据已先渲染，拉到即换）
+    void useCatalogStore.getState().refresh();
     void (async () => {
       await checkWinget();
       // 启动即后台跑一遍 winget 快照（陈旧才真跑），界面先读 SQLite 毫秒渲染
@@ -176,7 +178,6 @@ export default function App() {
       <TaskPanel />
       <DetailModal />
       <NotesDialog />
-      <TerminalPromptDialog />
       <LeftoverDialog />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <SelfUpdateDialog />

@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import * as ipc from "../ipc/client";
 import type { AppDetail, GhRelease } from "../ipc/types";
-import { CATALOG_BY_ID } from "../catalog/apps";
+import { useCatalogStore } from "./catalogStore";
 
 const detailCache = new Map<string, AppDetail>();
 const ghCache = new Map<string, GhRelease>();
@@ -32,7 +32,7 @@ export const useDetailStore = create<DetailStore>()((set) => ({
   open: async (id) => {
     const key = id.toLowerCase();
     const cached = detailCache.get(key);
-    const repo = CATALOG_BY_ID.get(key)?.github;
+    const repo = useCatalogStore.getState().appsById.get(key)?.github;
     const ghCached = repo ? ghCache.get(repo) : null;
     set({
       detailId: id,

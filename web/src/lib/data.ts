@@ -27,6 +27,7 @@ export interface EnvSpec {
   secret?: boolean;
   required?: boolean;
   hint?: string;
+  url?: string;
   defaultValue?: string;
 }
 

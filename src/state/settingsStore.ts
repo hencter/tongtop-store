@@ -2,6 +2,9 @@
 
 import { create } from "zustand";
 
+/** 目录数据 API 默认地址（网站静态 JSON，首页推荐实时更新源） */
+export const DEFAULT_CATALOG_API = "https://store.tongtianlu.cn";
+
 /** 忽略更新的取值：具体版本号 = 忽略此版本；"*" = 永久忽略 */
 export type IgnoredMap = Record<string, string>;
 
@@ -17,7 +20,10 @@ interface SettingsStore {
   /** GitHub 资产链接加速前缀（"" = 直连） */
   ghProxy: string;
   setGhProxy: (v: string) => void;
-  /** 启动智能体后自动退出商店（"任务结束"） */
+  /** 目录数据 API（首页推荐实时更新源；"" = 仅用内置数据） */
+  catalogApi: string;
+  setCatalogApi: (v: string) => void;
+  /** 启动智能体后自动退出商店（默认 false：窗口收进托盘常驻后台） */
   autoExit: boolean;
   setAutoExit: (v: boolean) => void;
   /** winget 默认安装目录（"" = winget 默认；如 D:\Apps） */
@@ -39,7 +45,13 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     localStorage.setItem("tongtop.ghProxy", v);
     set({ ghProxy: v });
   },
-  autoExit: localStorage.getItem("tongtop.autoExit") !== "0",
+  catalogApi: localStorage.getItem("tongtop.catalogApi") ?? DEFAULT_CATALOG_API,
+  setCatalogApi: (v) => {
+    localStorage.setItem("tongtop.catalogApi", v);
+    set({ catalogApi: v });
+  },
+  // 默认常驻托盘（"1" 才是退出商店；未设置过的老用户同样迁移到新默认）
+  autoExit: localStorage.getItem("tongtop.autoExit") === "1",
   setAutoExit: (v) => {
     localStorage.setItem("tongtop.autoExit", v ? "1" : "0");
     set({ autoExit: v });

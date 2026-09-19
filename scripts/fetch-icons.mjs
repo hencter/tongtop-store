@@ -64,6 +64,7 @@ const WANTED = {
   "agalwood.motrix": [{ fav: "motrix.app" }, { i: "simple-icons:motrix", c: "#FF6B2C" }],
   "baidu.baidunetdisk": [{ i: "simple-icons:baidu", c: "#4E6EF2" }],
   "alibaba.adrive": [{ i: "simple-icons:alibabacloud", c: "#FF6A00" }],
+  "nutstore.nutstore": [{ fav: "www.jianguoyun.com" }],
   "youqu.todesk": [{ fav: "todesk.com" }],
 
   // ---- AI 智能体 ----

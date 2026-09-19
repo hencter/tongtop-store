@@ -5,8 +5,7 @@
 
 import { useMemo } from "react";
 import { Bot, ChevronRight, Zap } from "lucide-react";
-import { CATALOG, CATALOG_BY_ID } from "../../catalog/apps";
-import { AGENTS } from "../../catalog/agents";
+import { useCatalogStore } from "../../state/catalogStore";
 import { MIRROR_TOOLS } from "../../catalog/mirrors";
 import { useAppStore, type Tab } from "../../state/appStore";
 import { useAgentStore } from "../../state/agentStore";
@@ -54,6 +53,10 @@ export function SearchPage() {
   const setPageQuery = useAppStore((s) => s.setPageQuery);
   const openAgent = useAgentStore((s) => s.open);
   const openNotes = useNotesStore((s) => s.open);
+  // 目录数据（catalogStore 统一持有：内置 + 网站 API 实时更新）
+  const CATALOG = useCatalogStore((s) => s.apps);
+  const AGENTS = useCatalogStore((s) => s.agents);
+  const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
 
   const q = query.trim().toLowerCase();
 

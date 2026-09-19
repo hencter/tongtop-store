@@ -16,6 +16,8 @@ export interface EnvSpec {
   secret?: boolean;
   required?: boolean;
   hint?: string;
+  /** 获取密钥的直达链接（hint 变为可点击跳转） */
+  url?: string;
   defaultValue?: string;
 }
 

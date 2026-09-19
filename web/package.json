@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "dev:api": "node scripts/dev-api.mjs",
-    "build": "node scripts/prepare-installer.mjs && astro build",
+    "build": "node scripts/prepare-installer.mjs && node scripts/prepare-catalog.mjs && astro build",
     "preview": "astro preview",
     "verify:links": "node scripts/verify-links.mjs"
   },

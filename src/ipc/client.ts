@@ -5,6 +5,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CATALOG } from "../catalog/apps";
 import type {
   AppDetail,
@@ -228,9 +229,21 @@ export async function mirrorLatencies(urls: string[]): Promise<MirrorLatency[]> 
 /** 商店自更新：检查 GitHub Releases 上的新版本 */
 export async function checkSelfUpdate(): Promise<SelfUpdateInfo> {
   if (!isTauri()) {
-    return { current: "0.4.0", latest: "0.4.0", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false };
+    return { current: "0.4.1", latest: "0.4.1", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false };
   }
   return invoke<SelfUpdateInfo>("check_self_update");
+}
+
+/** 从网站静态 API 拉最新目录数据（首页推荐实时更新；失败时调用方保留内置数据） */
+export interface CatalogDto {
+  apps: unknown[];
+  agents: unknown[];
+  categories: unknown[];
+  updatedAt: number;
+}
+export async function catalogFetch(base: string): Promise<CatalogDto> {
+  if (!isTauri()) throw new Error("浏览器预览模式");
+  return invoke<CatalogDto>("catalog_fetch", { base });
 }
 
 /** 下载新版安装包（进度走 self-update-progress 事件），返回临时文件路径 */
@@ -239,8 +252,74 @@ export async function downloadSelfUpdate(url: string): Promise<string> {
   return invoke<string>("download_self_update", { url });
 }
 
+/** 静默更新看门狗：等本进程退出 → NSIS /S 静默安装 → 自动拉起新版本 */
+export async function applySelfUpdate(installerPath: string): Promise<void> {
+  if (!isTauri()) return;
+  return invoke("apply_self_update", { installerPath });
+}
+
 /** 真正退出应用（关窗口默认收进托盘） */
 export async function quitApp(): Promise<void> {
   if (!isTauri()) return;
   return invoke("quit_app");
+}
+
+// ---------- 内嵌终端（ConPTY + xterm.js） ----------
+
+export interface TermSpec {
+  program: string;
+  args?: string[];
+  env?: Record<string, string>;
+  pathExtra?: string[];
+  cols?: number;
+  rows?: number;
+}
+
+/** 启动一条 PTY 会话（输出走 term-data-<id> 事件，退出走 term-exit-<id>） */
+export async function termSpawn(id: string, spec: TermSpec): Promise<void> {
+  if (!isTauri()) throw new Error("浏览器预览模式：终端能力仅在桌面端可用");
+  return invoke("term_spawn", { id, spec });
+}
+
+/** 挂载前输出的回滚缓冲（新窗口补发用） */
+export async function termBacklog(id: string): Promise<string> {
+  if (!isTauri()) return "";
+  return invoke<string>("term_backlog", { id });
+}
+
+export async function termWrite(id: string, data: string): Promise<void> {
+  if (!isTauri()) return;
+  return invoke("term_write", { id, data });
+}
+
+export async function termResize(id: string, cols: number, rows: number): Promise<void> {
+  if (!isTauri()) return;
+  return invoke("term_resize", { id, cols, rows });
+}
+
+/** 杀进程（关窗时调用） */
+export async function termKill(id: string): Promise<void> {
+  if (!isTauri()) return;
+  return invoke("term_kill", { id });
+}
+
+/** 打开独立的终端渲染窗口（无边框，自定义品牌标题栏；?term= 路由） */
+export async function openTerminalWindow(id: string, title: string): Promise<void> {
+  if (!isTauri()) return;
+  const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+  new WebviewWindow(`term-${id}`, {
+    url: `index.html?term=${encodeURIComponent(id)}&title=${encodeURIComponent(title)}`,
+    title,
+    width: 920,
+    height: 580,
+    minWidth: 480,
+    minHeight: 320,
+    decorations: false,
+  });
+}
+
+/** 隐藏窗口收进托盘（启动智能体后常驻后台；托盘图标可唤回） */
+export async function hideWindow(): Promise<void> {
+  if (!isTauri()) return;
+  await getCurrentWindow().hide();
 }

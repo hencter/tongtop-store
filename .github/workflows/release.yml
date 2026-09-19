@@ -65,6 +65,13 @@ jobs:
       - name: 构建桌面端安装包（NSIS）
         run: pnpm tauri build
 
+      - name: 复制固定名资产（自更新 latest slug 直链）
+        shell: bash
+        run: |
+          cd src-tauri/target/release/bundle/nsis
+          cp tongtop-store_*_x64-setup.exe tongtop-store-setup.exe
+          ls -la
+
       - name: 生成 winget 清单
         run: node scripts/winget-bump.mjs
 

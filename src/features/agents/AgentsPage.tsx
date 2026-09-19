@@ -10,9 +10,12 @@ import {
   Loader2,
   Play,
   Rocket,
+  Trash2,
+  X,
   XCircle,
 } from "lucide-react";
-import { AGENTS, type AgentRecipe } from "../../catalog/agents";
+import { type AgentRecipe } from "../../catalog/agents";
+import { useCatalogStore } from "../../state/catalogStore";
 import { useAgentStore, type Step } from "../../state/agentStore";
 import { useAppStore } from "../../state/appStore";
 import { useSettingsStore } from "../../state/settingsStore";
@@ -96,10 +99,12 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
   const setUseMirror = useAgentStore((s) => s.setUseMirror);
   const start = useAgentStore((s) => s.start);
   const launch = useAgentStore((s) => s.launch);
+  const uninstall = useAgentStore((s) => s.uninstall);
   const close = useAgentStore((s) => s.close);
   const reset = useAgentStore((s) => s.reset);
   const autoExit = useSettingsStore((s) => s.autoExit);
   const setAutoExit = useSettingsStore((s) => s.setAutoExit);
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
 
   const logRef = useRef<HTMLPreElement>(null);
   useEffect(() => {
@@ -157,7 +162,17 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                         {e.label}
                         {e.required && <span className="text-destructive"> *</span>}
                       </span>
-                      {e.hint && <span className="text-[10px] text-muted-foreground">{e.hint}</span>}
+                      {e.url ? (
+                        <button
+                          className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                          onClick={() => void openUrl(e.url!)}
+                          title={`前往申请：${e.url}`}
+                        >
+                          {e.hint ?? "获取 Key"} <ExternalLink className="size-2.5" />
+                        </button>
+                      ) : (
+                        e.hint && <span className="text-[10px] text-muted-foreground">{e.hint}</span>
+                      )}
                     </div>
                     <Input
                       type={e.secret ? "password" : "text"}
@@ -208,12 +223,43 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                 <Button size="lg" className="flex-1" onClick={() => void launch()}>
                   <Play className="size-4" /> {recipe.webPort ? "启动并打开浏览器" : `启动 ${recipe.name}`}
                 </Button>
-                {installed && (
-                  <Button variant="outline" size="lg" className="shrink-0" onClick={reset}>
-                    重新装机
-                  </Button>
+                {installed && !confirmUninstall && (
+                  <>
+                    <Button variant="outline" size="lg" className="shrink-0" onClick={reset}>
+                      重新装机
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="shrink-0 text-destructive hover:text-destructive"
+                      disabled={running}
+                      title="卸载本体（保留已写入的密钥环境变量）"
+                      onClick={() => setConfirmUninstall(true)}
+                    >
+                      <Trash2 className="size-4" /> 卸载
+                    </Button>
+                  </>
                 )}
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-muted-foreground" title="启动后商店自动退出——任务结束">
+                {confirmUninstall && (
+                  <>
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      className="shrink-0"
+                      disabled={running}
+                      onClick={() => {
+                        setConfirmUninstall(false);
+                        void uninstall();
+                      }}
+                    >
+                      {running ? <Loader2 className="size-4 animate-spin" /> : "确认卸载"}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="size-10 shrink-0" onClick={() => setConfirmUninstall(false)} title="取消">
+                      <X className="size-4" />
+                    </Button>
+                  </>
+                )}
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-muted-foreground" title="默认常驻托盘（后台运行，托盘可唤回）；开启则启动后真正退出商店">
                   <Switch checked={autoExit} onCheckedChange={setAutoExit} />
                   启动后退出商店
                 </label>
@@ -241,30 +287,32 @@ export function AgentsPage() {
   const installedMap = useAgentStore((s) => s.installedMap);
   const detectInstalled = useAgentStore((s) => s.detectInstalled);
   const pageQuery = useAppStore((s) => s.pageQueries.agents ?? "");
-  const recipe = AGENTS.find((a) => a.id === agentId);
-  const [kind, setKind] = useState<AgentTab>("cli");
+  const tab = useAppStore((s) => s.tab);
+  const agents = useCatalogStore((s) => s.agents);
+  const recipe = agents.find((a) => a.id === agentId);
+  const [kind, setKind] = useState<AgentTab>("desktop");
 
-  // 进入本页重新探测一次（开机探测后用户可能又装了新东西）
+  // 每次切回本页都重新探测（keep-alive 下 useEffect 只在首次挂载跑，故监听 tab）
   useEffect(() => {
-    void detectInstalled();
-  }, [detectInstalled]);
+    if (tab === "agents") void detectInstalled();
+  }, [tab, detectInstalled]);
 
   if (recipe) return <SetupPage recipe={recipe} />;
 
   // 标题栏搜索（本页作用域）：过滤名称 / 厂商 / 简介
   const q = pageQuery.trim().toLowerCase();
   const searched = q
-    ? AGENTS.filter(
+    ? agents.filter(
         (a) =>
           a.name.toLowerCase().includes(q) ||
           a.vendor.toLowerCase().includes(q) ||
           a.desc.toLowerCase().includes(q),
       )
-    : AGENTS;
+    : agents;
   // 搜索时跨分栏展示全部命中；否则按当前分栏过滤
   const shown = q ? searched : searched.filter((a) => kindOf(a) === kind);
-  const cliCount = AGENTS.filter((a) => kindOf(a) === "cli").length;
-  const desktopCount = AGENTS.length - cliCount;
+  const cliCount = agents.filter((a) => kindOf(a) === "cli").length;
+  const desktopCount = agents.length - cliCount;
 
   return (
     <div className="page h-full overflow-y-auto">
@@ -272,8 +320,8 @@ export function AgentsPage() {
         <h2 className="m-0 text-lg font-semibold tracking-wide">AI 智能体</h2>
         <PageTabs
           tabs={[
-            { id: "cli" as const, label: "CLI 端", count: cliCount },
             { id: "desktop" as const, label: "桌面端", count: desktopCount },
+            { id: "cli" as const, label: "CLI 端", count: cliCount },
           ]}
           active={kind}
           onChange={setKind}

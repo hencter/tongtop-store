@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import * as ipc from "../ipc/client";
-import { CATALOG_BY_ID } from "../catalog/apps";
+import { useCatalogStore } from "./catalogStore";
 
 interface NotesStore {
   notesFor: string | null;
@@ -27,7 +27,7 @@ export const useNotesStore = create<NotesStore>()((set) => ({
   error: null,
   open: async (id, displayName) => {
     set({ notesFor: id, title: displayName, text: "", url: "", loading: true, error: null });
-    const catalog = CATALOG_BY_ID.get(id.toLowerCase());
+    const catalog = useCatalogStore.getState().appsById.get(id.toLowerCase());
     try {
       if (catalog?.github) {
         const r = await ipc.githubRelease(catalog.github);

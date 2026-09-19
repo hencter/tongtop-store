@@ -1,0 +1,98 @@
+[
+  {
+    "id": "npm",
+    "name": "Node.js · npm",
+    "lang": "JavaScript / TypeScript",
+    "desc": "Node.js 运行时与 npm 包管理器，前端与 AI CLI 的基石",
+    "bin": "npm",
+    "winget": "OpenJS.NodeJS.LTS",
+    "homepage": "https://nodejs.org/",
+    "mirrorId": "npm"
+  },
+  {
+    "id": "pnpm",
+    "name": "pnpm",
+    "lang": "JavaScript / TypeScript",
+    "desc": "硬链接磁盘友好的 npm 替代品，monorepo 标配",
+    "bin": "pnpm",
+    "winget": "pnpm.pnpm",
+    "homepage": "https://pnpm.io/",
+    "mirrorId": "npm"
+  },
+  {
+    "id": "yarn",
+    "name": "Yarn",
+    "lang": "JavaScript / TypeScript",
+    "desc": "经典 Yarn 1.x 包管理器，老项目兼容性最好",
+    "bin": "yarn",
+    "winget": "Yarn.Yarn",
+    "homepage": "https://classic.yarnpkg.com/",
+    "mirrorId": "npm"
+  },
+  {
+    "id": "bun",
+    "name": "Bun",
+    "lang": "JavaScript / TypeScript",
+    "desc": "一体化 JS 运行时与包管理器，安装与启动都快",
+    "bin": "bun",
+    "winget": "Oven-sh.Bun",
+    "homepage": "https://bun.sh/"
+  },
+  {
+    "id": "pip",
+    "name": "Python · pip",
+    "lang": "Python",
+    "desc": "Python 3.13 运行时与 pip 包管理器，AI 工具的首选语言",
+    "bin": "pip",
+    "winget": "Python.Python.3.13",
+    "homepage": "https://www.python.org/",
+    "mirrorId": "pip"
+  },
+  {
+    "id": "uv",
+    "name": "uv",
+    "lang": "Python",
+    "desc": "Rust 写的极速 Python 包/环境管理器，pip 的现代替代",
+    "bin": "uv",
+    "winget": "astral-sh.uv",
+    "homepage": "https://docs.astral.sh/uv/"
+  },
+  {
+    "id": "cargo",
+    "name": "Rust · Cargo",
+    "lang": "Rust",
+    "desc": "rustup 工具链与 Cargo 包管理器，编译型 CLI 工具大本营",
+    "bin": "cargo",
+    "winget": "Rustlang.Rustup",
+    "homepage": "https://www.rust-lang.org/",
+    "mirrorId": "cargo"
+  },
+  {
+    "id": "go",
+    "name": "Go",
+    "lang": "Go",
+    "desc": "Go 语言工具链，go install 一条命令装遍云原生工具",
+    "bin": "go",
+    "winget": "GoLang.Go",
+    "homepage": "https://go.dev/",
+    "mirrorId": "go"
+  },
+  {
+    "id": "dotnet",
+    "name": ".NET SDK · NuGet",
+    "lang": "C# / F#",
+    "desc": ".NET 9 SDK 与 NuGet 包管理器，dotnet tool 生态",
+    "bin": "dotnet",
+    "winget": "Microsoft.DotNet.SDK.9",
+    "homepage": "https://dotnet.microsoft.com/"
+  },
+  {
+    "id": "ruby",
+    "name": "Ruby · RubyGems",
+    "lang": "Ruby",
+    "desc": "Ruby 3.4 运行时与 gem 包管理器（RubyInstaller，含 MSYS2 工具链）",
+    "bin": "gem",
+    "winget": "RubyInstallerTeam.Ruby.3.4",
+    "homepage": "https://www.ruby-lang.org/"
+  }
+]

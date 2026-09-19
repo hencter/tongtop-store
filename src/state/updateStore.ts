@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import * as ipc from "../ipc/client";
 import type { SelfUpdateInfo } from "../ipc/types";
+import { useSettingsStore } from "./settingsStore";
 
 const SKIP_KEY = "tongtop.skipVersion";
 
@@ -62,11 +63,14 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       set({ progress: e.payload });
     });
     try {
-      const path = await ipc.downloadSelfUpdate(info.assetUrl);
-      // 拉起安装器（NSIS 会接管升级流程），然后真正退出本应用
-      await ipc.launchAgent({ program: path, args: [] });
+      // 固定 latest slug 直链；镜像中心开了加速就套前缀（国内直连 GitHub 慢）
+      const ghProxy = useSettingsStore.getState().ghProxy;
+      const url = ghProxy ? ghProxy + info.assetUrl : info.assetUrl;
+      const path = await ipc.downloadSelfUpdate(url);
+      // 静默更新：watcher 接管（等退出 → NSIS /S → 自动重启新版），本应用立即退出
+      await ipc.applySelfUpdate(path);
       set({ open: false });
-      setTimeout(() => void ipc.quitApp(), 600);
+      setTimeout(() => void ipc.quitApp(), 300);
     } catch (e) {
       set({ error: String(e), progress: null });
     } finally {

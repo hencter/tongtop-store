@@ -2,7 +2,7 @@
 
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, Download, ExternalLink, Loader2, TrendingUp } from "lucide-react";
-import { CATALOG_BY_ID } from "../catalog/apps";
+import { useCatalogStore } from "../state/catalogStore";
 import { useDetailStore } from "../state/detailStore";
 import { useTaskStore } from "../state/taskStore";
 import { useAppStore } from "../state/appStore";
@@ -42,6 +42,7 @@ export function DetailModal() {
   const silent = useTaskStore((s) => s.silent);
   const ghProxy = useSettingsStore((s) => s.ghProxy);
 
+  const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
   const catalog = detailId ? CATALOG_BY_ID.get(detailId.toLowerCase()) : undefined;
   const homepage = catalog?.site ?? (detail?.homepage || undefined);
   const name = catalog?.name ?? detail?.name ?? detailId ?? "";

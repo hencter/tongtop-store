@@ -6,7 +6,8 @@
 import { useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, Download, ExternalLink, Loader2, RefreshCw, Tag } from "lucide-react";
-import { GH_REPOS, useGithubZoneStore } from "../../state/githubZoneStore";
+import { ghRepos, useGithubZoneStore } from "../../state/githubZoneStore";
+import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { useTaskStore, MAX_QUEUE } from "../../state/taskStore";
@@ -137,6 +138,9 @@ export function GitHubPage() {
   const loadedOnce = useGithubZoneStore((s) => s.loadedOnce);
   const fetchedAt = useGithubZoneStore((s) => s.fetchedAt);
   const pageQuery = useAppStore((s) => s.pageQueries.github ?? "");
+  // 目录随 API 更新时专区条目跟着刷新（订阅 catalog 触发重渲染）
+  useCatalogStore((s) => s.apps);
+  const GH_REPOS = ghRepos();
 
   // 首次进入拉取（之后命中会话缓存，手动刷新才重拉 —— 匿名限流 60 次/小时）
   useEffect(() => {

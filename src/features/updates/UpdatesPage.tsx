@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { BellOff, RefreshCw, Rocket } from "lucide-react";
-import { CATALOG_BY_ID } from "../../catalog/apps";
+import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { useTaskStore } from "../../state/taskStore";
 import { useNotesStore } from "../../state/notesStore";
@@ -25,6 +25,7 @@ import {
 const ROW_H = 64;
 
 export function UpdatesPage() {
+  const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
   const upgrades = useAppStore((s) => s.upgrades);
   const upgradesAt = useAppStore((s) => s.upgradesAt);
   const loading = useAppStore((s) => s.snapshotLoading);

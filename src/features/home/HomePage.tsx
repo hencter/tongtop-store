@@ -4,12 +4,14 @@ import { memo, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, Trash2, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
-import { CATALOG, CATEGORIES, type CatalogApp, type CategoryId } from "../../catalog/apps";
-import { AGENTS, type AgentRecipe } from "../../catalog/agents";
+import { type CatalogApp, type CategoryId } from "../../catalog/apps";
+import { type AgentRecipe } from "../../catalog/agents";
+import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { deepUninstall } from "../../state/leftoverStore";
 import { useAgentStore } from "../../state/agentStore";
 import { useTaskStore } from "../../state/taskStore";
+import { timeLabel } from "../../domain/format";
 import { AppIcon } from "../../components/AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -153,8 +155,16 @@ export function HomePage() {
   const openAgent = useAgentStore((s) => s.open);
   const agentsInstalled = useAgentStore((s) => s.installedMap);
   const pageQuery = useAppStore((s) => s.pageQueries.home ?? "");
+  // 目录数据：内置首屏 + 网站 API 实时更新（catalogStore 统一持有）
+  const CATALOG = useCatalogStore((s) => s.apps);
+  const AGENTS = useCatalogStore((s) => s.agents);
+  const CATEGORIES = useCatalogStore((s) => s.categories);
+  const catalogAt = useCatalogStore((s) => s.updatedAt);
+  const catalogSource = useCatalogStore((s) => s.source);
   const [cat, setCat] = useState<CategoryId | "all">("all");
   const shown = cat === "all" ? CATEGORIES : CATEGORIES.filter((c) => c.id === cat);
+  // 智能体区也参与分类筛选：选具体分类后不再占位（否则被选分类被顶到视口外，感觉像没切换）
+  const showAgents = cat === "all" || cat === "ai";
 
   // 标题栏搜索（本页作用域）：非空时筛目录与智能体，替换分类分区展示
   const q = pageQuery.trim().toLowerCase();
@@ -197,12 +207,13 @@ export function HomePage() {
   return (
     <div className="page h-full overflow-y-auto">
       <section className="pb-2 pt-6 text-center">
-        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-xl bg-primary text-primary-foreground">
-          <AppLogo className="size-6" />
-        </div>
+        <AppLogo className="mx-auto mb-4 size-14 rounded-xl" />
         <h1 className="m-0 text-2xl font-semibold tracking-tight">应用商店</h1>
         <p className="mb-5 mt-2 text-sm text-muted-foreground">
           不托管任何安装包，只做官方软件下载链接的分发
+        </p>
+        <p className="mb-3 -mt-3 text-[10px] text-muted-foreground/70">
+          {catalogSource === "remote" ? `推荐内容实时更新 · ${timeLabel(catalogAt)}` : "推荐内容：内置快照（联网后自动更新）"}
         </p>
         <div className="mx-auto flex h-10 max-w-[540px] items-center gap-2.5 rounded-md border border-input bg-background px-3 text-muted-foreground transition-shadow focus-within:ring-2 focus-within:ring-ring/40">
           <Search className="size-4" />
@@ -276,6 +287,7 @@ export function HomePage() {
         </section>
       ) : (
         <>
+          {showAgents && (
           <section className="mt-8">
             <div className="mb-3.5 flex items-baseline justify-between">
               <h2 className="m-0 text-sm font-semibold tracking-wide">AI 智能体</h2>
@@ -294,6 +306,7 @@ export function HomePage() {
               ))}
             </div>
           </section>
+          )}
 
           {shown.map((c) => {
             // AI 分类聚合：AI 原生应用 + 带 AI 功能的常规软件

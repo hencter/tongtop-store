@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, Download, Loader2, RefreshCw, Trash2, X, Zap } from "lucide-react";
-import { CATALOG_BY_ID } from "../../catalog/apps";
+import { useCatalogStore } from "../../state/catalogStore";
 import { DEVTOOLS, type DevTool } from "../../catalog/devtools";
 import { useAppStore } from "../../state/appStore";
 import { useDevtoolsStore } from "../../state/devtoolsStore";
@@ -134,13 +134,14 @@ function DevtoolsPanel() {
   const status = useDevtoolsStore((s) => s.status);
   const detecting = useDevtoolsStore((s) => s.detecting);
   const detect = useDevtoolsStore((s) => s.detect);
+  const tab = useAppStore((s) => s.tab);
   const detected = Object.keys(status).length > 0;
   const installedCount = DEVTOOLS.filter((d) => status[d.bin.toLowerCase()]?.installed).length;
 
-  // 首次进入自动探测
+  // 每次切回本页都重新探测（keep-alive 下 useEffect 只在首次挂载跑，故监听 tab）
   useEffect(() => {
-    if (!detected) void detect();
-  }, [detected, detect]);
+    if (tab === "installed") void detect();
+  }, [tab, detect]);
 
   return (
     <>
@@ -181,6 +182,7 @@ export function InstalledPage() {
   const loading = useAppStore((s) => s.snapshotLoading);
   const refresh = useAppStore((s) => s.refreshSnapshot);
   const pageQuery = useAppStore((s) => s.pageQueries.installed ?? "");
+  const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
   const [section, setSection] = useState<"apps" | "devtools">("apps");
 
   // 标题栏搜索（本页作用域）：本地过滤名称 / ID

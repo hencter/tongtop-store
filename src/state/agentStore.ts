@@ -6,12 +6,13 @@
 import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { AGENTS, type AgentRecipe } from "../catalog/agents";
+import { type AgentRecipe } from "../catalog/agents";
+import { useCatalogStore } from "./catalogStore";
 import * as ipc from "../ipc/client";
 import type { TaskLogEvent, TaskSpec } from "../ipc/types";
 import { useTaskStore } from "./taskStore";
 import { useSettingsStore } from "./settingsStore";
-import { useTerminalStore } from "./terminalStore";
+import { deepUninstall } from "./leftoverStore";
 
 export type StepStatus = "pending" | "running" | "ok" | "fail" | "skipped";
 
@@ -59,6 +60,8 @@ interface AgentStore {
   setUseMirror: (v: boolean) => void;
   start: () => Promise<void>;
   launch: () => Promise<void>;
+  /** 卸载本体（npm -g / pip / winget 三种渠道对应三种卸载；保留已写的密钥环境变量） */
+  uninstall: () => Promise<void>;
 }
 
 function setStep(steps: Step[], id: string, patch: Partial<Step>): Step[] {
@@ -81,8 +84,8 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
     if (get().detecting) return;
     set({ detecting: true });
     try {
-      const cli = AGENTS.filter((a) => !a.desktopNames);
-      const gui = AGENTS.filter((a) => a.desktopNames);
+      const cli = useCatalogStore.getState().agents.filter((a) => !a.desktopNames);
+      const gui = useCatalogStore.getState().agents.filter((a) => a.desktopNames);
       const [tools, startApps] = await Promise.all([
         ipc.checkTools(cli.map((a) => a.bin)),
         gui.length > 0 ? ipc.listStartApps() : Promise.resolve([]),
@@ -103,7 +106,7 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
   },
 
   open: (agentId) => {
-    const recipe = AGENTS.find((a) => a.id === agentId);
+    const recipe = useCatalogStore.getState().agents.find((a) => a.id === agentId);
     if (!recipe) return;
     const envValues: Record<string, string> = {};
     for (const e of recipe.env) envValues[e.name] = e.defaultValue ?? "";
@@ -133,7 +136,7 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
   close: () => set({ agentId: null, steps: [], running: false, finished: false, log: [] }),
   /** 重新装机：流水线回到初始态（保留已填的密钥） */
   reset: () => {
-    const recipe = AGENTS.find((a) => a.id === get().agentId);
+    const recipe = useCatalogStore.getState().agents.find((a) => a.id === get().agentId);
     if (!recipe) return;
     set({ steps: buildSteps(recipe), running: false, finished: false, log: [] });
   },
@@ -142,7 +145,7 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
 
   start: async () => {
     const { agentId, envValues, useMirror } = get();
-    const recipe = AGENTS.find((a) => a.id === agentId);
+    const recipe = useCatalogStore.getState().agents.find((a) => a.id === agentId);
     if (!recipe || get().running) return;
     const task = useTaskStore.getState();
     set({ running: true, finished: false, log: [] });
@@ -245,9 +248,59 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
     }
   },
 
+  uninstall: async () => {
+    const recipe = useCatalogStore.getState().agents.find((a) => a.id === get().agentId);
+    if (!recipe || get().running) return;
+    const task = useTaskStore.getState();
+    set({ running: true, log: [`开始卸载 ${recipe.name}…`] });
+    const done = async (ok: boolean, note: string) => {
+      set({
+        running: false,
+        finished: false,
+        steps: ok ? buildSteps(recipe) : get().steps,
+        log: [...get().log, note],
+      });
+      // 重探测已安装状态（卡片徽章同步刷新）
+      await get().detectInstalled();
+    };
+    try {
+      if (recipe.install.kind === "winget") {
+        // winget 本体（含桌面端）：真实卸载 + Geek 式残留扫描（弹层由 leftoverStore 接管）
+        await deepUninstall(recipe.install.package, recipe.name);
+        await done(true, `${recipe.name} 已卸载。装机时写入的密钥环境变量保留（可能与其他工具共享）。`);
+        return;
+      }
+      const spec: TaskSpec =
+        recipe.install.kind === "npm"
+          ? {
+              kind: "process",
+              program: "npm",
+              args: ["uninstall", "-g", recipe.install.package],
+              pathExtra: recipe.pathExtra,
+              display: `npm 卸载 ${recipe.name}`,
+            }
+          : {
+              kind: "process",
+              program: "python",
+              args: ["-m", "pip", "uninstall", "-y", recipe.install.package],
+              pathExtra: recipe.pathExtra,
+              display: `pip 卸载 ${recipe.name}`,
+            };
+      const r = await task.runTask(`agent:${recipe.id}:uninstall`, spec);
+      await done(
+        r.success,
+        r.success
+          ? `${recipe.name} 已卸载。装机时写入的密钥环境变量保留（可能与其他工具共享）。`
+          : `卸载失败（退出码 ${r.code}）`,
+      );
+    } catch (e) {
+      await done(false, String(e));
+    }
+  },
+
   launch: async () => {
     const { agentId, envValues } = get();
-    const recipe = AGENTS.find((a) => a.id === agentId);
+    const recipe = useCatalogStore.getState().agents.find((a) => a.id === agentId);
     if (!recipe) return;
     const env: Record<string, string> = {};
     for (const e of recipe.env) {
@@ -258,42 +311,33 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
       // 桌面端（GUI）：经开始菜单 AppID 启动，无需知道 exe 落点
       await ipc.launchDesktopApp(recipe.desktopNames);
     } else {
-      // CLI 型一键启动：优先 Windows Terminal；未装则弹窗建议（可一键安装 / 旧版控制台 / 取消）
-      const term = await useTerminalStore.getState().ensureTerminal(recipe.name);
-      if (term === "cancel") return;
-      const wt = term === "wt";
-      if (recipe.webPort) {
-        // Web 型：拉起本地服务（窗口常驻），稍后自动打开浏览器
-        await ipc.launchAgent({
-          program: wt ? "wt" : recipe.bin,
-          args: wt ? [recipe.bin, ...(recipe.launchArgs ?? [])] : (recipe.launchArgs ?? []),
+      // CLI 型一键启动：内嵌终端（商店自己的窗口，ConPTY 直连子进程，
+      // env/PATH 注入 100% 可靠——彻底绕开外部终端的解析怪癖）
+      try {
+        const id = `${recipe.id}-${Date.now().toString(36)}`;
+        await ipc.termSpawn(id, {
+          program: recipe.bin,
+          args: recipe.launchArgs ?? [],
           env,
           pathExtra: recipe.pathExtra,
         });
-        // 等服务就绪再开浏览器（若此刻退出商店，setTimeout 会随窗口销毁）
-        await new Promise((r) => setTimeout(r, 3000));
-        await openUrl(`http://localhost:${recipe.webPort}`);
-      } else if (recipe.keepOpen) {
-        // 非 REPL 型工具用 cmd /k 保持窗口
-        const joined = [recipe.bin, ...(recipe.launchArgs ?? [])].join(" ");
-        await ipc.launchAgent({
-          program: wt ? "wt" : "cmd.exe",
-          args: wt ? ["cmd", "/k", joined] : ["/k", joined],
-          env,
-          pathExtra: recipe.pathExtra,
-        });
-      } else {
-        await ipc.launchAgent({
-          program: wt ? "wt" : recipe.bin,
-          args: wt ? [recipe.bin, ...(recipe.launchArgs ?? [])] : (recipe.launchArgs ?? []),
-          env,
-          pathExtra: recipe.pathExtra,
-        });
+        await ipc.openTerminalWindow(id, recipe.name);
+        if (recipe.webPort) {
+          // Web 型：等服务就绪再开浏览器（若此刻退出商店，setTimeout 会随窗口销毁）
+          await new Promise((r) => setTimeout(r, 3000));
+          await openUrl(`http://localhost:${recipe.webPort}`);
+        }
+      } catch (e) {
+        // 失败必须可见（窗口权限/进程解析/PTY 创建任何一环出错都写到日志区）
+        set({ log: [...get().log, `启动失败：${String(e)}`] });
+        return;
       }
     }
-    // “任务结束”：启动成功后商店真正退出（关窗口默认只收进托盘）
+    // 启动成功后：autoExit → 真正退出；否则窗口收进托盘常驻后台（随时从托盘唤回）
     if (useSettingsStore.getState().autoExit) {
       await ipc.quitApp();
+    } else {
+      await ipc.hideWindow();
     }
   },
 }));

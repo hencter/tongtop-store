@@ -78,7 +78,7 @@ export function SelfUpdateDialog() {
               <Button variant="ghost" disabled={downloading} onClick={() => dismiss(true)}>
                 忽略此版本
               </Button>
-              <Button disabled={downloading || !info?.assetUrl} onClick={() => void start()}>
+              <Button disabled={downloading || !info?.assetUrl} onClick={() => void start()} title="下载后静默安装并自动重启，全程无弹窗">
                 {downloading ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" /> 下载中…

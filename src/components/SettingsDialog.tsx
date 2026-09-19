@@ -1,11 +1,12 @@
-/** 设置弹层：默认安装目录（如 D:\Apps）+ 版本与检查更新。 */
+/** 设置弹层：默认安装目录（如 D:\Apps）+ 启动后行为 + 版本与检查更新。 */
 
 import { useState } from "react";
-import { HardDrive, Loader2, RefreshCw } from "lucide-react";
+import { HardDrive, Loader2, RefreshCw, Rocket } from "lucide-react";
 import { useSettingsStore } from "../state/settingsStore";
 import { useUpdateStore } from "../state/updateStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,8 @@ import {
 export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const installLocation = useSettingsStore((s) => s.installLocation);
   const setInstallLocation = useSettingsStore((s) => s.setInstallLocation);
+  const autoExit = useSettingsStore((s) => s.autoExit);
+  const setAutoExit = useSettingsStore((s) => s.setAutoExit);
   const check = useUpdateStore((s) => s.check);
   const checking = useUpdateStore((s) => s.checking);
   const info = useUpdateStore((s) => s.info);
@@ -64,9 +67,19 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             </p>
           </div>
 
+          <div className="border-t border-border pt-3.5">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium">
+              <Rocket className="size-3.5" /> 启动智能体后
+            </div>
+            <label className="flex cursor-pointer items-center justify-between text-[13px]">
+              <span className="text-muted-foreground">退出商店（默认常驻托盘，可随时唤回）</span>
+              <Switch checked={autoExit} onCheckedChange={setAutoExit} />
+            </label>
+          </div>
+
           <div className="flex items-center justify-between border-t border-border pt-3.5">
             <div className="text-[13px]">
-              <div className="font-medium">应用商店 v{info?.current ?? "0.2.0"}</div>
+              <div className="font-medium">应用商店 v{info?.current ?? "0.4.1"}</div>
               <div className="text-[11px] text-muted-foreground">发布渠道：GitHub Releases</div>
             </div>
             <Button variant="outline" size="sm" disabled={checking} onClick={() => void check(true)}>

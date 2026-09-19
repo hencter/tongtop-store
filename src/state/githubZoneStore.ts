@@ -5,13 +5,24 @@
  */
 
 import { create } from "zustand";
-import { CATALOG } from "../catalog/apps";
+import { useCatalogStore } from "./catalogStore";
 import * as ipc from "../ipc/client";
 import type { GhRelease } from "../ipc/types";
 
-export const GH_REPOS: { id: string; name: string; repo: string; desc: string }[] = CATALOG.filter(
-  (a) => a.github,
-).map((a) => ({ id: a.id, name: a.name, repo: a.github!, desc: a.desc }));
+export interface GhRepo {
+  id: string;
+  name: string;
+  repo: string;
+  desc: string;
+}
+
+/** GitHub 专区条目（从 catalogStore 派生：目录随 API 更新，专区跟着更新） */
+export function ghRepos(): GhRepo[] {
+  return useCatalogStore
+    .getState()
+    .apps.filter((a) => a.github)
+    .map((a) => ({ id: a.id, name: a.name, repo: a.github!, desc: a.desc }));
+}
 
 interface GithubZoneStore {
   releases: Record<string, GhRelease>;
@@ -30,9 +41,9 @@ export const useGithubZoneStore = create<GithubZoneStore>()((set, get) => ({
   fetchedAt: 0,
   fetchAll: async (force = false) => {
     if (get().loading) return;
-    const repos = GH_REPOS.map((g) => g.repo).filter(
-      (r) => force || (!get().releases[r] && !get().errors[r]),
-    );
+    const repos = ghRepos()
+      .map((g) => g.repo)
+      .filter((r) => force || (!get().releases[r] && !get().errors[r]));
     if (repos.length === 0) return;
     set({ loading: true, ...(force ? { errors: {} } : {}) });
     const results = await Promise.allSettled(repos.map((r) => ipc.githubRelease(r)));

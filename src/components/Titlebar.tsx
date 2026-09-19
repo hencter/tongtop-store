@@ -81,9 +81,7 @@ export function Titlebar() {
       className="flex h-10 shrink-0 select-none items-center border-b border-border bg-background"
     >
       <div data-tauri-drag-region className="flex shrink-0 items-center gap-2.5 pl-3">
-        <span className="grid size-6 place-items-center rounded-md bg-primary text-primary-foreground">
-          <AppLogo className="size-3.5" />
-        </span>
+        <AppLogo className="size-6 shrink-0 rounded-md" />
         <span className="text-[13px] font-semibold tracking-wide">应用商店</span>
       </div>
 
