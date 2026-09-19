@@ -229,7 +229,7 @@ export async function mirrorLatencies(urls: string[]): Promise<MirrorLatency[]> 
 /** 商店自更新：检查 GitHub Releases 上的新版本 */
 export async function checkSelfUpdate(): Promise<SelfUpdateInfo> {
   if (!isTauri()) {
-    return { current: "0.4.1", latest: "0.4.1", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false, expectedSha256: null };
+    return { current: "0.5.0", latest: "0.5.0", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false, expectedSha256: null };
   }
   return invoke<SelfUpdateInfo>("check_self_update");
 }
