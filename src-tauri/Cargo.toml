@@ -22,6 +22,8 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Validate self-update installer bytes against the digest from GitHub REST API
+sha2 = "0.10"
 # 中文 Windows 上 winget 管道输出可能是 GBK：先尝试 UTF-8，失败回退 GBK 解码
 encoding_rs = "0.8"
 # GitHub Releases API（轻量阻塞 HTTP，调用方走 spawn_blocking）
