@@ -72,7 +72,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               <Rocket className="size-3.5" /> 启动智能体后
             </div>
             <label className="flex cursor-pointer items-center justify-between text-[13px]">
-              <span className="text-muted-foreground">退出商店（默认常驻托盘，可随时唤回）</span>
+              <span className="text-muted-foreground">退出商店（仅桌面端智能体；CLI 在内嵌终端运行，商店常驻）</span>
               <Switch checked={autoExit} onCheckedChange={setAutoExit} />
             </label>
           </div>

@@ -1496,6 +1496,24 @@ struct SelfUpdateInfo {
     asset_url: String,
     asset_size: u64,
     has_update: bool,
+    /// 安装包 sha256（来自同 Release 的 .sha256 资产；老版本没有则为空）
+    expected_sha256: Option<String>,
+}
+
+/// 直连官方 URL 拉文本（不经任何第三方代理：完整性元数据的信任根）。
+fn http_get_text(url: &str) -> Result<String, String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(15)))
+        .user_agent("tongtop-store/0.4")
+        .build()
+        .into();
+    let mut resp = agent
+        .get(url)
+        .call()
+        .map_err(|e| format!("获取更新摘要失败：{e}"))?;
+    resp.body_mut()
+        .read_to_string()
+        .map_err(|e| format!("读取摘要失败：{e}"))
 }
 
 #[tauri::command]
@@ -1532,6 +1550,14 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
                 )
             }
         };
+        // 完整性元数据：同 Release 的 .sha256 sidecar（经官方 API 资产地址直连获取）
+        let expected_sha256 = r
+            .assets
+            .iter()
+            .find(|a| a.name == format!("{SELF_ASSET}.sha256"))
+            .and_then(|a| http_get_text(&a.url).ok())
+            .and_then(|text| text.split_whitespace().next().map(|h| h.to_lowercase()))
+            .filter(|h| h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()));
         Ok(SelfUpdateInfo {
             has_update: semver_gt(&latest, &current),
             current,
@@ -1540,6 +1566,7 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
             release_url: r.url,
             asset_url,
             asset_size,
+            expected_sha256,
         })
     })
     .await
@@ -1614,9 +1641,18 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
 }
 
 /// 静默更新看门狗：等本进程退出（文件解锁）→ NSIS /S 静默安装 → 拉起新版本。
-/// 独立脱离进程后台执行（无窗口），本应用随后即可放心 quit。
+/// 有发布摘要时先过 sha256 校验（issue #13：下载内容未经完整性校验不得执行）。
 #[tauri::command]
-fn apply_self_update(installer_path: String) -> Result<(), String> {
+fn apply_self_update(installer_path: String, expected_sha256: Option<String>) -> Result<(), String> {
+    if let Some(expected) = expected_sha256 {
+        let actual = sha256_file(std::path::Path::new(&installer_path))?;
+        if !actual.eq_ignore_ascii_case(&expected) {
+            let _ = std::fs::remove_file(&installer_path);
+            return Err(format!(
+                "安装包完整性校验失败（预期 {expected}，实际 {actual}），已阻止执行"
+            ));
+        }
+    }
     let current = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
     // timeout 给本进程留退出时间；/S 走 NSIS 静默（用户级安装，无需管理员）；
     // start 拉起的是同一路径的新版本（NSIS 覆盖安装到原位置）
@@ -1635,6 +1671,15 @@ fn apply_self_update(installer_path: String) -> Result<(), String> {
     }
     cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
     Ok(())
+}
+
+/// 文件 sha256（流式读取，安装包 ~3MB 一次性亦可，但流式对大包稳）
+fn sha256_file(path: &std::path::Path) -> Result<String, String> {
+    use sha2::Digest;
+    let mut file = std::fs::File::open(path).map_err(|e| format!("无法读取安装包：{e}"))?;
+    let mut hasher = sha2::Sha256::new();
+    std::io::copy(&mut file, &mut hasher).map_err(|e| format!("计算哈希失败：{e}"))?;
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 // ---------- 桌面端（GUI）启动：开始菜单 AppID ----------
@@ -1775,8 +1820,12 @@ pub fn run() {
             .build(app)?;
             Ok(())
         })
-        // 关窗口 = 收进托盘，不退出（后台持续：镜像测速、任务、更新检测不中断）
+        // 关窗口 = 收进托盘，不退出（后台持续：镜像测速、任务、更新检测不中断）。
+        // 仅限主窗口：终端窗口（term-*）必须真正关闭，否则 PTY 子进程与监听器泄漏。
         .on_window_event(|window, event| {
+            if window.label() != "main" {
+                return;
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
                 api.prevent_close();

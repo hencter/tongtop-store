@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import * as ipc from "../ipc/client";
-import type { CleanReport, LeftoverReport } from "../ipc/types";
+import type { CleanReport, LeftoverReport, TaskDoneEvent } from "../ipc/types";
 import { useTaskStore } from "./taskStore";
 
 interface LeftoverStore {
@@ -63,8 +63,8 @@ export const useLeftoverStore = create<LeftoverStore>()((set, get) => ({
   close: () => set({ forId: null, report: null, result: null, scanning: false, cleaning: false }),
 }));
 
-/** 卸载并扫描残留：按钮 onClick 都调它（无需 await，任务在面板可见）。 */
-export async function deepUninstall(id: string, name: string): Promise<void> {
+/** 卸载并扫描残留：返回任务结果（调用方按 success 判定，不得假定成功）。 */
+export async function deepUninstall(id: string, name: string): Promise<TaskDoneEvent> {
   const task = useTaskStore.getState();
   const r = await task.runTask(`winget:uninstall:${id}`, {
     kind: "winget",
@@ -76,4 +76,5 @@ export async function deepUninstall(id: string, name: string): Promise<void> {
   if (r.success) {
     void useLeftoverStore.getState().scan(id, name);
   }
+  return r;
 }

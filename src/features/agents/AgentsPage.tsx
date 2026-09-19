@@ -259,7 +259,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                     </Button>
                   </>
                 )}
-                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-muted-foreground" title="默认常驻托盘（后台运行，托盘可唤回）；开启则启动后真正退出商店">
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-muted-foreground" title="仅对桌面端智能体生效：开启则启动后真正退出商店。CLI 智能体在内嵌终端运行，商店始终常驻托盘">
                   <Switch checked={autoExit} onCheckedChange={setAutoExit} />
                   启动后退出商店
                 </label>

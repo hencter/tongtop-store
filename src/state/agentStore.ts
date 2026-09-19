@@ -265,9 +265,14 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
     };
     try {
       if (recipe.install.kind === "winget") {
-        // winget 本体（含桌面端）：真实卸载 + Geek 式残留扫描（弹层由 leftoverStore 接管）
-        await deepUninstall(recipe.install.package, recipe.name);
-        await done(true, `${recipe.name} 已卸载。装机时写入的密钥环境变量保留（可能与其他工具共享）。`);
+        // winget 本体（含桌面端）：按真实任务结果判定（Geek 式残留扫描只在成功时触发）
+        const r = await deepUninstall(recipe.install.package, recipe.name);
+        await done(
+          r.success,
+          r.success
+            ? `${recipe.name} 已卸载。装机时写入的密钥环境变量保留（可能与其他工具共享）。`
+            : `卸载失败（退出码 ${r.code}）`,
+        );
         return;
       }
       const spec: TaskSpec =
@@ -333,8 +338,9 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
         return;
       }
     }
-    // 启动成功后：autoExit → 真正退出；否则窗口收进托盘常驻后台（随时从托盘唤回）
-    if (useSettingsStore.getState().autoExit) {
+    // 启动成功后：GUI 智能体按 autoExit 退出商店；CLI 是内嵌终端（商店自己的窗口），
+    // 宿主退出会把终端一起杀掉——故 CLI 永不退出，只收托盘（终端随宿主存活）。
+    if (recipe.desktopNames && useSettingsStore.getState().autoExit) {
       await ipc.quitApp();
     } else {
       await ipc.hideWindow();

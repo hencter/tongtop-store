@@ -211,4 +211,6 @@ export interface SelfUpdateInfo {
   assetUrl: string;
   assetSize: number;
   hasUpdate: boolean;
+  /** 安装包 sha256（同 Release 的 .sha256 资产；老版本没有则为 null） */
+  expectedSha256: string | null;
 }

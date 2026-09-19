@@ -19,30 +19,67 @@ import Base from "../layouts/Base.astro";
     correction: "纠错",
   };
 
+  /** URL 协议白名单：仅 http/https */
+  function safeUrl(u) {
+    try {
+      const x = new URL(u);
+      return x.protocol === "https:" || x.protocol === "http:" ? x.href : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // 安全渲染：全部经 DOM API + textContent（用户提交内容永不进 innerHTML）
+  function cardOf(item) {
+    const el = document.createElement("article");
+    el.className = "card";
+    el.style.marginBottom = "12px";
+    const row = document.createElement("div");
+    row.className = "row";
+    const mid = document.createElement("div");
+    mid.style.cssText = "flex:1;min-width:0";
+    const h3 = document.createElement("h3");
+    h3.textContent = item.name;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `${TYPE_LABEL[item.type] || item.type} · 通过于 ${item.reviewedAt?.slice(0, 10) || ""}${item.refId ? ` · ${item.refId}` : ""}`;
+    mid.append(h3, meta);
+    const badge = document.createElement("span");
+    badge.className = "badge ok";
+    badge.textContent = "已收录";
+    row.append(mid, badge);
+    el.append(row);
+    const desc = document.createElement("p");
+    desc.className = "desc";
+    desc.textContent = item.desc;
+    el.append(desc);
+    const u = item.site ? safeUrl(item.site) : null;
+    if (u) {
+      const div = document.createElement("div");
+      div.className = "meta";
+      const a = document.createElement("a");
+      a.href = u;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = item.site;
+      div.append(a);
+      el.append(div);
+    }
+    return el;
+  }
+
   fetch("/api/submissions?status=approved")
     .then((resp) => resp.json())
     .then((json) => {
       if (!json.ok || json.items.length === 0) {
-        list.innerHTML = `<p class="muted">还没有已通过的社区提交。</p>`;
+        list.textContent = "还没有已通过的社区提交。";
         return;
       }
-      list.innerHTML = json.items
-        .map(
-          (item) => `<article class="card" style="margin-bottom:12px">
-            <div class="row">
-              <div style="flex:1;min-width:0">
-                <h3>${item.name}</h3>
-                <div class="meta">${TYPE_LABEL[item.type] || item.type} · 通过于 ${item.reviewedAt?.slice(0, 10) || ""} ${item.refId ? `· ${item.refId}` : ""}</div>
-              </div>
-              <span class="badge ok">已收录</span>
-            </div>
-            <p class="desc">${item.desc}</p>
-            ${item.site ? `<div class="meta"><a href="${item.site}" target="_blank" rel="noopener">${item.site}</a></div>` : ""}
-          </article>`,
-        )
-        .join("");
+      const frag = document.createDocumentFragment();
+      for (const item of json.items) frag.append(cardOf(item));
+      list.replaceChildren(frag);
     })
     .catch(() => {
-      list.innerHTML = `<p class="muted">加载失败（审核接口未部署时属正常）。</p>`;
+      list.textContent = "加载失败（审核接口未部署时属正常）。";
     });
 </script>

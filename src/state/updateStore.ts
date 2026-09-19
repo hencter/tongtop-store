@@ -7,7 +7,6 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import * as ipc from "../ipc/client";
 import type { SelfUpdateInfo } from "../ipc/types";
-import { useSettingsStore } from "./settingsStore";
 
 const SKIP_KEY = "tongtop.skipVersion";
 
@@ -67,12 +66,12 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       set({ progress: e.payload });
     });
     try {
-      // 固定 latest slug 直链；镜像中心开了加速就套前缀（国内直连 GitHub 慢）
-      const ghProxy = useSettingsStore.getState().ghProxy;
-      const url = ghProxy ? ghProxy + info.assetUrl : info.assetUrl;
-      const path = await ipc.downloadSelfUpdate(url);
-      // 静默更新：watcher 接管（等退出 → NSIS /S → 自动重启新版），本应用立即退出
-      await ipc.applySelfUpdate(path);
+      // 自更新信任边界：永远直连官方 Release（latest slug），不经过第三方加速代理——
+      // 代理链路返回的可执行内容没有任何完整性保证（issue #13），且另有 sha256 校验兜底。
+      const path = await ipc.downloadSelfUpdate(info.assetUrl);
+      // 静默更新：watcher 接管（等退出 → NSIS /S → 自动重启新版），本应用立即退出；
+      // 有发布摘要时先过 sha256 校验（摘要走官方 API，与安装包同源 GitHub）
+      await ipc.applySelfUpdate(path, info.expectedSha256 ?? null);
       set({ open: false });
       setTimeout(() => void ipc.quitApp(), 300);
     } catch (e) {

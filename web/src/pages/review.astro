@@ -37,45 +37,101 @@ import Base from "../layouts/Base.astro";
 
   tokenInput.value = sessionStorage.getItem("adminToken") || "";
 
-  function render(items) {
-    if (items.length === 0) {
-      list.innerHTML = `<p class="muted">没有记录。</p>`;
-      return;
+  /** URL 协议白名单：仅 http/https，其余（javascript:/data: 等）一律不渲染为链接 */
+  function safeUrl(u) {
+    try {
+      const x = new URL(u);
+      return x.protocol === "https:" || x.protocol === "http:" ? x.href : null;
+    } catch {
+      return null;
     }
-    list.innerHTML = items
-      .map((item) => {
-        const actions =
-          item.status === "pending"
-            ? `<div class="actions">
-                 <button class="btn sm primary" data-action="approve" data-id="${item.id}">通过</button>
-                 <button class="btn sm" data-action="reject" data-id="${item.id}">拒绝</button>
-               </div>`
-            : "";
-        return `<article class="card" style="margin-bottom:12px">
-          <div class="row">
-            <div style="flex:1;min-width:0">
-              <h3>${item.name}</h3>
-              <div class="meta">${item.type} · ${item.createdAt} ${item.refId ? `· ${item.refId}` : ""}</div>
-            </div>
-            <span class="badge ${item.status === "approved" ? "ok" : ""}">${item.status}</span>
-          </div>
-          <p class="desc">${item.desc}</p>
-          ${item.site ? `<div class="meta"><a href="${item.site}" target="_blank" rel="noopener">${item.site}</a></div>` : ""}
-          ${item.contact ? `<div class="meta">联系方式：${item.contact}</div>` : ""}
-          ${actions}
-        </article>`;
-      })
-      .join("");
+  }
+
+  // 安全渲染：全部经 DOM API + textContent（用户提交内容永不进 innerHTML）
+  function cardOf(item) {
+    const el = document.createElement("article");
+    el.className = "card";
+    el.style.marginBottom = "12px";
+
+    const row = document.createElement("div");
+    row.className = "row";
+    const mid = document.createElement("div");
+    mid.style.cssText = "flex:1;min-width:0";
+    const h3 = document.createElement("h3");
+    h3.textContent = item.name;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `${item.type} · ${item.createdAt}${item.refId ? ` · ${item.refId}` : ""}`;
+    mid.append(h3, meta);
+    const badge = document.createElement("span");
+    badge.className = `badge ${item.status === "approved" ? "ok" : ""}`;
+    badge.textContent = item.status;
+    row.append(mid, badge);
+    el.append(row);
+
+    const desc = document.createElement("p");
+    desc.className = "desc";
+    desc.textContent = item.desc;
+    el.append(desc);
+
+    const u = item.site ? safeUrl(item.site) : null;
+    if (u) {
+      const div = document.createElement("div");
+      div.className = "meta";
+      const a = document.createElement("a");
+      a.href = u;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = item.site;
+      div.append(a);
+      el.append(div);
+    }
+    if (item.contact) {
+      const c = document.createElement("div");
+      c.className = "meta";
+      c.textContent = `联系方式:${item.contact}`;
+      el.append(c);
+    }
+    if (item.status === "pending") {
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      for (const [action, label, cls] of [
+        ["approve", "通过", "btn sm primary"],
+        ["reject", "拒绝", "btn sm"],
+      ]) {
+        const b = document.createElement("button");
+        b.className = cls;
+        b.dataset.action = action;
+        b.dataset.id = String(item.id);
+        b.textContent = label;
+        actions.append(b);
+      }
+      el.append(actions);
+    }
+    return el;
+  }
+
+  function render(items) {
+    const frag = document.createDocumentFragment();
+    if (items.length === 0) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.textContent = "没有记录。";
+      frag.append(p);
+    } else {
+      for (const item of items) frag.append(cardOf(item));
+    }
+    list.replaceChildren(frag);
   }
 
   async function load() {
     const token = tokenInput.value.trim();
     if (!token) {
-      list.innerHTML = `<p class="muted">先填写管理令牌。</p>`;
+      list.textContent = "先填写管理令牌。";
       return;
     }
     sessionStorage.setItem("adminToken", token);
-    list.innerHTML = `<p class="muted">加载中…</p>`;
+    list.textContent = "加载中…";
     try {
       const resp = await fetch(`/api/submissions?status=${status}`, {
         headers: { authorization: `Bearer ${token}` },
@@ -84,7 +140,10 @@ import Base from "../layouts/Base.astro";
       if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
       render(json.items);
     } catch (error) {
-      list.innerHTML = `<div class="notice err">加载失败：${String(error.message || error)}</div>`;
+      const div = document.createElement("div");
+      div.className = "notice err";
+      div.textContent = `加载失败:${String(error.message || error)}`;
+      list.replaceChildren(div);
     }
   }
 
@@ -115,7 +174,7 @@ import Base from "../layouts/Base.astro";
       await load();
     } catch (error) {
       btn.disabled = false;
-      alert(`操作失败：${String(error.message || error)}`);
+      alert(`操作失败:${String(error.message || error)}`);
     }
   });
 

@@ -135,8 +135,15 @@ _由 TongTop Store 网站提交；审核通过后同步到站点。_`;
     },
     async list(status) {
       const labels = status ? `${LABEL_SUBMISSION},${status}` : LABEL_SUBMISSION;
-      const issues = await gh(`/issues?labels=${labels}&state=all&per_page=100`);
-      return (issues ?? [])
+      // 分页读全部（per_page=100 只是单页上限，超过不读后续页会让旧投稿永久不可见）
+      const issues = [];
+      for (let page = 1; page <= 20; page += 1) {
+        const batch = await gh(`/issues?labels=${labels}&state=all&per_page=100&page=${page}`);
+        if (!Array.isArray(batch) || batch.length === 0) break;
+        issues.push(...batch);
+        if (batch.length < 100) break;
+      }
+      return issues
         .filter((issue) => !issue.pull_request)
         .map(parse)
         .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -144,6 +151,12 @@ _由 TongTop Store 网站提交；审核通过后同步到站点。_`;
     async update(id, patch) {
       await ensureLabels();
       const issue = await gh(`/issues/${id}`);
+      // 归属校验：只对真正的投稿（submission 标签或投稿 marker）动手——
+      // 防止误把普通 Issue 覆盖成投稿并清掉原有标签
+      const labelNames = (issue.labels ?? []).map((l) => (typeof l === "string" ? l : l.name));
+      const isSubmission =
+        labelNames.includes(LABEL_SUBMISSION) || /<!--\s*tongtop:/.test(issue.body ?? "");
+      if (!isSubmission) return null;
       const record = { ...parse(issue), ...patch };
       const body = (issue.body ?? "").replace(/<!--\s*tongtop:[\s\S]*?-->/, markerOf(record));
       await gh(`/issues/${id}`, {
