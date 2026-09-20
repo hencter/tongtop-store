@@ -51,10 +51,10 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
           {recipe.concerns && (
             <Badge
               variant="outline"
-              className="border-gold/40 text-gold"
+              className="border-gold/40 px-1.5 text-gold"
               title={recipe.concerns.map((c) => CONCERN_CAUTION[c]).join("\n")}
             >
-              <ShieldAlert className="size-3" /> 风险提示
+              <ShieldAlert className="size-3" />
             </Badge>
           )}
           <Badge variant="outline">{kindLabel}</Badge>

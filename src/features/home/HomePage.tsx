@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, Trash2, TrendingUp } from "lucide-react";
+import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, ShieldAlert, Trash2, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
 import { type CatalogApp, type CategoryId } from "../../catalog/apps";
 import { CONCERN_CAUTION, type AgentRecipe } from "../../catalog/agents";
@@ -128,10 +128,10 @@ const AgentCard = memo(function AgentCard({
           {recipe.concerns && (
             <Badge
               variant="outline"
-              className="border-gold/40 text-[10px] text-gold"
+              className="border-gold/40 px-1.5 text-gold"
               title={recipe.concerns.map((c) => CONCERN_CAUTION[c]).join("\n")}
             >
-              风险提示
+              <ShieldAlert className="size-3" />
             </Badge>
           )}
         </div>
