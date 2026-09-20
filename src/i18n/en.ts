@@ -82,6 +82,7 @@ export const EN: Record<string, string> = {
   "获取 Key": "Get key",
   "前往申请：": "Apply at: ",
   "免密钥": "No key needed",
+  "风险提示": "Risk notice",
   "安装后服务自动后台运行；终端里 ollama run qwen3 即可拉模型开聊": "Service runs in background after install; run `ollama run qwen3` to chat",
   "涉及企业开发/涉密项目请勿安装（数据安全）：": "Do not install for enterprise/confidential projects (data security):",
   "卸载本体（保留已写入的密钥环境变量）": "Uninstall (keeps written env keys)",

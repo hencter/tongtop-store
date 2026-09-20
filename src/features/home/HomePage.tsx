@@ -5,7 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, ChevronRight, Clock, Download, ExternalLink, Loader2, Play, Rocket, Search, Trash2, TrendingUp } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
 import { type CatalogApp, type CategoryId } from "../../catalog/apps";
-import { CONCERN_CAUTION, CONCERN_LABEL, type AgentRecipe } from "../../catalog/agents";
+import { CONCERN_CAUTION, type AgentRecipe } from "../../catalog/agents";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { deepUninstall } from "../../state/leftoverStore";
@@ -117,19 +117,23 @@ const AgentCard = memo(function AgentCard({
   const t = useT();
   return (
     <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-2">
         <AppIcon id={`agent:${recipe.id}`} name={recipe.name} size={42} />
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           {installed && (
             <Badge variant="outline">
-              <Check className="size-3.5 text-ok" /> 已安装
+              <Check className="size-3.5 text-ok" /> {t("已安装")}
             </Badge>
           )}
-          {recipe.concerns?.map((c) => (
-            <Badge key={c} variant="outline" className="border-gold/40 text-[10px] text-gold" title={CONCERN_CAUTION[c]}>
-              {CONCERN_LABEL[c]}
+          {recipe.concerns && (
+            <Badge
+              variant="outline"
+              className="border-gold/40 text-[10px] text-gold"
+              title={recipe.concerns.map((c) => CONCERN_CAUTION[c]).join("\n")}
+            >
+              风险提示
             </Badge>
-          ))}
+          )}
         </div>
       </div>
       <div className="mt-1 font-semibold">{recipe.name}</div>
@@ -137,7 +141,7 @@ const AgentCard = memo(function AgentCard({
         {recipe.desc}
       </div>
       <div className="text-[11px] text-muted-foreground">{recipe.vendor}</div>
-      <div className="mt-1.5 flex gap-2">
+      <div className="mt-auto flex gap-2 pt-1.5">
         <Button size="sm" className="flex-1" onClick={onOpen}>
           {installed ? (
             <>

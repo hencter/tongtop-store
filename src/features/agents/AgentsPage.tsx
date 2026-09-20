@@ -15,7 +15,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { CONCERN_CAUTION, CONCERN_LABEL, type AgentRecipe } from "../../catalog/agents";
+import { CONCERN_CAUTION, type AgentRecipe } from "../../catalog/agents";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAgentStore, type Step } from "../../state/agentStore";
 import { useAppStore } from "../../state/appStore";
@@ -48,11 +48,15 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
               <CheckCircle2 className="size-3 text-ok" /> 已安装
             </Badge>
           )}
-          {recipe.concerns?.map((c) => (
-            <Badge key={c} variant="outline" className="border-gold/40 text-gold" title={CONCERN_CAUTION[c]}>
-              <ShieldAlert className="size-3" /> {CONCERN_LABEL[c]}
+          {recipe.concerns && (
+            <Badge
+              variant="outline"
+              className="border-gold/40 text-gold"
+              title={recipe.concerns.map((c) => CONCERN_CAUTION[c]).join("\n")}
+            >
+              <ShieldAlert className="size-3" /> 风险提示
             </Badge>
-          ))}
+          )}
           <Badge variant="outline">{kindLabel}</Badge>
           {recipe.env.length === 0 && <Badge variant="secondary">{t("免密钥")}</Badge>}
         </div>
