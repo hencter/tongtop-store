@@ -76,6 +76,16 @@ jobs:
           sha256sum tongtop-store.exe > tongtop-store.exe.sha256
           ls -la
 
+      - name: minisign 签名更新资产（公钥编译进应用，防 Release 被替换）
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          pnpm tauri signer sign src-tauri/target/release/bundle/nsis/tongtop-store.exe
+          pnpm tauri signer sign src-tauri/target/release/bundle/nsis/tongtop-store-setup.exe
+          ls -la src-tauri/target/release/bundle/nsis/*.sig
+
       - name: 生成 winget 清单
         run: node scripts/winget-bump.mjs
 
@@ -95,6 +105,7 @@ jobs:
             src-tauri/target/release/bundle/nsis/*-setup.exe
             src-tauri/target/release/bundle/nsis/tongtop-store.exe
             src-tauri/target/release/bundle/nsis/*.sha256
+            src-tauri/target/release/bundle/nsis/*.sig
 
   # macOS 端（尝试性）：dmg 资产。平台特定功能（winget/注册表/开始菜单）降级为明确报错或 /Applications 方案
   build-macos:

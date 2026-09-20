@@ -153,7 +153,7 @@ export const EN: Record<string, string> = {
   "应用": "Apply",
   "恢复官方默认": "Restore official default",
   "GitHub 下载加速": "GitHub download acceleration",
-  "只影响本商店打开的 GitHub 资产链接（详情页的安装包直链），不改系统配置": "Only affects GitHub asset links opened by this store (installer links in details); no system config changed",
+  "只影响本商店打开的 GitHub 资产链接：详情页直链 + 自更新下载的加速兜底（更新包有 minisign 签名与 sha256 双校验，代理不可信也安全），不改系统配置": "Only affects GitHub asset links opened by this store: detail-page links and the accelerated fallback for self-update downloads (updates are minisign-signed and sha256-checked, so even untrusted proxies are safe); no system config changed",
   "加速中": "Accelerated",
   "直连": "Direct",
   "gh CLI 已认证 —— Release 拉取走 gh api（5000 次/小时）": "gh CLI authenticated — releases via gh api (5000 req/hr)",

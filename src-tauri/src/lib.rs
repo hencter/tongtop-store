@@ -1498,8 +1498,32 @@ struct SelfUpdateInfo {
     has_update: bool,
     /// 安装包 sha256（来自同 Release 的 .sha256 资产；老版本没有则为空）
     expected_sha256: Option<String>,
+    /// minisign 签名（来自同 Release 的 .sig 资产；有则优先于 sha256 验签）
+    signature: Option<String>,
     /// 更新资产形态："exe"（裸 exe，看门狗 Copy 覆盖）| "nsis"（安装器 /S，老版本回退）
     asset_kind: String,
+}
+
+/// 更新签名公钥（minisign 公钥文件文本，私钥在 CI secret；编译进应用防 Release 被替换）。
+/// 注：tauri 配置里的 pubkey 是本文本再 base64 一层；此处存内层文本，直接 PublicKey::decode。
+const UPDATER_PUBKEY: &str = "untrusted comment: minisign public key: 96860EE13D6E9C9E
+RWSenG494Q6GlkwZP1n0A5FaSgTk7n7/HM6vAIwYRkomqVXT1OzFP47A
+";
+
+/// minisign 验签：数据 + .sig 资产内容对照内置公钥。
+/// tauri signer 双层编码：.sig 文件 = base64(minisign 文本)，需先解 base64 再 decode。
+fn verify_minisign(data: &[u8], signature_b64: &str) -> Result<(), String> {
+    use base64::Engine;
+    use minisign_verify::{PublicKey, Signature};
+    let pk = PublicKey::decode(UPDATER_PUBKEY).map_err(|e| format!("内置公钥异常：{e}"))?;
+    let sig_bytes = base64::engine::general_purpose::STANDARD
+        .decode(signature_b64.trim())
+        .map_err(|e| format!("签名 base64 异常：{e}"))?;
+    let sig_text = String::from_utf8(sig_bytes).map_err(|e| format!("签名文本异常：{e}"))?;
+    let sig = Signature::decode(&sig_text).map_err(|e| format!("签名格式异常：{e}"))?;
+    // allow_legacy=true：兼容 tauri signer 产生的签名（含 legacy Ed25519 格式）
+    pk.verify(data, &sig, true)
+        .map_err(|e| format!("签名验证失败：{e}"))
 }
 
 /// 直连官方 URL 拉文本（不经任何第三方代理：完整性元数据的信任根）。
@@ -1540,37 +1564,48 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
         // 老版本 Release 没有裸 exe 资产时回退 NSIS 链路。
         const EXE_ASSET: &str = "tongtop-store.exe";
         const NSIS_ASSET: &str = "tongtop-store-setup.exe";
-        let (asset_url, asset_size, asset_kind, sha_asset) =
+        let (asset_url, asset_size, asset_kind, asset_name) =
             if let Some(a) = r.assets.iter().find(|a| a.name == EXE_ASSET) {
                 (
                     format!("https://github.com/{SELF_REPO}/releases/latest/download/{EXE_ASSET}"),
                     a.size,
                     "exe",
-                    format!("{EXE_ASSET}.sha256"),
+                    EXE_ASSET.to_string(),
                 )
             } else if let Some(a) = r.assets.iter().find(|a| a.name == NSIS_ASSET) {
                 (
                     format!("https://github.com/{SELF_REPO}/releases/latest/download/{NSIS_ASSET}"),
                     a.size,
                     "nsis",
-                    format!("{NSIS_ASSET}.sha256"),
+                    NSIS_ASSET.to_string(),
                 )
             } else {
                 let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
+                let name = asset.map(|a| a.name.clone()).unwrap_or_default();
                 (
                     asset.map(|a| a.url.clone()).unwrap_or_default(),
                     asset.map(|a| a.size).unwrap_or(0),
                     "nsis",
-                    String::new(),
+                    name,
                 )
             };
-        // 完整性元数据：同 Release 的 .sha256 sidecar（经官方 API 资产地址直连获取）
-        let expected_sha256 = if sha_asset.is_empty() {
+        // 完整性元数据（均经官方 API 资产地址直连获取，不经过任何第三方代理）：
+        // minisign 签名优先（私钥在 CI，公钥编译进应用，防 Release 被整体替换）；sha256 兜底
+        let signature = if asset_name.is_empty() {
             None
         } else {
             r.assets
                 .iter()
-                .find(|a| a.name == sha_asset)
+                .find(|a| a.name == format!("{asset_name}.sig"))
+                .and_then(|a| http_get_text(&a.url).ok())
+                .filter(|t| t.contains("minisign") || t.contains("signature"))
+        };
+        let expected_sha256 = if asset_name.is_empty() {
+            None
+        } else {
+            r.assets
+                .iter()
+                .find(|a| a.name == format!("{asset_name}.sha256"))
                 .and_then(|a| http_get_text(&a.url).ok())
                 .and_then(|text| text.split_whitespace().next().map(|h| h.to_lowercase()))
                 .filter(|h| h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()))
@@ -1584,6 +1619,7 @@ async fn check_self_update() -> Result<SelfUpdateInfo, String> {
             asset_url,
             asset_size,
             expected_sha256,
+            signature,
             asset_kind: asset_kind.to_string(),
         })
     })
@@ -1640,22 +1676,48 @@ async fn catalog_fetch(base: String) -> Result<CatalogDto, String> {
 }
 
 /// 下载新版安装包到临时目录（进度走 self-update-progress 事件），返回落盘路径。
+/// 多端点容灾：官方直连优先，失败回退加速通道（完整性在 apply 阶段验签/校验，代理不可信也安全）。
+/// 有预期大小时校验大小（防半截文件/错误页面）；失败清理残留。
 #[tauri::command]
-async fn download_self_update(app: AppHandle, url: String) -> Result<String, String> {
+async fn download_self_update(
+    app: AppHandle,
+    url: String,
+    fallback_url: Option<String>,
+    expected_size: Option<u64>,
+) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dest = std::env::temp_dir()
             .join("tongtop-dl")
             .join(url_filename(&url));
         let mut last = 0u8;
-        http_download(&url, &dest, |got, total| {
-            if let Some(t) = total.filter(|t| *t > 0) {
-                let pct = (got * 100 / t).min(100) as u8;
-                if pct != last {
-                    last = pct;
-                    let _ = app.emit("self-update-progress", pct);
+        let mut attempt = |u: &str, last: &mut u8| -> Result<(), String> {
+            *last = 0;
+            http_download(u, &dest, |got, total| {
+                if let Some(t) = total.filter(|t| *t > 0) {
+                    let pct = (got * 100 / t).min(100) as u8;
+                    if pct != *last {
+                        *last = pct;
+                        let _ = app.emit("self-update-progress", pct);
+                    }
                 }
+            })
+        };
+        // 主线：官方直连
+        if let Err(e1) = attempt(&url, &mut last) {
+            let _ = std::fs::remove_file(&dest);
+            match fallback_url.filter(|f| f.starts_with("http")) {
+                Some(fb) => attempt(&fb, &mut last)
+                    .map_err(|e2| format!("直连失败（{e1}）；加速通道也失败（{e2}）"))?,
+                None => return Err(e1),
             }
-        })?;
+        }
+        if let Some(expect) = expected_size.filter(|s| *s > 0) {
+            let actual = std::fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
+            if actual != expect {
+                let _ = std::fs::remove_file(&dest);
+                return Err(format!("下载大小不符（预期 {expect}，实际 {actual}），已删除重试"));
+            }
+        }
         Ok(dest.to_string_lossy().into_owned())
     })
     .await
@@ -1665,19 +1727,28 @@ async fn download_self_update(app: AppHandle, url: String) -> Result<String, Str
 /// 自有更新机制看门狗：等本进程退出（文件解锁）→ 应用新资产 → 拉起新版本。
 /// asset_kind="exe"：PowerShell Copy-Item 直接覆盖（自有机制，无 NSIS 版本检查/注册表错位）；
 /// asset_kind="nsis"：NSIS /S 静默安装（兼容老版本 Release 的回退路径）。
-/// 有发布摘要时先过 sha256 校验（issue #13：下载内容未经完整性校验不得执行）。
+/// 完整性：minisign 签名优先（公钥内置），sha256 兜底（issue #13）。
 /// 成败不按退出码（NSIS 静默码不可靠），写 update-target 标记，下次启动按版本对照判定。
 #[tauri::command]
 fn apply_self_update(
     installer_path: String,
     expected_sha256: Option<String>,
+    signature: Option<String>,
     target_version: String,
     asset_kind: String,
 ) -> Result<(), String> {
-    if let Some(expected) = expected_sha256 {
-        let actual = sha256_file(std::path::Path::new(&installer_path))?;
+    let path = std::path::Path::new(&installer_path);
+    if let Some(sig) = signature {
+        // minisign：私钥签名 + 编译进应用的公钥验签（防下载链路与 Release 被整体替换）
+        let data = std::fs::read(path).map_err(|e| format!("无法读取安装包：{e}"))?;
+        if let Err(e) = verify_minisign(&data, &sig) {
+            let _ = std::fs::remove_file(path);
+            return Err(format!("安装包签名校验失败（{e}），已阻止执行"));
+        }
+    } else if let Some(expected) = expected_sha256 {
+        let actual = sha256_file(path)?;
         if !actual.eq_ignore_ascii_case(&expected) {
-            let _ = std::fs::remove_file(&installer_path);
+            let _ = std::fs::remove_file(path);
             return Err(format!(
                 "安装包完整性校验失败（预期 {expected}，实际 {actual}），已阻止执行"
             ));
@@ -2005,4 +2076,47 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+
+#[cfg(test)]
+mod updater_tests {
+    use super::*;
+
+    /// 夹具：与 CI 同款私钥（本地生成）对固定内容签名；公钥为编译进应用的 UPDATER_PUBKEY。
+    /// 验签通过 + 篡改数据必须失败 = minisign 信任链的核心断言。
+    #[test]
+    fn minisign_verify_fixture() {
+        let data = b"tongtop updater minisign test fixture";
+        let sig = r##"dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTZW5HNDk0UTZHbG5iN29LYm5LcFFtWUJ0OThQYUtSMGFXQWtKa2FpaXlDRjFra0tja3FLVk5SQnB0THE5aVdzczNSbUwweDBxZlhTUnUwZlVMRFZCbmtRV1FYME4yU3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5ODkwNTc2CWZpbGU6dG9uZ3RvcC1maXh0dXJlLnR4dAo0REhWVlhyaExkR2k2dmFzdXpSWmY4NENzM2dpenp0L3FWMXQrWkJmd0RzbDNpU3ovdkVXa01CVkI2UHUxcGdKd3NsWUtRYkJLMkNTaCtSQjlGWlBBUT09Cg=="##;
+        assert!(verify_minisign(data, sig).is_ok(), "合法签名应通过: {:?}", verify_minisign(data, sig));
+        assert!(verify_minisign(b"tampered payload", sig).is_err(), "篡改内容必须验签失败");
+    }
+
+
+    /// E2E（手动触发）：验证真实发布资产。
+    /// 用法：下载 Release 的 tongtop-store.exe 与 .sig 后：
+    ///   set TONGTOP_VERIFY_EXE=<exe路径> && set TONGTOP_VERIFY_SIG=<sig路径> && cargo test -- --ignored verify_release_asset
+    #[test]
+    #[ignore = "需要真实发布资产，手动触发（见注释）"]
+    fn verify_release_asset() {
+        let exe = std::env::var("TONGTOP_VERIFY_EXE").expect("缺 TONGTOP_VERIFY_EXE");
+        let sig = std::env::var("TONGTOP_VERIFY_SIG").expect("缺 TONGTOP_VERIFY_SIG");
+        let data = std::fs::read(&exe).expect("读取 exe 失败");
+        let sig_text = std::fs::read_to_string(&sig).expect("读取 sig 失败");
+        verify_minisign(&data, &sig_text).expect("发布资产验签失败");
+    }
+
+    #[test]
+    fn sha256_file_known_digest() {
+        let dir = std::env::temp_dir().join("tongtop-sha-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.txt");
+        std::fs::write(&f, b"abc").unwrap();
+        // echo -n abc | sha256sum
+        assert_eq!(
+            sha256_file(&f).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
 }

@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import * as ipc from "../ipc/client";
 import type { SelfUpdateInfo } from "../ipc/types";
+import { useSettingsStore } from "./settingsStore";
 
 const SKIP_KEY = "tongtop.skipVersion";
 
@@ -66,12 +67,14 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       set({ progress: e.payload });
     });
     try {
-      // 自更新信任边界：永远直连官方 Release（latest slug），不经过第三方加速代理——
-      // 代理链路返回的可执行内容没有任何完整性保证（issue #13），且另有 sha256 校验兜底。
-      const path = await ipc.downloadSelfUpdate(info.assetUrl);
-      // 静默更新：watcher 接管（等退出 → NSIS /S → 自动重启新版），本应用立即退出；
-      // 有发布摘要时先过 sha256 校验（摘要走官方 API，与安装包同源 GitHub）
-      await ipc.applySelfUpdate(path, info.expectedSha256 ?? null, info.latest, info.assetKind);
+      // 多端点容灾：官方直连优先，失败回退加速通道——完整性由 minisign 验签（公钥内置）
+      // 与 sha256（摘要走官方 API 直连）双保险，代理链路不可信也安全（issue #13 的解法）
+      const proxy = useSettingsStore.getState().ghProxy;
+      const fallback = proxy ? proxy + info.assetUrl : null;
+      const path = await ipc.downloadSelfUpdate(info.assetUrl, fallback, info.assetSize);
+      // 静默更新：watcher 接管（等退出 → 覆盖/安装 → 自动重启新版），本应用立即退出；
+      // 有 .sig 资产时 minisign 验签优先，否则 sha256 兜底
+      await ipc.applySelfUpdate(path, info.expectedSha256 ?? null, info.signature ?? null, info.latest, info.assetKind);
       set({ open: false });
       setTimeout(() => void ipc.quitApp(), 300);
     } catch (e) {

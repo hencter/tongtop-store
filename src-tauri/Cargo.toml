@@ -1,6 +1,6 @@
 [package]
 name = "tongtop-store"
-version = "0.6.2"
+version = "0.6.3"
 description = "应用商店：官方软件下载链接分发（winget 源）"
 authors = ["you"]
 edition = "2021"
@@ -32,8 +32,10 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 notify = "8"
 # 内嵌终端：ConPTY（Windows 10 1809+），xterm.js 渲染到商店窗口
 portable-pty = "0.9"
-# 自更新完整性：安装包 sha256 校验（摘要经官方 API 获取，与待验文件不同源）
+# 自更新完整性：sha256（摘要经官方 API 获取）+ minisign 签名验签
 sha2 = "0.10"
+minisign-verify = "0.2"
+base64 = "0.22"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

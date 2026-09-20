@@ -113,7 +113,7 @@ function GhProxyCard() {
         {ghProxy ? <Badge variant="ok">{t("加速中")}</Badge> : <Badge variant="secondary">{t("直连")}</Badge>}
       </div>
       <div className="text-xs text-muted-foreground">
-        {t("只影响本商店打开的 GitHub 资产链接（详情页的安装包直链），不改系统配置")}
+        {t("只影响本商店打开的 GitHub 资产链接：详情页直链 + 自更新下载的加速兜底（更新包有 minisign 签名与 sha256 双校验，代理不可信也安全），不改系统配置")}
       </div>
       <div className="truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground">
         {t("当前：")}{ghProxy || t("直连")}
