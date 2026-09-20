@@ -203,22 +203,58 @@ pub fn detect_one(tool: &str) -> MirrorStatus {
             MirrorStatus { tool: tool.into(), installed: path.is_some(), current }
         }
         "winget" => {
-            let out = crate::winget::process::run_capture(&[
-                "source".into(),
-                "list".into(),
-                "--accept-source-agreements".into(),
-                "--disable-interactivity".into(),
-            ])
-            .unwrap_or_default();
-            let current = if out.to_lowercase().contains("ustc") {
-                "https://mirrors.ustc.edu.cn/winget-source（中科大镜像）".into()
-            } else {
-                "https://cdn.winget.microsoft.com/cache（官方）".into()
-            };
+            // 官方机器可读通道：`winget source export` 输出 JSONL（每行一个源）
+            let current = winget_source_url().unwrap_or_default();
             MirrorStatus { tool: tool.into(), installed: true, current }
         }
         _ => MirrorStatus { tool: tool.into(), installed: false, current: String::new() },
     }
+}
+
+/// 解析 `winget source export` 的 JSONL 行（提取 Name=="winget" 的 Arg）。
+/// 独立成函数便于单测（官方输出格式见 winget v1.29 实测样例）。
+fn parse_source_export(text: &str) -> Option<String> {
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+            if v.get("Name").and_then(|n| n.as_str()) == Some("winget") {
+                if let Some(arg) = v.get("Arg").and_then(|a| a.as_str()) {
+                    return Some(arg.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 解析 `winget source list` 表格（旧版 winget 没有 export 时的回退）。
+/// 样例：`winget      https://mirrors.ustc.edu.cn/winget-source     false`
+fn parse_source_list(text: &str) -> Option<String> {
+    for line in text.lines() {
+        let t = line.trim();
+        let lower = t.to_lowercase();
+        if lower.starts_with("winget") && !lower.starts_with("winget-font") {
+            if let Some(url) = t.split_whitespace().find(|w| w.starts_with("http")) {
+                return Some(url.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// winget 当前源 URL：export（JSONL，官方机器可读）优先，list 表格回退。
+/// 注意：source list/export 不接受 --accept-source-agreements（新版会直接参数报错）。
+pub fn winget_source_url() -> Option<String> {
+    if let Ok(out) = crate::winget::process::run_capture(&["source".into(), "export".into()]) {
+        if let Some(url) = parse_source_export(&out) {
+            return Some(url);
+        }
+    }
+    let out = crate::winget::process::run_capture(&["source".into(), "list".into()]).ok()?;
+    parse_source_list(&out)
 }
 
 pub fn detect_all(tools_list: &[String]) -> Vec<MirrorStatus> {
@@ -276,40 +312,49 @@ pub fn apply_one(tool: &str, value: &str) -> Result<String, String> {
             Ok(run_capture_cmd(&p, &["env", "-w", &format!("GOPROXY={value}")]))
         }
         "winget" => {
-            // 先移除同名源（不存在则忽略错误），再以同参数添加，实现"切换"
-            let _ = crate::winget::process::run_capture(&[
-                "source".into(),
-                "remove".into(),
-                "--name".into(),
-                "winget".into(),
-                "--accept-source-agreements".into(),
-                "--disable-interactivity".into(),
-            ]);
-            let out = crate::winget::process::run_capture(&[
-                "source".into(),
-                "add".into(),
-                "--name".into(),
-                "winget".into(),
-                "--arg".into(),
-                value.to_string(),
-                "--accept-source-agreements".into(),
-                "--disable-interactivity".into(),
-            ])?;
-            if out.contains("已添加") || out.to_lowercase().contains("added") || out.trim().is_empty() {
-                Ok(format!("winget 源已切换为 {value}"))
-            } else {
-                // 失败时尽量还原官方源
-                let _ = crate::winget::process::run_capture(&[
-                    "source".into(),
-                    "add".into(),
-                    "--name".into(),
-                    "winget".into(),
-                    "--arg".into(),
-                    "https://cdn.winget.microsoft.com/cache".into(),
-                    "--accept-source-agreements".into(),
-                    "--disable-interactivity".into(),
-                ]);
-                Err(format!("切换失败（可能需要管理员权限）：{out}"))
+            // 官方换源序列（与官方文档一致）：remove → add → source update。
+            // 源是系统级配置必须管理员：单次 UAC 提权跑完整条序列（避免三次弹窗），
+            // 结果经临时文件回传（提权子进程退出码跨层不可靠）。
+            const OFFICIAL: &str = "https://cdn.winget.microsoft.com/cache";
+            let url = if value.trim().is_empty() { OFFICIAL } else { value.trim() };
+            if !url.starts_with("http") || url.contains('\'') {
+                return Err("源地址不合法（仅支持 http(s)，且不允许引号）".into());
+            }
+            let dir = std::env::temp_dir().join("tongtop-mirror");
+            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+            let result_path = dir.join("winget-apply.result");
+            let _ = std::fs::remove_file(&result_path);
+            let script_path = dir.join("winget-apply.ps1");
+            let inner = format!(
+                "$w = (Get-Command winget -ErrorAction Stop).Source\n\
+                 & $w source remove --name winget --disable-interactivity 2>&1 | Out-Null\n\
+                 & $w source add --name winget '{url}' --accept-source-agreements --disable-interactivity 2>&1 | Out-Null\n\
+                 $code = $LASTEXITCODE\n\
+                 if ($code -eq 0) {{ & $w source update --disable-interactivity 2>&1 | Out-Null }}\n\
+                 if ($code -eq 0) {{ 'ok' | Set-Content -LiteralPath '{result}' -Encoding UTF8 }}\n\
+                 else {{ \"fail:$code\" | Set-Content -LiteralPath '{result}' -Encoding UTF8 }}\n",
+                url = url,
+                result = result_path.display()
+            );
+            std::fs::write(&script_path, inner).map_err(|e| format!("写入换源脚本失败：{e}"))?;
+            let outer = format!(
+                "$p = Start-Process powershell -Verb RunAs -Wait -PassThru -WindowStyle Hidden \
+                 -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{}'\n\
+                 Write-Output ('exit:' + $p.ExitCode)\n",
+                script_path.display()
+            );
+            let out = tools::powershell(&outer)?;
+            let lower = out.to_lowercase();
+            if lower.contains("cancel") || out.contains("取消") {
+                return Err("未获得管理员权限（UAC 已取消）——换源需要管理员权限".into());
+            }
+            match std::fs::read_to_string(&result_path) {
+                Ok(t) if t.trim() == "ok" => Ok(format!("winget 源已切换为 {url}，源索引已更新")),
+                Ok(t) => Err(format!(
+                    "切换失败（winget 退出码 {}）——可在管理员终端手动执行官方命令",
+                    t.trim().trim_start_matches("fail:")
+                )),
+                Err(_) => Err("提权执行未返回结果（可能被安全软件拦截）；可在管理员终端手动执行官方命令".into()),
             }
         }
         _ => Err(format!("未知工具：{tool}")),
@@ -319,6 +364,34 @@ pub fn apply_one(tool: &str, value: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn winget_source_export_jsonl_parse() {
+        // winget v1.29 `winget source export` 实测输出（每行一个 JSON）
+        let sample = concat!(
+            r#"{"Arg":"https://mirrors.ustc.edu.cn/winget-source","Data":"Microsoft.Winget.Source_8wekyb3d8bbwe","Explicit":false,"Identifier":"Microsoft.Winget.Source_8wekyb3d8bbwe","Name":"winget","Type":"Microsoft.PreIndexed.Package"}"#, "\n",
+            r#"{"Arg":"https://storeedgefd.dsx.mp.microsoft.com/v9.0","Data":"","Identifier":"StoreEdgeFD","Name":"msstore","TrustLevel":["Trusted"],"Type":"Microsoft.Rest"}"#, "\n",
+            r#"{"Arg":"https://cdn.winget.microsoft.com/fonts","Identifier":"Microsoft.Winget.Fonts.Source_8wekyb3d8bbwe","Name":"winget-font","Explicit":true,"Type":"Microsoft.PreIndexed.Package"}"#, "\n",
+        );
+        assert_eq!(
+            parse_source_export(sample).as_deref(),
+            Some("https://mirrors.ustc.edu.cn/winget-source")
+        );
+    }
+
+    #[test]
+    fn winget_source_list_table_parse() {
+        // winget source list 文本表格实测样例（winget-font 不得误匹配）
+        let sample = "名称        参数                                          显式\n\
+                      ---------------------------------------------------------------\n\
+                      winget      https://mirrors.ustc.edu.cn/winget-source     false\n\
+                      msstore     https://storeedgefd.dsx.mp.microsoft.com/v9.0 false\n\
+                      winget-font https://cdn.winget.microsoft.com/fonts        true\n";
+        assert_eq!(
+            parse_source_list(sample).as_deref(),
+            Some("https://mirrors.ustc.edu.cn/winget-source")
+        );
+    }
 
     #[test]
     fn cargo_mirror_roundtrip() {

@@ -1,6 +1,6 @@
 [package]
 name = "tongtop-store"
-version = "0.6.1"
+version = "0.6.2"
 description = "应用商店：官方软件下载链接分发（winget 源）"
 authors = ["you"]
 edition = "2021"
