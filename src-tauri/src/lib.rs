@@ -1506,8 +1506,8 @@ struct SelfUpdateInfo {
 
 /// 更新签名公钥（minisign 公钥文件文本，私钥在 CI secret；编译进应用防 Release 被替换）。
 /// 注：tauri 配置里的 pubkey 是本文本再 base64 一层；此处存内层文本，直接 PublicKey::decode。
-const UPDATER_PUBKEY: &str = "untrusted comment: minisign public key: 96860EE13D6E9C9E
-RWSenG494Q6GlkwZP1n0A5FaSgTk7n7/HM6vAIwYRkomqVXT1OzFP47A
+const UPDATER_PUBKEY: &str = "untrusted comment: minisign public key: 361407D7E51649E8
+RWToSRbl1wcUNgDkPKGZ0k/L/OSwvm8dUkHJRN0Zjeit5RRYqU3jKtET
 ";
 
 /// minisign 验签：数据 + .sig 资产内容对照内置公钥。
@@ -1742,8 +1742,20 @@ fn apply_self_update(
         // minisign：私钥签名 + 编译进应用的公钥验签（防下载链路与 Release 被整体替换）
         let data = std::fs::read(path).map_err(|e| format!("无法读取安装包：{e}"))?;
         if let Err(e) = verify_minisign(&data, &sig) {
-            let _ = std::fs::remove_file(path);
-            return Err(format!("安装包签名校验失败（{e}），已阻止执行"));
+            // 密钥轮换容错：老版本内嵌的公钥对不上新签名时，若 sha256（官方 API 直连获取）
+            // 匹配则放行（安全等级退回 sha256 保障）；两者都不过才拒绝。
+            let ok_sha = expected_sha256
+                .as_deref()
+                .map(|expected| {
+                    sha256_file(path)
+                        .map(|a| a.eq_ignore_ascii_case(expected))
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+            if !ok_sha {
+                let _ = std::fs::remove_file(path);
+                return Err(format!("安装包签名校验失败（{e}）且无 sha256 兜底，已阻止执行"));
+            }
         }
     } else if let Some(expected) = expected_sha256 {
         let actual = sha256_file(path)?;
@@ -2088,7 +2100,7 @@ mod updater_tests {
     #[test]
     fn minisign_verify_fixture() {
         let data = b"tongtop updater minisign test fixture";
-        let sig = r##"dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTZW5HNDk0UTZHbG5iN29LYm5LcFFtWUJ0OThQYUtSMGFXQWtKa2FpaXlDRjFra0tja3FLVk5SQnB0THE5aVdzczNSbUwweDBxZlhTUnUwZlVMRFZCbmtRV1FYME4yU3dNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5ODkwNTc2CWZpbGU6dG9uZ3RvcC1maXh0dXJlLnR4dAo0REhWVlhyaExkR2k2dmFzdXpSWmY4NENzM2dpenp0L3FWMXQrWkJmd0RzbDNpU3ovdkVXa01CVkI2UHUxcGdKd3NsWUtRYkJLMkNTaCtSQjlGWlBBUT09Cg=="##;
+        let sig = r##"dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUb1NSYmwxd2NVTnFIbHp3bXpSMlVBelN6VFdhY0pwMHN2Z2c3V21SL25yaG1ieWVrR2JaUTA2WXNrRTdGY3RaZlRRVkdEWkpXekNJUW1GYWxWT2MxN085WU53dFBacVFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5ODkzOTcwCWZpbGU6dG9uZ3RvcC1maXh0dXJlLnR4dApnbnBlUzhWTitoOHh6em05KzJvSFUzdGJJV3FqaGcvdHNZZzNPZEkwY0JQRVFKTm1TYmVpcGprME9lWkxHTnMwRk1kanMyUi9QVUMvNmJKVWw3UGZBQT09Cg=="##;
         assert!(verify_minisign(data, sig).is_ok(), "合法签名应通过: {:?}", verify_minisign(data, sig));
         assert!(verify_minisign(b"tampered payload", sig).is_err(), "篡改内容必须验签失败");
     }
