@@ -18,6 +18,8 @@ interface UpdateStore {
   checking: boolean;
   /** 下载进度（null = 未在下载） */
   progress: number | null;
+  /** 上次检查时间戳（前端节流用） */
+  lastCheckAt: number;
   error: string | null;
   /** manual=true 时无论有无更新都弹窗（设置里点「检查更新」） */
   check: (manual?: boolean) => Promise<void>;
@@ -33,12 +35,17 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
   checking: false,
   progress: null,
   error: null,
+  lastCheckAt: 0,
 
   check: async (manual = false) => {
     if (get().checking || get().progress !== null) return;
     set({ checking: true, error: null });
     try {
-      const info = await ipc.checkSelfUpdate();
+      // 手动检查必拉新；非手动（启动静默/进更新页）10 分钟节流后也拉新——
+      // 刚发布的版本不能再被 6 小时缓存挡住（v0.6.5 实测踩坑）
+      const force = manual || Date.now() - get().lastCheckAt > 10 * 60 * 1000;
+      set({ lastCheckAt: Date.now() });
+      const info = await ipc.checkSelfUpdate(force);
       const skipped = localStorage.getItem(SKIP_KEY);
       const shouldShow = info.hasUpdate && (manual || info.latest !== skipped);
       set({ info, open: shouldShow || (manual && info.hasUpdate === false) });

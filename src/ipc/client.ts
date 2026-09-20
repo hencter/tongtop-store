@@ -226,12 +226,12 @@ export async function mirrorLatencies(urls: string[]): Promise<MirrorLatency[]> 
   return invoke<MirrorLatency[]>("mirror_latencies", { urls });
 }
 
-/** 商店自更新：检查 GitHub Releases 上的新版本 */
-export async function checkSelfUpdate(): Promise<SelfUpdateInfo> {
+/** 商店自更新：检查 GitHub Releases 上的新版本（force=手动检查/进更新页时绕过缓存） */
+export async function checkSelfUpdate(force = false): Promise<SelfUpdateInfo> {
   if (!isTauri()) {
-    return { current: "0.6.5", latest: "0.6.5", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false, expectedSha256: null, signature: null, assetKind: "exe" };
+    return { current: "0.6.6", latest: "0.6.6", notes: "", releaseUrl: "", assetUrl: "", assetSize: 0, hasUpdate: false, expectedSha256: null, signature: null, assetKind: "exe" };
   }
-  return invoke<SelfUpdateInfo>("check_self_update");
+  return invoke<SelfUpdateInfo>("check_self_update", { force });
 }
 
 /** 从网站静态 API 拉最新目录数据（首页推荐实时更新；失败时调用方保留内置数据） */

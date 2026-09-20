@@ -1543,11 +1543,16 @@ fn http_get_text(url: &str) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn check_self_update() -> Result<SelfUpdateInfo, String> {
-    tauri::async_runtime::spawn_blocking(|| {
+async fn check_self_update(force: Option<bool>) -> Result<SelfUpdateInfo, String> {
+    tauri::async_runtime::spawn_blocking(move || {
         let key = format!("gh:{}", SELF_REPO.to_lowercase());
-        let cached = index_db::kv_get(&key, GH_TTL)
-            .and_then(|c| serde_json::from_str::<gh::GhRelease>(&c).ok());
+        // force=true（手动检查/进更新页）绕过 6 小时 TTL 缓存直接拉取——
+        // 否则刚发布的新版本会因缓存显示「已是最新」（v0.6.5 实测踩坑）
+        let cached = if force.unwrap_or(false) {
+            None
+        } else {
+            index_db::kv_get(&key, GH_TTL).and_then(|c| serde_json::from_str::<gh::GhRelease>(&c).ok())
+        };
         let r = match cached {
             Some(r) => r,
             None => {
