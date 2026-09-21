@@ -191,28 +191,9 @@ fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
             ))
         }
         "winget" => {
+            // issue #23：不再提供 winget upgrade --all——批量更新由前端按用户勾选逐项入队，
+            // 保证界面确认清单与实际执行范围完全一致（忽略/未勾选的软件不会收到升级命令）。
             let action = spec.action.clone().unwrap_or_else(|| "install".into());
-            if action == "upgrade_all" {
-                // 一键更新：winget upgrade --all，一条命令流式跑完全部
-                let mut args: Vec<String> = vec![
-                    "upgrade".into(),
-                    "--all".into(),
-                    "--source".into(),
-                    "winget".into(),
-                    "--accept-source-agreements".into(),
-                    "--accept-package-agreements".into(),
-                    "--disable-interactivity".into(),
-                ];
-                if spec.silent.unwrap_or(false) {
-                    args.push("-h".into());
-                }
-                let cmd_line = format!("winget {}", args.join(" "));
-                let label = spec
-                    .display
-                    .clone()
-                    .unwrap_or_else(|| "一键更新全部".into());
-                return Ok((Prepared::Cmd(process::winget_cmd(&args), cmd_line), label));
-            }
             let id = spec.winget_id.clone().ok_or("缺少 wingetId")?;
             let args = winget_action_args(&action, &id, spec.silent.unwrap_or(false), spec.location.as_deref())?;
             let cmd_line = format!("winget {}", args.join(" "));
@@ -1324,7 +1305,7 @@ fn stream_task(
     let retryable = spec.kind == "winget"
         && matches!(
             spec.action.as_deref(),
-            Some("install") | Some("upgrade") | Some("upgrade_all")
+            Some("install") | Some("upgrade")
         );
 
     let mut outcome = match run_once(&app, &id, cmd, &slot) {
@@ -1504,6 +1485,10 @@ struct SelfUpdateInfo {
     asset_kind: String,
 }
 
+/// 首个引入 minisign 签名发布的版本（4d81c05，v0.6.3）。
+/// 目标版本 ≥ 此版本时强制要求 .sig 验签通过；更老版本走 sha256 迁移窗口。
+const FIRST_SIGNED_VERSION: &str = "0.6.3";
+
 /// 更新签名公钥（minisign 公钥文件文本，私钥在 CI secret；编译进应用防 Release 被替换）。
 /// 注：tauri 配置里的 pubkey 是本文本再 base64 一层；此处存内层文本，直接 PublicKey::decode。
 const UPDATER_PUBKEY: &str = "untrusted comment: minisign public key: 361407D7E51649E8
@@ -1595,15 +1580,28 @@ async fn check_self_update(force: Option<bool>) -> Result<SelfUpdateInfo, String
                 )
             };
         // 完整性元数据（均经官方 API 资产地址直连获取，不经过任何第三方代理）：
-        // minisign 签名优先（私钥在 CI，公钥编译进应用，防 Release 被整体替换）；sha256 兜底
+        // minisign 签名（私钥在 CI，公钥编译进应用，防 Release 被整体替换）为信任根；
+        // sha256 仅供签名引入前的老版本迁移窗口使用，不能作为签名缺失/失败时的安全降级。
+        let sig_required = !asset_name.is_empty() && !semver_gt(FIRST_SIGNED_VERSION, &latest);
         let signature = if asset_name.is_empty() {
             None
         } else {
-            r.assets
-                .iter()
-                .find(|a| a.name == format!("{asset_name}.sig"))
-                .and_then(|a| http_get_text(&a.url).ok())
-                .filter(|t| t.contains("minisign") || t.contains("signature"))
+            match r.assets.iter().find(|a| a.name == format!("{asset_name}.sig")) {
+                // fail closed：已迁移签名发布的版本，签名缺失/拉取失败/内容异常即阻止更新，
+                // 不允许静默退回同 Release 的 sha256（攻击者可同时替换两者）
+                Some(a) => match http_get_text(&a.url) {
+                    Ok(t) if t.contains("minisign") || t.contains("signature") => Some(t),
+                    Ok(_) => return Err("更新签名内容异常，已阻止更新".to_string()),
+                    Err(e) if sig_required => {
+                        return Err(format!("获取更新签名失败（{e}），已阻止更新"))
+                    }
+                    Err(_) => None,
+                },
+                None if sig_required => {
+                    return Err("发布缺少签名资产（.sig），已阻止更新".to_string())
+                }
+                None => None,
+            }
         };
         let expected_sha256 = if asset_name.is_empty() {
             None
@@ -1729,10 +1727,52 @@ async fn download_self_update(
     .map_err(|e| e.to_string())?
 }
 
+/// 安装包完整性闸门（issue #13，fail closed）：
+/// - 有签名：minisign 验签（公钥内置），失败即删文件拒绝——不做 sha256 降级
+///   （Release 被整体控制时攻击者可同时替换二进制/.sha256/伪造 .sig，sha 不能承担认证）；
+/// - 无签名且目标版本 ≥ FIRST_SIGNED_VERSION：拒绝（发布必须带签名资产）；
+/// - 无签名且目标为签名引入前的老版本：sha256 迁移窗口（摘要经官方 API 直连获取）；
+/// - 校验失败的文件就地删除，绝不会进入执行阶段。
+fn verify_installer_integrity(
+    path: &std::path::Path,
+    expected_sha256: Option<&str>,
+    signature: Option<&str>,
+    target_version: &str,
+) -> Result<(), String> {
+    if let Some(sig) = signature {
+        let data = std::fs::read(path).map_err(|e| format!("无法读取安装包：{e}"))?;
+        if let Err(e) = verify_minisign(&data, sig) {
+            let _ = std::fs::remove_file(path);
+            return Err(format!("安装包签名校验失败（{e}），已阻止执行"));
+        }
+        return Ok(());
+    }
+    if !semver_gt(FIRST_SIGNED_VERSION, target_version) {
+        let _ = std::fs::remove_file(path);
+        return Err(format!("v{target_version} 起更新必须携带签名，该发布缺少 .sig 资产，已阻止执行"));
+    }
+    match expected_sha256 {
+        Some(expected) => {
+            let actual = sha256_file(path)?;
+            if !actual.eq_ignore_ascii_case(expected) {
+                let _ = std::fs::remove_file(path);
+                return Err(format!(
+                    "安装包完整性校验失败（预期 {expected}，实际 {actual}），已阻止执行"
+                ));
+            }
+            Ok(())
+        }
+        None => {
+            let _ = std::fs::remove_file(path);
+            Err("发布缺少签名与摘要，无法验证安装包完整性，已阻止执行".to_string())
+        }
+    }
+}
+
 /// 自有更新机制看门狗：等本进程退出（文件解锁）→ 应用新资产 → 拉起新版本。
 /// asset_kind="exe"：PowerShell Copy-Item 直接覆盖（自有机制，无 NSIS 版本检查/注册表错位）；
 /// asset_kind="nsis"：NSIS /S 静默安装（兼容老版本 Release 的回退路径）。
-/// 完整性：minisign 签名优先（公钥内置），sha256 兜底（issue #13）。
+/// 完整性：minisign 签名强制（公钥内置），仅签名引入前的老版本走 sha256 迁移窗口（issue #13）。
 /// 成败不按退出码（NSIS 静默码不可靠），写 update-target 标记，下次启动按版本对照判定。
 #[tauri::command]
 fn apply_self_update(
@@ -1743,34 +1783,12 @@ fn apply_self_update(
     asset_kind: String,
 ) -> Result<(), String> {
     let path = std::path::Path::new(&installer_path);
-    if let Some(sig) = signature {
-        // minisign：私钥签名 + 编译进应用的公钥验签（防下载链路与 Release 被整体替换）
-        let data = std::fs::read(path).map_err(|e| format!("无法读取安装包：{e}"))?;
-        if let Err(e) = verify_minisign(&data, &sig) {
-            // 密钥轮换容错：老版本内嵌的公钥对不上新签名时，若 sha256（官方 API 直连获取）
-            // 匹配则放行（安全等级退回 sha256 保障）；两者都不过才拒绝。
-            let ok_sha = expected_sha256
-                .as_deref()
-                .map(|expected| {
-                    sha256_file(path)
-                        .map(|a| a.eq_ignore_ascii_case(expected))
-                        .unwrap_or(false)
-                })
-                .unwrap_or(false);
-            if !ok_sha {
-                let _ = std::fs::remove_file(path);
-                return Err(format!("安装包签名校验失败（{e}）且无 sha256 兜底，已阻止执行"));
-            }
-        }
-    } else if let Some(expected) = expected_sha256 {
-        let actual = sha256_file(path)?;
-        if !actual.eq_ignore_ascii_case(&expected) {
-            let _ = std::fs::remove_file(path);
-            return Err(format!(
-                "安装包完整性校验失败（预期 {expected}，实际 {actual}），已阻止执行"
-            ));
-        }
-    }
+    verify_installer_integrity(
+        path,
+        expected_sha256.as_deref(),
+        signature.as_deref(),
+        &target_version,
+    )?;
     let current = std::env::current_exe().map_err(|e| format!("无法定位当前程序：{e}"))?;
     // 目标版本落标记（下次启动对照自身版本判定是否真的更新成功）
     let marker_dir = std::env::temp_dir().join("tongtop-dl");
@@ -2122,6 +2140,81 @@ mod updater_tests {
         let data = std::fs::read(&exe).expect("读取 exe 失败");
         let sig_text = std::fs::read_to_string(&sig).expect("读取 sig 失败");
         verify_minisign(&data, &sig_text).expect("发布资产验签失败");
+    }
+
+    /// 夹具签名对应的原文（与 minisign_verify_fixture 同一签名）。
+    const FIXTURE_DATA: &[u8] = b"tongtop updater minisign test fixture";
+    const FIXTURE_SIG: &str = r##"dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUb1NSYmwxd2NVTnFIbHp3bXpSMlVBelN6VFdhY0pwMHN2Z2c3V21SL25yaG1ieWVrR2JaUTA2WXNrRTdGY3RaZlRRVkdEWkpXekNJUW1GYWxWT2MxN085WU53dFBacVFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5ODkzOTcwCWZpbGU6dG9uZ3RvcC1maXh0dXJlLnR4dApnbnBlUzhWTitoOHh6em05KzJvSFUzdGJJV3FqaGcvdHNZZzNPZEkwY0JQRVFKTm1TYmVpcGprME9lWkxHTnMwRk1kanMyUi9QVUMvNmJKVWw3UGZBQT09Cg=="##;
+
+    fn temp_installer(name: &str, content: &[u8]) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join("tongtop-verify-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join(name);
+        std::fs::write(&f, content).unwrap();
+        f
+    }
+
+    /// issue #13 回归：正确安装包（签名有效）→ 放行
+    #[test]
+    fn integrity_valid_signature_passes() {
+        let f = temp_installer("ok.exe", FIXTURE_DATA);
+        verify_installer_integrity(&f, None, Some(FIXTURE_SIG), "0.6.6")
+            .expect("合法签名应放行");
+        assert!(f.exists(), "校验通过不应删除文件");
+    }
+
+    /// issue #13 回归：单字节篡改的安装包 → 执行前失败并删除
+    #[test]
+    fn integrity_tampered_installer_rejected() {
+        let mut tampered = FIXTURE_DATA.to_vec();
+        tampered[0] ^= 0x01;
+        let f = temp_installer("tampered.exe", &tampered);
+        let err = verify_installer_integrity(&f, None, Some(FIXTURE_SIG), "0.6.6")
+            .expect_err("篡改安装包必须被拒绝");
+        assert!(err.contains("签名校验失败"), "错误信息应明确：{err}");
+        assert!(!f.exists(), "校验失败的文件必须删除");
+    }
+
+    /// issue #13 回归：.sig 缺失但 sha256 匹配（≥0.6.3 的发布）→ 仍必须失败
+    #[test]
+    fn integrity_missing_sig_sha_match_still_rejected() {
+        let f = temp_installer("nosig.exe", FIXTURE_DATA);
+        let sha = sha256_file(&f).unwrap();
+        verify_installer_integrity(&f, Some(&sha), None, "0.6.6")
+            .expect_err("签名缺失不得退回 sha256 放行");
+    }
+
+    /// issue #13 回归：.sig 无效（伪造/旧密钥）但 sha256 匹配 → 仍必须失败
+    #[test]
+    fn integrity_invalid_sig_sha_match_still_rejected() {
+        use base64::Engine;
+        let f = temp_installer("badsig.exe", FIXTURE_DATA);
+        let sha = sha256_file(&f).unwrap();
+        // 格式合法但签名内容随机（对应不了内置公钥）
+        let fake_inner = "untrusted comment: signature from tauri secret key\nRUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\ntrusted comment: fake\ngnpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n";
+        let fake_sig = base64::engine::general_purpose::STANDARD.encode(fake_inner);
+        verify_installer_integrity(&f, Some(&sha), Some(&fake_sig), "0.6.6")
+            .expect_err("无效签名不得被 sha256 兜底放行");
+    }
+
+    /// 迁移窗口：签名引入前的老版本（<0.6.3）无签名时 sha256 匹配 → 放行；不符 → 拒绝
+    #[test]
+    fn integrity_legacy_sha256_window() {
+        let f = temp_installer("legacy.exe", FIXTURE_DATA);
+        let sha = sha256_file(&f).unwrap();
+        verify_installer_integrity(&f, Some(&sha), None, "0.6.2")
+            .expect("老版本 sha256 匹配应放行");
+        let f2 = temp_installer("legacy-bad.exe", FIXTURE_DATA);
+        verify_installer_integrity(&f2, Some(&"0".repeat(64)), None, "0.6.2")
+            .expect_err("sha256 不符必须拒绝");
+    }
+
+    /// 签名与摘要都缺失 → 拒绝（不静默执行无法验证的安装包）
+    #[test]
+    fn integrity_no_metadata_rejected() {
+        let f = temp_installer("bare.exe", FIXTURE_DATA);
+        verify_installer_integrity(&f, None, None, "0.6.2")
+            .expect_err("无签名无摘要必须拒绝");
     }
 
     #[test]

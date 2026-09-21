@@ -80,7 +80,7 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       const fallback = proxy ? proxy + info.assetUrl : null;
       const path = await ipc.downloadSelfUpdate(info.assetUrl, fallback, info.assetSize);
       // 静默更新：watcher 接管（等退出 → 覆盖/安装 → 自动重启新版），本应用立即退出；
-      // 有 .sig 资产时 minisign 验签优先，否则 sha256 兜底
+      // 完整性 fail closed：minisign 验签强制（≥0.6.3 的发布缺签名即拒绝），sha256 仅限老版本迁移窗口
       await ipc.applySelfUpdate(path, info.expectedSha256 ?? null, info.signature ?? null, info.latest, info.assetKind);
       set({ open: false });
       setTimeout(() => void ipc.quitApp(), 300);
