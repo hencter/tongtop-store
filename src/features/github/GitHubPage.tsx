@@ -1,7 +1,8 @@
-/** GitHub 专区：目录中开源在 GitHub 的软件聚合视图。
- *  每张卡片展示最新 Release（标签 / 日期 / 下载量）、Windows 首选资产直链下载，
- *  并可一键 winget 安装；直链受「镜像中心 → GitHub 下载加速」代理设置影响。
- */
+/** GitHub 专区（issue #20）：目录中开源在 GitHub 的软件聚合视图。
+ *  主操作统一为 winget 安装（商店可跟踪安装状态与更新）；
+ *  Release 直链下载为次级入口，明确标注「不由商店安装/跟踪更新」；
+ *  直链受「镜像中心 → GitHub 下载加速」代理设置影响（加速只作用于该下载链路）。
+ *  下载次数仅作热度参考，不构成安全或质量背书。 */
 
 import { useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -14,6 +15,7 @@ import { useTaskStore, MAX_QUEUE } from "../../state/taskStore";
 import { timeLabel } from "../../domain/format";
 import { formatDate, formatDownloads, formatSize, pickWindowsAssets } from "../../domain/github";
 import { AppIcon } from "../../components/AppIcon";
+import { PageFilter } from "../../components/PageFilter";
 import { useT } from "../../i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,7 +71,7 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
 
       <div className="min-h-8 text-xs text-muted-foreground">{desc}</div>
 
-      {/* Release 信息 */}
+      {/* Release 信息：最新发布版本/日期与本机安装版本分行，不混淆 */}
       <div className="rounded-md bg-muted px-2.5 py-2 text-[11px] text-muted-foreground">
         {!release && !error && (
           <span className="flex items-center gap-1.5">
@@ -80,55 +82,78 @@ function RepoCard({ id, name, repo, desc }: { id: string; name: string; repo: st
         {release && (
           <span className="flex items-center gap-1.5">
             <Tag className="size-3 shrink-0 text-primary" />
-            <span className="font-medium text-foreground">{release.tag}</span>
+            {t("最新发布 ")}<span className="font-medium text-foreground">{release.tag}</span>
             <span>· {formatDate(release.publishedAt)}</span>
-            {totalDownloads > 0 && <span className="ml-auto">{formatDownloads(totalDownloads)}{t(" 次下载")}</span>}
+            {totalDownloads > 0 && (
+              <span className="ml-auto" title={t("下载次数仅作热度参考，不构成安全或质量背书")}>
+                {formatDownloads(totalDownloads)}{t(" 次下载")}
+              </span>
+            )}
           </span>
+        )}
+        {installedVersion && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <Check className="size-3 shrink-0 text-ok" />
+            {t("本机已装 ")}<span className="font-medium text-foreground">v{installedVersion}</span>
+          </div>
         )}
       </div>
 
-      <div className="mt-auto flex gap-2">
-        {asset && (
+      {/* 主操作：winget 安装（可跟踪状态与更新）；直链下载为次级入口 */}
+      <div className="mt-auto flex flex-col gap-1.5">
+        <div className="flex gap-2">
+          {!installedVersion ? (
+            <Button
+              size="sm"
+              className="flex-1"
+              disabled={taskState !== null || queueFull}
+              onClick={() =>
+                void runTask(`winget:install:${id}`, {
+                  kind: "winget",
+                  action: "install",
+                  wingetId: id,
+                  silent,
+                  display: `安装 ${name}`,
+                })
+              }
+            >
+              {taskState === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+              {t("winget 安装")}
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="flex-1" disabled>
+              <Check className="size-3.5 text-ok" /> {t("已安装（在「已安装」页管理）")}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
-            className="min-w-0 flex-1 justify-start"
-            onClick={() => void openUrl(proxied(asset.url))}
-            title={`${asset.name}（${formatSize(asset.size)}）\n${asset.url}`}
+            className="shrink-0"
+            onClick={() => void openUrl(`https://github.com/${repo}/releases`)}
+            title={t("发行说明与全部资产")}
           >
-            <Download className="size-3.5 shrink-0 text-primary" />
-            <span className="truncate font-mono text-[11px]">{asset.name}</span>
-            <span className="shrink-0 text-[10px] text-muted-foreground">{formatSize(asset.size)}</span>
+            <ExternalLink className="size-3.5" /> {t("发布页")}
           </Button>
-        )}
-        {!installedVersion ? (
+        </div>
+        {asset ? (
           <Button
+            variant="ghost"
             size="sm"
-            className={asset ? "shrink-0" : "flex-1"}
-            disabled={taskState !== null || queueFull}
-            onClick={() =>
-              void runTask(`winget:install:${id}`, {
-                kind: "winget",
-                action: "install",
-                wingetId: id,
-                silent,
-                display: `安装 ${name}`,
-              })
-            }
+            className="min-w-0 justify-start text-muted-foreground"
+            onClick={() => void openUrl(proxied(asset.url))}
+            title={`${t("直链下载：只下载安装包，不会由商店安装或跟踪更新")}${ghProxy ? `\n${t("经第三方加速：")}${ghProxy}` : ""}\n${asset.url}`}
           >
-            {taskState === "running" ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
-            {t("winget 安装")}
+            <Download className="size-3.5 shrink-0" />
+            <span className="truncate font-mono text-[11px]">{asset.name}</span>
+            <span className="shrink-0 text-[10px]">{formatSize(asset.size)}</span>
           </Button>
-        ) : null}
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          onClick={() => void openUrl(`https://github.com/${repo}/releases`)}
-          title={t("查看全部发布")}
-        >
-          <ExternalLink className="size-3.5" />
-        </Button>
+        ) : (
+          release && (
+            <div className="text-[11px] text-muted-foreground">
+              {t("该发布暂无 Windows 资产 —— 请到发布页查看其他平台版本。")}
+            </div>
+          )
+        )}
       </div>
     </Card>
   );
@@ -168,6 +193,7 @@ export function GitHubPage() {
           <GithubMark className="size-5" /> GitHub 专区
         </h2>
         <div className="flex items-center gap-3">
+          <PageFilter tab="github" placeholder="筛选本页项目…" />
           {fetchedAt > 0 && (
             <span className="text-[11px] text-muted-foreground">{timeLabel(Math.floor(fetchedAt / 1000))}</span>
           )}
@@ -177,8 +203,9 @@ export function GitHubPage() {
         </div>
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
-        {t("精选目录中开源在 GitHub 的软件：最新 Release、下载量与 Windows 安装包直链，一站直达。")}
-        {t("直链经官方 Releases 分发（可在镜像中心开启加速）；安装仍走 winget 官方源。")}
+        {t("这里收录开源在 GitHub 的软件，Release 即官方发布渠道。")}
+        {t("主操作统一为 winget 安装（商店可跟踪安装状态与后续更新）；直链下载只是拿回安装包，不会由商店安装或跟踪更新。")}
+        {t("第三方加速只作用于直链下载链路（镜像中心开启）；winget 安装始终走官方源。")}
       </p>
 
       {!loadedOnce && loading ? (

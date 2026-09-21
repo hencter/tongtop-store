@@ -179,25 +179,44 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
                   </>
                 )}
               </Button>
+            ) : effectiveMode === "uninstall" ? (
+              // issue #22：已安装行主操作是「管理」（详情），卸载降为次级图标按钮（仍二次确认 + 残留扫描）
+              <>
+                <Button variant="outline" size="sm" onClick={() => openDetail(info.id)} title="查看详情与管理">
+                  管理
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  disabled={taskState !== null || queueFull}
+                  title={queueFull ? "队列已满，请稍后再试" : "卸载（需二次确认；卸载后扫描注册表与 AppData 残留）"}
+                  onClick={() => setConfirmUninstall(true)}
+                >
+                  {taskState === "running" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : taskState === "queued" ? (
+                    <Clock className="size-3.5" />
+                  ) : (
+                    <Trash2 className="size-3.5" />
+                  )}
+                </Button>
+              </>
             ) : (
               <Button
-                variant={effectiveMode === "uninstall" ? "destructive" : "default"}
+                variant="default"
                 size="sm"
                 disabled={taskState !== null || queueFull}
                 title={queueFull ? "队列已满，请稍后再试" : undefined}
-                onClick={() => {
-                  if (effectiveMode === "uninstall") {
-                    setConfirmUninstall(true);
-                  } else {
-                    void runTask(taskId, {
-                      kind: "winget",
-                      action: effectiveMode,
-                      wingetId: info.id,
-                      silent,
-                      display: `${actionLabel} ${catalog?.name ?? info.name}`,
-                    });
-                  }
-                }}
+                onClick={() =>
+                  void runTask(taskId, {
+                    kind: "winget",
+                    action: effectiveMode,
+                    wingetId: info.id,
+                    silent,
+                    display: `${actionLabel} ${catalog?.name ?? info.name}`,
+                  })
+                }
               >
                 {taskState === "running" ? (
                   <>

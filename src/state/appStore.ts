@@ -54,6 +54,10 @@ interface AppStore {
   tab: Tab;
   setTab: (t: Tab) => void;
 
+  /** 首页「按用途浏览」带过来的目录分类筛选（搜索页消费后即清，issue #17/#18） */
+  browseCategory: string | null;
+  setBrowseCategory: (c: string | null) => void;
+
   /** 页面级搜索：每个路由独立的本地过滤词（互不影响） */
   pageQueries: Partial<Record<Tab, string>>;
   setPageQuery: (tab: Tab, q: string) => void;
@@ -88,6 +92,9 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         .then(() => get().refreshSnapshot());
     }
   },
+
+  browseCategory: null,
+  setBrowseCategory: (c) => set({ browseCategory: c }),
 
   wingetOk: null,
   checkWinget: async () => {

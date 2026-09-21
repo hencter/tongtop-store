@@ -1,4 +1,7 @@
-/** 缓存清理页：检查 winget 安装下载的安装包（%TEMP%\WinGet），判断可移除性并一键清理。 */
+/** 安装包缓存清理页（issue #24：名称与范围一致）。
+ *  范围仅 winget 安装时下载到临时目录（%TEMP%\WinGet）的安装包副本——
+ *  不清理系统垃圾、浏览器缓存或其他软件缓存；删除不影响已安装的软件。
+ *  结果区分预计/实际释放，跳过项如实标注；清理后自动重新扫描。 */
 
 import { useCallback, useEffect, useState } from "react";
 import { BrushCleaning, CheckCircle2, FolderOpen, Loader2, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
@@ -7,6 +10,7 @@ import type { CleanupInfo, CleanupResult } from "../../ipc/types";
 import { formatSize } from "../../domain/github";
 import { useAppStore } from "../../state/appStore";
 import { useT } from "../../i18n";
+import { PageFilter } from "../../components/PageFilter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -28,6 +32,7 @@ export function CleanupPage() {
   const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState<CleanupResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scannedAt, setScannedAt] = useState(0);
   const pageQuery = useAppStore((s) => s.pageQueries.cleanup ?? "");
 
   // 标题栏搜索（本页作用域）：过滤占用明细
@@ -39,6 +44,7 @@ export function CleanupPage() {
     setError(null);
     try {
       setInfo(await ipc.cleanupScan());
+      setScannedAt(Date.now());
     } catch (e) {
       setError(String(e));
     } finally {
@@ -71,13 +77,17 @@ export function CleanupPage() {
   return (
     <div className="page h-full overflow-y-auto">
       <header className="mb-1.5 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold tracking-wide">{t("缓存清理")}</h2>
-        <Button variant="outline" size="sm" onClick={() => void scan()} disabled={loading}>
-          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> 重新检查
-        </Button>
+        <h2 className="m-0 text-lg font-semibold tracking-wide">{t("安装包缓存清理")}</h2>
+        <div className="flex items-center gap-2">
+          <PageFilter tab="cleanup" placeholder="筛选本页缓存项…" />
+          <Button variant="outline" size="sm" onClick={() => void scan()} disabled={loading}>
+            <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> 重新检查
+          </Button>
+        </div>
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
-        winget 安装软件时会把安装包下载到临时目录，装完不会立即删除。这里检查它们并安全移除。
+        {t("范围仅限 winget 安装软件时下载到临时目录的安装包副本——不清理系统垃圾、浏览器缓存或其他软件的缓存。")}
+        {scannedAt > 0 && <span className="ml-1">{t("最近扫描：")}{new Date(scannedAt).toLocaleTimeString()}</span>}
       </p>
 
       {error && (
@@ -87,10 +97,16 @@ export function CleanupPage() {
       )}
 
       {result && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-ok/40 bg-ok/10 px-3.5 py-2.5 text-[13px] text-ok">
+        <div
+          className={`mb-4 flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-[13px] ${
+            result.skipped > 0
+              ? "border-gold/40 bg-gold/10 text-gold"
+              : "border-ok/40 bg-ok/10 text-ok"
+          }`}
+        >
           <CheckCircle2 className="size-4" />
-          已释放 {formatSize(result.freedBytes)}（删除 {result.deleted} 项
-          {result.skipped > 0 ? `，${result.skipped} 项被占用已跳过` : ""}）
+          实际释放 {formatSize(result.freedBytes)}（删除 {result.deleted} 项
+          {result.skipped > 0 ? `，${result.skipped} 项正被占用已跳过（未删除）` : ""}）
         </div>
       )}
 
@@ -139,7 +155,7 @@ export function CleanupPage() {
 
           {shownItems.length > 0 && (
             <Card className="p-4">
-              <div className="mb-2.5 text-[13px] font-semibold">占用最多的项目</div>
+              <div className="mb-2.5 text-[13px] font-semibold">占用明细（均可清理；正被占用的会自动跳过并如实报告）</div>
               <div className="flex flex-col">
                 {shownItems.map((it) => (
                   <div key={it.name} className="flex items-center gap-3 border-t border-border py-2 text-[13px] first:border-t-0">
@@ -162,10 +178,15 @@ export function CleanupPage() {
           <DialogHeader>
             <DialogTitle>清理安装包缓存</DialogTitle>
             <DialogDescription>
-              将删除 {info?.dir} 下的全部内容（约 {formatSize(info?.totalBytes ?? 0)}）。
-              这些只是安装时下载的安装包副本，删除不影响已安装的软件。
+              将删除以下目录的全部内容（预计释放 {formatSize(info?.totalBytes ?? 0)}）：
             </DialogDescription>
           </DialogHeader>
+          <ul className="m-0 flex flex-col gap-1.5 pl-4 text-[12.5px] leading-relaxed text-muted-foreground">
+            <li className="break-all font-mono text-xs">{info?.dir}</li>
+            <li>将删除：winget 下载的安装包副本（{info?.fileCount} 个文件 · {info?.dirCount} 个目录）。</li>
+            <li>不会删除：已安装的软件本体、其配置与数据；正被占用的文件会跳过并如实报告。</li>
+            <li>影响：下次安装同一软件需重新下载安装包，仅此而已。</li>
+          </ul>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirming(false)}>
               再想想

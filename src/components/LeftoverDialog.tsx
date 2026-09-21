@@ -52,12 +52,15 @@ export function LeftoverDialog() {
             <>
               <div className="mb-3 flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/5 p-2.5 text-[11px] leading-relaxed text-gold">
                 <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
-                删除数据目录会清空该软件的配置与本地数据（不可恢复）；注册表 HKLM 项需要管理员权限，失败会如实跳过。
+                所有残留默认不勾选，请逐项确认后再清除。删除操作不可恢复；也可以直接「保留残留并结束」。
               </div>
 
               {report.dirs.length > 0 && (
                 <div className="mb-3">
-                  <div className="mb-1.5 text-[13px] font-semibold">数据目录（{report.dirs.length}）</div>
+                  <div className="mb-1.5 flex items-baseline gap-2 text-[13px] font-semibold">
+                    数据目录（{report.dirs.length}）
+                    <span className="text-[11px] font-normal text-destructive">含该软件的配置与本地数据，删除后不可恢复</span>
+                  </div>
                   <div className="flex flex-col">
                     {report.dirs.map((d) => (
                       <label key={d.path} className="flex cursor-pointer items-center gap-2.5 border-t border-border py-2 text-[13px] first:border-t-0">
@@ -73,7 +76,10 @@ export function LeftoverDialog() {
 
               {report.registry.length > 0 && (
                 <div>
-                  <div className="mb-1.5 text-[13px] font-semibold">注册表（{report.registry.length}）</div>
+                  <div className="mb-1.5 flex items-baseline gap-2 text-[13px] font-semibold">
+                    注册表（{report.registry.length}）
+                    <span className="text-[11px] font-normal text-muted-foreground">「卸载项」是残留卸载信息，删除一般安全；「配置」项可能含个人设置；HKLM 项需管理员权限，失败会如实跳过</span>
+                  </div>
                   <div className="flex flex-col">
                     {report.registry.map((k) => (
                       <label key={k.key} className="flex cursor-pointer items-center gap-2.5 border-t border-border py-2 text-[13px] first:border-t-0">
@@ -110,7 +116,7 @@ export function LeftoverDialog() {
             </Button>
           )}
           <Button variant={result || nothing ? "default" : "outline"} onClick={close}>
-            {result || nothing ? "完成" : "忽略，保留残留"}
+            {result || nothing ? "完成" : "保留残留并结束"}
           </Button>
         </div>
       </DialogContent>

@@ -1,8 +1,13 @@
-/** 镜像中心状态：检测 + 一键应用 + 傻瓜化自动测速（启动即后台跑，挑最快的自动应用）。 */
+/** 镜像中心状态（issue #21：测速与修改配置分离）。
+ *  measure() 只测速出推荐（只读，绝不改配置）；
+ *  applyRecommended() 才执行 mirrorApply——仅在用户显式开启「自动切换」后由启动/托盘流程调用，
+ *  或在镜像页手动点「应用推荐」。
+ *  逐工具的手动应用走 apply()（页面先弹变更预览确认）。 */
 
 import { create } from "zustand";
 import * as ipc from "../ipc/client";
 import { useCatalogStore } from "./catalogStore";
+import { useSettingsStore } from "./settingsStore";
 import type { MirrorStatus } from "../ipc/types";
 
 /** 取镜像值的主机名（sparse+ 前缀与协议头剥掉），用于"当前源是否为它"的判断 */
@@ -10,20 +15,36 @@ function hostOf(v: string): string {
   return v.replace(/^sparse\+/, "").replace(/^https?:\/\//, "").split("/")[0];
 }
 
+/** 测速推荐：某工具明显更快的候选源 */
+export interface MirrorRecommendation {
+  value: string;
+  label: string;
+  ms: number;
+  /** 当前源实测延迟（null = 当前源不可达/不在候选中） */
+  curMs: number | null;
+}
+
 interface MirrorStore {
   status: MirrorStatus[] | null;
   loading: boolean;
   applying: string | null; // tool id
-  message: Record<string, string>;
+  /** 各工具最近一次操作结果（ok=false 即失败，页面如实标红） */
+  message: Record<string, { text: string; ok: boolean }>;
   /** 各镜像 URL 的实测延迟（null = 不可达） */
   latencies: Record<string, number | null>;
-  /** 自动测速进行中 */
+  /** 测速推荐（measure 产出，未经确认不会应用） */
+  recommendations: Record<string, MirrorRecommendation>;
+  /** 测速进行中 */
   tuning: boolean;
-  /** 上次自动测速时间戳（0 = 未跑过） */
+  /** 上次测速时间戳（0 = 未测过） */
   tunedAt: number;
   refresh: () => Promise<void>;
   apply: (tool: string, value: string) => Promise<void>;
-  /** 傻瓜化一键：测全部 → 每个工具挑最快的自动应用（当前源不慢则不折腾） */
+  /** 只测速：检测状态 + 实测延迟 + 产出推荐，不修改任何配置 */
+  measure: () => Promise<void>;
+  /** 应用全部推荐（仅用户显式触发或已开启自动切换时调用） */
+  applyRecommended: () => Promise<void>;
+  /** 启动/托盘入口：先测速；仅在设置允许时才自动应用推荐 */
   autoTune: () => Promise<void>;
 }
 
@@ -33,6 +54,7 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
   applying: null,
   message: {},
   latencies: {},
+  recommendations: {},
   tuning: false,
   tunedAt: 0,
   refresh: async () => {
@@ -46,22 +68,26 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
     }
   },
   apply: async (tool, value) => {
-    set({ applying: tool, message: { ...get().message, [tool]: "" } });
+    set({ applying: tool, message: { ...get().message, [tool]: { text: "", ok: true } } });
     try {
       const msg = await ipc.mirrorApply(tool, value);
       set({
         applying: null,
-        message: { ...get().message, [tool]: msg || "已应用" },
+        message: { ...get().message, [tool]: { text: msg || "已应用", ok: true } },
+        // 手动应用后该工具的推荐即过时（当前源已变）
+        recommendations: Object.fromEntries(
+          Object.entries(get().recommendations).filter(([k]) => k !== tool),
+        ),
       });
       await get().refresh();
     } catch (e) {
       set({
         applying: null,
-        message: { ...get().message, [tool]: String(e) },
+        message: { ...get().message, [tool]: { text: String(e), ok: false } },
       });
     }
   },
-  autoTune: async () => {
+  measure: async () => {
     if (get().tuning) return;
     set({ tuning: true });
     try {
@@ -80,8 +106,8 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
       const results = await ipc.mirrorLatencies(urls);
       const lat: Record<string, number | null> = {};
       for (const r of results) lat[r.url] = r.ms;
-      // 3. 每个工具选最快；当前源不慢则保持（避免每次启动来回切）
-      const msgs: Record<string, string> = {};
+      // 3. 每个工具选最快；当前源不慢（差距 ≤80ms）则不给推荐（避免来回折腾）
+      const recs: Record<string, MirrorRecommendation> = {};
       for (const tool of tools) {
         const candidates = [tool.official, ...tool.presets.map((p) => p.value)]
           .filter(Boolean)
@@ -91,31 +117,31 @@ export const useMirrorStore = create<MirrorStore>()((set, get) => ({
         const best = candidates.reduce((a, b) => (a.ms <= b.ms ? a : b));
         const st = status.find((s) => s.tool === tool.id);
         const current = st?.current ?? "";
-        const curMs = candidates.find((c) => current.includes(hostOf(c.v)))?.ms;
-        if (curMs != null && curMs <= best.ms + 80) {
-          msgs[tool.id] = `当前源已足够快（${curMs}ms）`;
-          continue;
-        }
-        const label =
-          tool.presets.find((p) => p.value === best.v)?.label ?? "官方源";
-        try {
-          await ipc.mirrorApply(tool.id, best.v);
-          msgs[tool.id] = `已自动切换 → ${label}（${best.ms}ms）`;
-        } catch (e) {
-          msgs[tool.id] = `自动切换失败：${String(e)}`;
-        }
+        const curMs = candidates.find((c) => current.includes(hostOf(c.v)))?.ms ?? null;
+        if (curMs != null && curMs <= best.ms + 80) continue;
+        recs[tool.id] = {
+          value: best.v,
+          label: tool.presets.find((p) => p.value === best.v)?.label ?? "官方源",
+          ms: best.ms,
+          curMs,
+        };
       }
-      // 4. 回读状态 + 落延迟表
-      const status2 = await ipc.mirrorStatus(useCatalogStore.getState().mirrorTools.map((t) => t.id));
-      set({
-        status: status2,
-        latencies: lat,
-        tuning: false,
-        tunedAt: Date.now(),
-        message: { ...get().message, ...msgs },
-      });
+      set({ latencies: lat, recommendations: recs, tuning: false, tunedAt: Date.now() });
     } catch {
       set({ tuning: false });
+    }
+  },
+  applyRecommended: async () => {
+    const recs = get().recommendations;
+    for (const [tool, rec] of Object.entries(recs)) {
+      await get().apply(tool, rec.value);
+    }
+  },
+  autoTune: async () => {
+    await get().measure();
+    // 默认不自动修改任何工具的配置；用户显式开启后才自动应用推荐
+    if (useSettingsStore.getState().autoSwitchMirrors) {
+      await get().applyRecommended();
     }
   },
 }));

@@ -1,5 +1,6 @@
-/** 文件活动监控页：装了/启动了软件后，谁在往用户目录写东西。
- *  ReadDirectoryChangesW 监听 + 前两级目录聚合 + 会话期间新进程快照（逼近归因，如实标注）。 */
+/** 文件活动监控页（issue #25：文件事件观察为主，进程仅排查线索）。
+ *  ReadDirectoryChangesW 监听所选目录的创建/修改/删除 + 前两级目录聚合（事实）；
+ *  侧栏列出会话期间新出现的进程（线索）——名称关键词匹配不等于进程写入归因，UI 如实标注。 */
 
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
@@ -8,6 +9,7 @@ import * as ipc from "../../ipc/client";
 import type { ActivityBatch, ActivityGroup, ProcDto } from "../../ipc/types";
 import { useAppStore } from "../../state/appStore";
 import { useT } from "../../i18n";
+import { PageFilter } from "../../components/PageFilter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -125,6 +127,12 @@ export function ActivityPage() {
       <header className="mb-1.5 flex items-center justify-between">
         <h2 className="m-0 text-lg font-semibold tracking-wide">{t("活动监控")}</h2>
         <div className="flex items-center gap-2">
+          <PageFilter tab="activity" placeholder="筛选本页活动…" />
+          {active && (
+            <Badge variant="ok">
+              <Activity className="size-3 animate-pulse" /> {t("监控中")}
+            </Badge>
+          )}
           {active && (
             <span className="text-[11px] text-muted-foreground">
               {Math.floor(elapsed / 1000)}s · {total} 个事件
@@ -143,8 +151,8 @@ export function ActivityPage() {
         </div>
       </header>
       <p className="mb-3 text-xs text-muted-foreground">
-        监听用户目录的文件创建/修改/删除，按目录聚合。进程级精确归因需要管理员权限的内核驱动（ProcMon 领域）——
-        这里用「新出现的进程 + 路径关联」逼近。已默认排除 Temp 等噪音目录。
+        {t("观察所选目录的文件创建/修改/删除（事实记录）；右侧进程列表只是排查线索，与文件事件没有确定归因关系——名称相似不代表是它写入的。")}
+        {t("监控范围是你勾选的用户目录（可能包含个人数据），事件仅保留在本次会话内存中，不上传、不落盘。")}
       </p>
 
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -162,7 +170,8 @@ export function ActivityPage() {
         <div className="ml-auto flex items-center gap-2">
           <input
             className="h-8 w-56 rounded-md border border-input bg-transparent px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-            placeholder="关联应用关键词（如 wechat tencent）"
+            placeholder={t("路径名称匹配关键词（仅高亮，非归因）")}
+            title={t("按目录名中的关键词高亮条目；名称匹配只是可能相关，不代表确认为某进程写入")}
             value={related}
             onChange={(e) => setRelated(e.target.value)}
           />
@@ -172,14 +181,25 @@ export function ActivityPage() {
       {!active && feed.length === 0 && (
         <div className="py-14 text-center text-muted-foreground">
           <Radar className="mx-auto mb-3 size-10 opacity-40" />
-          点「开始监控」，然后去安装/启动软件 —— 谁在后台写用户目录一目了然。
+          {t("点「开始监控」，然后去安装/启动软件 —— 哪些目录在发生变化一目了然。")}
+          <div className="mt-1 text-[11px]">{t("本工具观察目录变化，不能识别具体是哪个进程在写文件。")}</div>
         </div>
       )}
 
       {active && shownFeed.length === 0 && (
         <div className="py-10 text-center text-sm text-muted-foreground">
           <Activity className="mx-auto mb-2 size-6 animate-pulse opacity-50" />
-          监听中… 暂无可显示的文件活动
+          {t("监听中… 所选目录暂无文件变化（只记录创建/修改/删除事件）")}
+        </div>
+      )}
+
+      {/* 会话结束摘要：停止后数据仍可查看，不虚构历史 */}
+      {!active && feed.length > 0 && (
+        <div className="mb-2 shrink-0 rounded-lg border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground">
+          {t("会话已结束：监控 ")}
+          {roots.filter((r) => r.on).length}
+          {t(" 个目录 · 共 ")}{total}{t(" 个事件 · ")}
+          {feed.length}{t(" 个活跃目录（以下为本次会话记录，重新开始监控将清空）")}
         </div>
       )}
 
@@ -195,7 +215,11 @@ export function ActivityPage() {
               <div className="flex items-center gap-2">
                 <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold">{r.key}</span>
-                {isRelated(r.key) && <Badge variant="default">关联</Badge>}
+                {isRelated(r.key) && (
+                  <Badge variant="default" title={t("路径名含关键词，仅表示可能相关，不能确认是哪个进程写入")}>
+                    {t("名称匹配")}
+                  </Badge>
+                )}
                 <Badge variant="secondary">{r.count} 次</Badge>
               </div>
               {r.latest[0] && (
@@ -209,12 +233,15 @@ export function ActivityPage() {
 
         <Card className="min-h-0 overflow-y-auto p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] font-semibold">新出现的进程（{newProcs.length}）</span>
+            <span className="text-[13px] font-semibold">{t("新出现的进程")}（{newProcs.length}）</span>
             <RefreshCw className="size-3.5 text-muted-foreground" />
+          </div>
+          <div className="mb-2 text-[10.5px] leading-relaxed text-muted-foreground">
+            {t("仅列出会话期间新启动的进程作为排查线索——与左侧文件事件没有确定归因关系。")}
           </div>
           {newProcs.length === 0 && (
             <div className="py-6 text-center text-[11px] text-muted-foreground">
-              {active ? "会话期间暂无新进程" : "开始监控后自动跟踪"}
+              {active ? t("会话期间暂无新进程") : t("开始监控后自动跟踪")}
             </div>
           )}
           {newProcs.map((p) => (

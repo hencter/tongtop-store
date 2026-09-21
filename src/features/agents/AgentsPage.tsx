@@ -5,6 +5,8 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Circle,
   ExternalLink,
   Loader2,
@@ -23,6 +25,7 @@ import { useT } from "../../i18n";
 import { useSettingsStore } from "../../state/settingsStore";
 import { AppIcon } from "../../components/AppIcon";
 import { PageTabs } from "../../components/PageTabs";
+import { PageFilter } from "../../components/PageFilter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -34,6 +37,10 @@ import { Switch } from "@/components/ui/switch";
 function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; installed: boolean; onPick: () => void }) {
   const t = useT();
   const kindLabel = recipe.desktopNames ? t("桌面端") : recipe.webPort ? "Web" : "CLI";
+  const requiredKeys = recipe.env.filter((e) => e.required).length;
+  const keyLabel = requiredKeys > 0 ? t("需密钥") : recipe.env.length > 0 ? t("密钥可选") : t("免密钥");
+  const runtimeLabel =
+    recipe.runtime === "none" ? null : (recipe.runtimeLabel ?? (recipe.runtime === "node" ? "Node.js" : "Python"));
   return (
     <Card className="flex flex-col gap-2 p-4 transition-colors hover:border-foreground/20">
       <div className="flex items-center gap-3">
@@ -42,7 +49,7 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
           <div className="font-semibold">{recipe.name}</div>
           <div className="text-[11px] text-muted-foreground">{recipe.vendor}</div>
         </div>
-        <div className="ml-auto flex gap-1.5">
+        <div className="ml-auto flex flex-wrap justify-end gap-1.5">
           {installed && (
             <Badge variant="outline">
               <CheckCircle2 className="size-3 text-ok" /> 已安装
@@ -58,7 +65,10 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
             </Badge>
           )}
           <Badge variant="outline">{kindLabel}</Badge>
-          {recipe.env.length === 0 && <Badge variant="secondary">{t("免密钥")}</Badge>}
+          {runtimeLabel && <Badge variant="outline" title={t("所需运行时（装机时自动安装）")}>{runtimeLabel}</Badge>}
+          <Badge variant={requiredKeys > 0 ? "outline" : "secondary"} title={requiredKeys > 0 ? t("使用前需申请并配置厂商密钥") : undefined}>
+            {keyLabel}
+          </Badge>
         </div>
       </div>
       <div className="min-h-8 text-xs text-muted-foreground">{recipe.desc}</div>
@@ -66,11 +76,11 @@ function AgentCard({ recipe, installed, onPick }: { recipe: AgentRecipe; install
         <Button size="sm" className="flex-1" onClick={onPick}>
           {installed ? (
             <>
-              <Play className="size-3.5" /> 打开
+              <Play className="size-3.5" /> {t("启动")}
             </>
           ) : (
             <>
-              <Rocket className="size-3.5" /> 一键装机
+              <Rocket className="size-3.5" /> {t("查看并安装")}
             </>
           )}
         </Button>
@@ -118,6 +128,11 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
   const autoExit = useSettingsStore((s) => s.autoExit);
   const setAutoExit = useSettingsStore((s) => s.setAutoExit);
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // 日志默认折叠（高级信息）；装机开始/失败时自动展开（issue #19：进度与失败原因优先于原始日志）
+  const [showLog, setShowLog] = useState(false);
+  useEffect(() => {
+    if (running || steps.some((s) => s.status === "fail")) setShowLog(true);
+  }, [running, steps]);
 
   const logRef = useRef<HTMLPreElement>(null);
   useEffect(() => {
@@ -135,11 +150,12 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
           <ArrowLeft className="size-4" />
         </Button>
         <AppIcon id={`agent:${recipe.id}`} name={recipe.name} size={40} />
-        <div>
+        <div className="min-w-0">
           <div className="font-semibold">{recipe.name}</div>
           <div className="text-[11px] text-muted-foreground">
             {recipe.vendor} · {recipe.install.kind === "npm" ? "npm" : recipe.install.kind === "pip" ? "pip" : "winget"} {t("安装")}
           </div>
+          <div className="truncate text-[11px] text-muted-foreground">{recipe.desc}</div>
         </div>
         <Button variant="link" className="ml-auto text-xs" onClick={() => void openUrl(recipe.homepage)}>
           {t("官方文档")} <ExternalLink className="size-3" />
@@ -147,8 +163,47 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-[300px_1fr] gap-4">
-        {/* 左：流水线 + 配置 */}
+        {/* 左：安装前检查 + 流水线 + 配置 */}
         <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+          {/* 安装前检查：运行形式、必要条件、将修改的配置、数据风险（issue #19） */}
+          <Card className="p-4">
+            <div className="mb-2.5 text-[13px] font-semibold">{t("安装前检查")}</div>
+            <ul className="m-0 flex flex-col gap-1.5 pl-0 text-[12px] leading-relaxed text-muted-foreground">
+              <li>
+                {t("运行形式：")}
+                {recipe.desktopNames ? t("桌面应用（图形界面）") : recipe.webPort ? t("本地 Web 服务（启动后自动打开浏览器）") : t("命令行工具（在商店内嵌终端运行）")}
+              </li>
+              <li>
+                {t("运行时：")}
+                {recipe.runtime === "none"
+                  ? t("无额外依赖")
+                  : `${recipe.runtimeLabel ?? (recipe.runtime === "node" ? "Node.js" : "Python")}${t("（未安装将经 winget 自动安装）")}`}
+              </li>
+              <li>
+                {t("账号 / 密钥：")}
+                {recipe.env.filter((e) => e.required).length > 0
+                  ? t("需配置 ") + recipe.env.filter((e) => e.required).length + t(" 项必填密钥（下方获取并填写后才能开始）")
+                  : recipe.env.length > 0
+                    ? t("密钥可选，不填也能安装")
+                    : t("无需账号或密钥")}
+              </li>
+              {(recipe.env.length > 0 || recipe.pathExtra.length > 0) && (
+                <li>
+                  {t("将修改的配置：")}
+                  {recipe.env.length > 0 &&
+                    t("用户级环境变量（") + recipe.env.map((e) => e.name).join("、") + t("），持久保留")}
+                  {recipe.env.length > 0 && recipe.pathExtra.length > 0 && "；"}
+                  {recipe.pathExtra.length > 0 && t("用户 PATH 追加目录")}
+                </li>
+              )}
+              {recipe.concerns && recipe.concerns.length > 0 && (
+                <li className="text-gold">
+                  {t("数据风险：")}{recipe.concerns.map((c) => CONCERN_CAUTION[c]).join("；")}
+                </li>
+              )}
+            </ul>
+          </Card>
+
           <Card className="p-4">
             <div className="mb-2.5 text-[13px] font-semibold">{t("装机流水线")}</div>
             <div className="flex flex-col gap-2">
@@ -197,7 +252,8 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
                   </div>
                 ))}
                 <p className="m-0 text-[11px] leading-relaxed text-muted-foreground">
-                  {t("写入用户级环境变量（启动时也会直接注入进程），不写入任何文件。")}
+                  {t("密钥以用户级环境变量持久保存（重启后仍有效），启动时也直接注入进程。")}
+                  {t("卸载本体不会删除这些变量；如需清除：Windows 设置 → 搜索「编辑账户的环境变量」手动删除。")}
                 </p>
               </div>
             </Card>
@@ -229,14 +285,54 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
           ))}
         </div>
 
-        {/* 右：日志 + 操作 */}
+        {/* 右：状态摘要 + 操作 + 可展开日志 */}
         <div className="flex min-h-0 flex-col gap-3">
-          <pre
-            ref={logRef}
-            className="min-h-0 flex-1 select-text overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-muted p-4 font-mono text-xs leading-relaxed text-muted-foreground"
+          {/* 状态摘要：进度、失败原因与下一步优先于原始日志 */}
+          <Card className="shrink-0 p-4">
+            {finished ? (
+              <div className="flex items-center gap-2 text-[13px] text-ok">
+                <CheckCircle2 className="size-4" /> {t("装机完成，可以启动了。")}
+              </div>
+            ) : anyFail ? (
+              <div className="text-[13px]">
+                <div className="flex items-center gap-2 text-destructive">
+                  <XCircle className="size-4" /> {t("有步骤失败：")}
+                  {steps.find((s) => s.status === "fail")?.label}
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {steps.find((s) => s.status === "fail")?.detail ?? t("详见下方日志；修正后点「重试装机」。")}
+                </div>
+              </div>
+            ) : running ? (
+              <div className="flex items-center gap-2 text-[13px]">
+                <Loader2 className="size-4 animate-spin text-primary" />
+                {steps.find((s) => s.status === "running")?.label ?? t("装机中…")}
+              </div>
+            ) : (
+              <div className="text-[13px] text-muted-foreground">
+                {missingRequired
+                  ? t("请先完成下方必填密钥（带 *），再开始装机。")
+                  : t("检查就绪。点「开始装机」依次执行左侧流水线。")}
+              </div>
+            )}
+          </Card>
+
+          <button
+            className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setShowLog((v) => !v)}
+            aria-expanded={showLog}
           >
-            {log.length > 0 ? log.join("\n") : "准备就绪。配置好后点击下方「开始装机」。"}
-          </pre>
+            {showLog ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            {t("原始日志（高级）")}
+          </button>
+          {showLog && (
+            <pre
+              ref={logRef}
+              className="min-h-0 flex-1 select-text overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-muted p-4 font-mono text-xs leading-relaxed text-muted-foreground"
+            >
+              {log.length > 0 ? log.join("\n") : t("暂无日志。")}
+            </pre>
+          )}
           <div className="flex shrink-0 items-center gap-3">
             {!finished ? (
               <Button size="lg" className="flex-1" disabled={running || missingRequired} onClick={() => void start()}>
@@ -302,9 +398,10 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
 
 // ---------- 入口 ----------
 
-/** 分栏：desktopNames → 桌面端（GUI）；其余（含 Web 型）都算 CLI 端 */
-type AgentTab = "cli" | "desktop";
-const kindOf = (a: AgentRecipe): AgentTab => (a.desktopNames ? "desktop" : "cli");
+/** 分栏：desktopNames → 桌面端（GUI）；webPort → Web（本地服务）；其余 CLI */
+type AgentTab = "desktop" | "cli" | "web";
+const kindOf = (a: AgentRecipe): AgentTab =>
+  a.desktopNames ? "desktop" : a.webPort ? "web" : "cli";
 
 export function AgentsPage() {
   const t = useT();
@@ -337,25 +434,28 @@ export function AgentsPage() {
     : agents;
   // 搜索时跨分栏展示全部命中；否则按当前分栏过滤
   const shown = q ? searched : searched.filter((a) => kindOf(a) === kind);
-  const cliCount = agents.filter((a) => kindOf(a) === "cli").length;
-  const desktopCount = agents.length - cliCount;
+  const countOf = (k: AgentTab) => agents.filter((a) => kindOf(a) === k).length;
 
   return (
     <div className="page h-full overflow-y-auto">
       <header className="mb-1.5 flex items-center justify-between">
         <h2 className="m-0 text-lg font-semibold tracking-wide">AI 智能体</h2>
-        <PageTabs
-          tabs={[
-            { id: "desktop" as const, label: t("桌面端"), count: desktopCount },
-            { id: "cli" as const, label: t("CLI 端"), count: cliCount },
-          ]}
-          active={kind}
-          onChange={setKind}
-        />
+        <div className="flex items-center gap-3">
+          <PageFilter tab="agents" placeholder="筛选本页智能体…" />
+          <PageTabs
+            tabs={[
+              { id: "desktop" as const, label: t("桌面端"), count: countOf("desktop") },
+              { id: "cli" as const, label: t("CLI 端"), count: countOf("cli") },
+              { id: "web" as const, label: "Web", count: countOf("web") },
+            ]}
+            active={kind}
+            onChange={setKind}
+          />
+        </div>
       </header>
       <p className="mb-4 text-xs text-muted-foreground">
-        {t("选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。")}
-        {t("最后点「启动」—— 商店退出，任务结束。已安装的会自动识别，直接启动即可。")}
+        {t("桌面端 = 图形界面应用；CLI = 命令行工具（在商店内嵌终端运行）；Web = 本地服务，启动后浏览器打开。")}
+        {t("点「查看并安装」进入详情：先看安装前检查（运行时、密钥、将修改的配置），再开始装机。")}
       </p>
       {shown.length === 0 ? (
         <div className="py-14 text-center text-sm text-muted-foreground">{t("没有匹配「")}{pageQuery.trim()}{t("」的智能体。")}</div>

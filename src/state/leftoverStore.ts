@@ -1,6 +1,8 @@
 /**
  * 深度卸载（Geek Uninstaller 式）：winget 卸载 → 残留扫描（注册表 + AppData）→ 用户勾选清除。
  * deepUninstall 是唯一入口：行/卡片的「卸载」按钮都走它，判据只有一份。
+ * 安全（issue #22）：残留项默认**不勾选**，必须用户逐项主动选择；
+ * 卸载失败（success=false）不进入残留清理流程。
  */
 
 import { create } from "zustand";
@@ -37,10 +39,11 @@ export const useLeftoverStore = create<LeftoverStore>()((set, get) => ({
     set({ forId: id, forName: name, report: null, scanning: true, result: null });
     try {
       const report = await ipc.leftoverScan(id, name);
+      // 默认全部不勾选：删除不可恢复，必须由用户逐项主动选择（issue #22）
       const checkedDirs: Record<string, boolean> = {};
       const checkedKeys: Record<string, boolean> = {};
-      for (const d of report.dirs) checkedDirs[d.path] = true;
-      for (const k of report.registry) checkedKeys[k.key] = true;
+      for (const d of report.dirs) checkedDirs[d.path] = false;
+      for (const k of report.registry) checkedKeys[k.key] = false;
       set({ report, scanning: false, checkedDirs, checkedKeys });
     } catch {
       set({ scanning: false, report: { registry: [], dirs: [] } });

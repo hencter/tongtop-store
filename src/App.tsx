@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import { Bot, BrushCleaning, GitFork, Home, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
+import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
+import { useTaskStore } from "./state/taskStore";
 import { useUpdateStore } from "./state/updateStore";
 import { useT } from "./i18n";
 import * as ipc from "./ipc/client";
@@ -29,17 +30,60 @@ import { Titlebar } from "./components/Titlebar";
 import { Button } from "@/components/ui/button";
 import "./styles/global.css";
 
-const NAV: { id: Tab; label: string; icon: typeof Home }[] = [
-  { id: "home", label: "首页", icon: Home },
-  { id: "search", label: "搜索", icon: Search },
-  { id: "agents", label: "AI 智能体", icon: Bot },
-  { id: "github", label: "GitHub 专区", icon: GitFork },
-  { id: "mirrors", label: "镜像中心", icon: Zap },
-  { id: "installed", label: "已安装", icon: Package },
-  { id: "updates", label: "更新", icon: TrendingUp },
-  { id: "cleanup", label: "缓存清理", icon: BrushCleaning },
-  { id: "activity", label: "活动监控", icon: Radar },
+/** 导航信息架构（issue #16）：按任务分三区——发现软件 / 我的电脑 / 工具与维护（可折叠）。 */
+const NAV_SECTIONS: { title: string; collapsible?: boolean; items: { id: Tab; label: string; icon: typeof Home }[] }[] = [
+  {
+    title: "发现",
+    items: [
+      { id: "home", label: "首页", icon: Home },
+      { id: "search", label: "软件搜索", icon: Search },
+      { id: "agents", label: "AI 智能体", icon: Bot },
+      { id: "github", label: "GitHub 开源", icon: GitFork },
+    ],
+  },
+  {
+    title: "我的电脑",
+    items: [
+      { id: "installed", label: "已安装", icon: Package },
+      { id: "updates", label: "软件更新", icon: TrendingUp },
+    ],
+  },
+  {
+    title: "工具与维护",
+    collapsible: true,
+    items: [
+      { id: "mirrors", label: "镜像中心", icon: Zap },
+      { id: "cleanup", label: "安装包缓存", icon: BrushCleaning },
+      { id: "activity", label: "活动监控", icon: Radar },
+    ],
+  },
 ];
+
+/** 侧边栏任务入口：有任务在跑/排队时常驻可见，点击展开任务面板（issue #16）。 */
+function TaskEntry() {
+  const t = useT();
+  const running = useTaskStore((s) => s.running);
+  const queueLen = useTaskStore((s) => s.queue.length);
+  const openPanel = useTaskStore((s) => s.openPanel);
+  if (!running && queueLen === 0) return null;
+  return (
+    <button
+      className="mb-2 flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-left text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      onClick={openPanel}
+      title={t("查看任务")}
+    >
+      {running ? (
+        <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+      ) : (
+        <ListChecks className="size-3.5 shrink-0 text-primary" />
+      )}
+      <span className="min-w-0 flex-1 truncate">
+        {running ? running.label : t("队列等待中")}
+        {queueLen > 0 && ` +${queueLen}`}
+      </span>
+    </button>
+  );
+}
 
 function WingetMissing() {
   const t = useT();
@@ -91,6 +135,7 @@ export default function App() {
 
   const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set([tab]));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(true);
 
   useEffect(() => {
     // 后台探测已安装的智能体（bin + 开始菜单），不阻塞首屏
@@ -108,7 +153,7 @@ export default function App() {
       if (ok) {
         await loadSnapshot();
         void refreshSnapshot();
-        // 傻瓜化：后台自动镜像测速（挑最快的自动应用），不打扰界面
+        // 后台镜像测速（只读产出推荐；仅在设置里显式开启「自动切换源」才会修改其他工具配置，issue #21）
         void useMirrorStore.getState().autoTune();
         // 自更新：静默检查 GitHub Releases（有新版本才弹窗）
         void useUpdateStore.getState().check(false);
@@ -141,22 +186,46 @@ export default function App() {
       <Titlebar />
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[190px] shrink-0 flex-col border-r border-border px-2.5 py-3">
-          <nav className="flex flex-1 flex-col gap-1">
-            {NAV.map((n) => (
-              <button
-                key={n.id}
-                className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] transition-colors ${
-                  tab === n.id
-                    ? "bg-accent font-medium text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
-                onClick={() => setTab(n.id)}
-              >
-                <n.icon className="size-4" />
-                {t(n.label)}
-              </button>
-            ))}
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+            {NAV_SECTIONS.map((sec) => {
+              const open = !sec.collapsible || toolsOpen;
+              return (
+                <div key={sec.title} className="flex flex-col gap-1">
+                  {sec.collapsible ? (
+                    <button
+                      className="mt-2 flex items-center gap-1 px-3 py-1 text-[11px] font-medium tracking-wide text-muted-foreground/80 hover:text-foreground"
+                      onClick={() => setToolsOpen((v) => !v)}
+                      aria-expanded={toolsOpen}
+                    >
+                      {toolsOpen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+                      {t(sec.title)}
+                    </button>
+                  ) : (
+                    <div className="mt-2 px-3 py-1 text-[11px] font-medium tracking-wide text-muted-foreground/80 first:mt-0">
+                      {t(sec.title)}
+                    </div>
+                  )}
+                  {open &&
+                    sec.items.map((n) => (
+                      <button
+                        key={n.id}
+                        className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-[13px] transition-colors ${
+                          tab === n.id
+                            ? "bg-accent font-medium text-accent-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        }`}
+                        aria-current={tab === n.id ? "page" : undefined}
+                        onClick={() => setTab(n.id)}
+                      >
+                        <n.icon className="size-4" />
+                        {t(n.label)}
+                      </button>
+                    ))}
+                </div>
+              );
+            })}
           </nav>
+          <TaskEntry />
           <div className="flex items-center gap-2 border-t border-border px-3 pt-3 text-[11.5px] text-muted-foreground">
             <span className={`size-2 rounded-full ${wingetOk ? "bg-ok" : "bg-muted-foreground"}`} />
             winget {wingetOk ? t("已就绪") : t("检测中…")}
