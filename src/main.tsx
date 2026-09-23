@@ -1,8 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
-import { TerminalWindow } from "./components/TerminalWindow";
 import { initTheme } from "./state/themeStore";
+import "./styles/global.css";
 
 // 渲染前应用主题，避免闪烁
 initTheme();
@@ -17,8 +16,11 @@ if (!termId) {
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    {termId ? <TerminalWindow id={termId} title={termTitle} /> : <App />}
-  </React.StrictMode>,
-);
+// 两路各自动态加载：主窗口不背 xterm，终端窗口不背整个商店
+const root = termId
+  ? import("./components/TerminalWindow").then(({ TerminalWindow }) => <TerminalWindow id={termId} title={termTitle} />)
+  : import("./App").then(({ default: App }) => <App />);
+
+void root.then((node) => {
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<React.StrictMode>{node}</React.StrictMode>);
+});

@@ -1,7 +1,8 @@
 /** 设置弹层：默认安装目录（如 D:\Apps）+ 启动后行为 + 版本与检查更新。 */
 
 import { useState } from "react";
-import { Globe, HardDrive, Loader2, RefreshCw, Rocket } from "lucide-react";
+import { open as pickDir } from "@tauri-apps/plugin-dialog";
+import { FolderOpen, Globe, HardDrive, Loader2, RefreshCw, Rocket } from "lucide-react";
 import { useSettingsStore, DEFAULT_CATALOG_API } from "../state/settingsStore";
 import { useUpdateStore } from "../state/updateStore";
 import { useI18n, useT, type Locale } from "../i18n";
@@ -57,6 +58,22 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                   }
                 }}
               />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                title={t("浏览…")}
+                onClick={() => {
+                  void pickDir({ directory: true, title: t("选择默认安装目录") }).then((dir) => {
+                    if (typeof dir === "string") {
+                      setInstallLocation(dir);
+                      setDraft(null);
+                    }
+                  });
+                }}
+              >
+                <FolderOpen className="size-3.5" />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

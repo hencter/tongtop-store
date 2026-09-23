@@ -140,7 +140,7 @@ pub fn scan(id: &str, name: &str) -> LeftoverReport {
             }
         }
     }
-    report.dirs.sort_by(|a, b| b.size.cmp(&a.size));
+    report.dirs.sort_by_key(|d| std::cmp::Reverse(d.size));
     report
 }
 

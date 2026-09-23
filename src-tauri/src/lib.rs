@@ -7,6 +7,7 @@
 
 mod activity;
 mod cleanup;
+mod fastdl;
 mod gh;
 mod index_db;
 mod leftover;
@@ -17,6 +18,7 @@ mod winget;
 
 use std::collections::HashMap;
 use std::process::Child;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -127,6 +129,8 @@ pub struct TaskSpec {
     location: Option<String>,
     /// download 任务：安装包直链（官网解析所得）
     url: Option<String>,
+    /// GitHub 加速代理前缀（安装包在 GitHub 上时与原地址并行多线路下载；内容由哈希校验兜底）
+    gh_proxies: Option<Vec<String>>,
 }
 
 fn winget_action_args(action: &str, id: &str, silent: bool, location: Option<&str>) -> Result<Vec<String>, String> {
@@ -231,6 +235,8 @@ struct Engine {
     queue: std::collections::VecDeque<(String, TaskSpec)>,
     running: Option<String>,
     child: Option<ChildSlot>,
+    /// 当前任务的取消标志（预下载阶段没有子进程可 kill，靠它中止）
+    cancel: Option<Arc<AtomicBool>>,
 }
 
 /// 当前运行任务的子进程槽位（重试时会被替换；取消操作经它 kill）
@@ -810,7 +816,7 @@ pub struct LeftoverDirDto {
     pub size: u64,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LeftoverReportDto {
     pub registry: Vec<LeftoverRegistryDto>,
@@ -853,15 +859,6 @@ async fn leftover_scan(id: String, name: String) -> LeftoverReportDto {
     })
     .await
     .unwrap_or_default()
-}
-
-impl Default for LeftoverReportDto {
-    fn default() -> Self {
-        Self {
-            registry: vec![],
-            dirs: vec![],
-        }
-    }
 }
 
 #[tauri::command]
@@ -914,8 +911,10 @@ fn schedule_next(app: &AppHandle, engine: &mut Engine) {
         Prepared::Download { url, .. } => format!("下载 {url}"),
     };
     let slot: ChildSlot = Arc::new(Mutex::new(None));
+    let cancel = Arc::new(AtomicBool::new(false));
     engine.running = Some(id.clone());
     engine.child = Some(slot.clone());
+    engine.cancel = Some(cancel.clone());
     let _ = app.emit(
         "task-started",
         TaskStarted {
@@ -926,7 +925,7 @@ fn schedule_next(app: &AppHandle, engine: &mut Engine) {
     );
 
     let app2 = app.clone();
-    std::thread::spawn(move || stream_task(app2, id, spec, prepared, slot));
+    std::thread::spawn(move || stream_task(app2, id, spec, prepared, slot, cancel));
 }
 
 // ---------- 下载看门狗：超时 / 停滞 / 过慢 → 自动切镜像重试 ----------
@@ -1028,45 +1027,6 @@ fn watchdog(watch: Arc<Mutex<WatchState>>, child: Arc<Mutex<Child>>) {
 
 // ---------- 官网直链下载安装（download 任务） ----------
 
-/// 流式下载到临时目录，逐块回调（已下载字节, 总字节）。
-fn http_download(url: &str, dest: &std::path::Path, mut on: impl FnMut(u64, Option<u64>)) -> Result<(), String> {
-    use std::io::Read;
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(60 * 30)))
-        .user_agent("tongtop-store/0.2")
-        .build()
-        .into();
-    let mut resp = agent.get(url).call().map_err(|e| match e {
-        ureq::Error::StatusCode(code) => format!("下载链接返回 {code}"),
-        other => format!("无法连接：{other}"),
-    })?;
-    let total: Option<u64> = resp
-        .headers()
-        .get("content-length")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.parse().ok());
-    if let Some(dir) = dest.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-    }
-    let mut file = std::fs::File::create(dest).map_err(|e| format!("无法写入临时文件：{e}"))?;
-    let mut reader = resp.body_mut().as_reader();
-    let mut buf = [0u8; 65536];
-    let mut got: u64 = 0;
-    loop {
-        match reader.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => {
-                use std::io::Write;
-                file.write_all(&buf[..n]).map_err(|e| format!("写入失败：{e}"))?;
-                got += n as u64;
-                on(got, total);
-            }
-            Err(e) => return Err(format!("下载中断：{e}")),
-        }
-    }
-    Ok(())
-}
-
 fn url_filename(url: &str) -> String {
     let tail = url.rsplit('/').next().unwrap_or("installer.exe");
     let clean = tail.split(['?', '#']).next().unwrap_or(tail);
@@ -1081,43 +1041,114 @@ fn url_filename(url: &str) -> String {
     }
 }
 
-/// 下载安装包到 %TEMP%\tongtop-dl（进度走 task-log 事件），返回落盘路径。
-fn download_installer(app: &AppHandle, id: &str, url: &str) -> Result<std::path::PathBuf, String> {
+/// 多线路多连接下载，进度走 task-log（进度条 + 每 25% 一行文字，含实时速度）。
+fn fast_download(
+    app: &AppHandle,
+    id: &str,
+    sources: &[String],
+    dest: &std::path::Path,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
+    let lines = if sources.len() > 1 {
+        format!("多线路加速下载（原地址 + {} 个加速代理）：{}", sources.len() - 1, sources[0])
+    } else {
+        format!("开始下载：{}", sources[0])
+    };
+    emit_lines(app, id, vec![lines]);
+    let last_mark = std::sync::atomic::AtomicU64::new(0);
+    let sum = fastdl::download(sources, dest, cancel, |got, total, bps| {
+        let pct = (total > 0).then(|| (got * 100 / total).min(100) as u8);
+        let _ = app.emit(
+            "task-log",
+            TaskLog {
+                id: id.to_string(),
+                lines: vec![],
+                progress: pct,
+            },
+        );
+        let mark = pct.map_or(0, |p| p as u64 / 25);
+        if mark > last_mark.load(Ordering::Relaxed) {
+            last_mark.store(mark, Ordering::Relaxed);
+            emit_lines(
+                app,
+                id,
+                vec![format!(
+                    "已下载 {:.1} MB / {:.1} MB（{:.1} MB/s）",
+                    got as f64 / 1e6,
+                    total as f64 / 1e6,
+                    bps as f64 / 1e6
+                )],
+            );
+        }
+    })?;
+    emit_lines(
+        app,
+        id,
+        vec![format!(
+            "下载完成：{:.1} MB，用时 {:.0} 秒，平均 {:.1} MB/s（{} 连接 / {} 条线路出力）",
+            sum.bytes as f64 / 1e6,
+            sum.secs,
+            sum.bytes as f64 / 1e6 / sum.secs.max(0.001),
+            sum.connections,
+            sum.sources_used
+        )],
+    );
+    Ok(())
+}
+
+/// 下载安装包到 %TEMP%\tongtop-dl，返回落盘路径。
+fn download_installer(
+    app: &AppHandle,
+    id: &str,
+    url: &str,
+    proxies: &[String],
+    cancel: &AtomicBool,
+) -> Result<std::path::PathBuf, String> {
     let dest = std::env::temp_dir()
         .join("tongtop-dl")
         .join(url_filename(url));
-    emit_lines(app, id, vec![format!("开始下载：{url}")]);
-    let mut last_pct = 0u64;
-    let mut last_emit = Instant::now();
-    http_download(url, &dest, |got, total| {
-        if let Some(t) = total.filter(|t| *t > 0) {
-            let pct = (got * 100 / t).min(100) as u8;
-            let due = last_emit.elapsed() >= Duration::from_millis(200);
-            if due {
-                last_emit = Instant::now();
-                let _ = app.emit(
-                    "task-log",
-                    TaskLog {
-                        id: id.to_string(),
-                        lines: vec![],
-                        progress: Some(pct),
-                    },
-                );
-            }
-            // 每 25% 补一行文字日志，面板不空
-            let mark = pct as u64 / 25;
-            if mark > last_pct / 25 {
-                last_pct = pct as u64;
-                emit_lines(
-                    app,
-                    id,
-                    vec![format!("已下载 {:.1} MB / {:.1} MB", got as f64 / 1e6, t as f64 / 1e6)],
-                );
-            }
-        }
-    })?;
-    emit_lines(app, id, vec!["下载完成，开始安装…".into()]);
+    fast_download(app, id, &fastdl::sources_for(url, proxies), &dest, cancel)?;
+    emit_lines(app, id, vec!["开始安装…".into()]);
     Ok(dest)
+}
+
+/// winget 安装/更新前的加速预下载：按清单把安装包下到 winget 的复用位置并校验 SHA256，
+/// 随后 winget 发现哈希一致的现成文件就跳过自己的下载。返回日志摘要。
+fn winget_prefetch(
+    app: &AppHandle,
+    id: &str,
+    winget_id: &str,
+    proxies: &[String],
+    cancel: &AtomicBool,
+) -> Result<String, String> {
+    let args: Vec<String> = [
+        "show",
+        "-e",
+        "--id",
+        winget_id,
+        "--source",
+        "winget",
+        "--accept-source-agreements",
+        "--disable-interactivity",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let text = process::run_capture(&args)?;
+    let inst = fastdl::parse_winget_show(winget_id, &text).ok_or("未能从 winget 清单解析安装包地址")?;
+    let dest = fastdl::winget_cache_path(winget_id, &inst);
+    if sha256_file(&dest).is_ok_and(|h| h == inst.sha256) {
+        return Ok("安装包已在本地缓存（哈希一致），跳过下载。".into());
+    }
+    let part = dest.with_extension("part");
+    fast_download(app, id, &fastdl::sources_for(&inst.url, proxies), &part, cancel)?;
+    let actual = sha256_file(&part)?;
+    if actual != inst.sha256 {
+        let _ = std::fs::remove_file(&part);
+        return Err(format!("安装包哈希与 winget 清单不符（预期 {}，实际 {actual}）", inst.sha256));
+    }
+    std::fs::rename(&part, &dest).map_err(|e| format!("无法写入 winget 缓存：{e}"))?;
+    Ok("已校验 SHA256，交给 winget 安装（将复用已下载的安装包）。".into())
 }
 
 /// 安装包执行命令：msi 走 msiexec 静默，exe 用调用方给的静默参数（无则交互式）。
@@ -1275,29 +1306,17 @@ fn stream_task(
     spec: TaskSpec,
     prepared: Prepared,
     slot: ChildSlot,
+    cancel: Arc<AtomicBool>,
 ) {
+    let proxies = spec.gh_proxies.clone().unwrap_or_default();
     // download 任务：先下载安装包，再构造安装命令
     let cmd = match prepared {
         Prepared::Cmd(cmd, _) => cmd,
-        Prepared::Download { url, args } => match download_installer(&app, &id, &url) {
+        Prepared::Download { url, args } => match download_installer(&app, &id, &url, &proxies, &cancel) {
             Ok(file) => installer_command(&file, &args),
             Err(e) => {
-                let _ = app.emit(
-                    "task-done",
-                    TaskDone {
-                        id: id.clone(),
-                        code: -1,
-                        success: false,
-                        error_tail: vec![e],
-                    },
-                );
-                let st = app.state::<AppState>();
-                if let Ok(mut engine) = st.0.lock() {
-                    engine.running = None;
-                    engine.child = None;
-                    schedule_next(&app, &mut engine);
-                }
-                return;
+                let code = if cancel.load(Ordering::Relaxed) { -2 } else { -1 };
+                return finish_task(&app, id, code, vec![e]);
             }
         },
     };
@@ -1307,6 +1326,19 @@ fn stream_task(
             spec.action.as_deref(),
             Some("install") | Some("upgrade")
         );
+
+    // winget 安装/更新：先自己多线路多连接下载安装包，失败则退回 winget 自带下载
+    if retryable {
+        if let Some(wid) = spec.winget_id.as_deref() {
+            match winget_prefetch(&app, &id, wid, &proxies, &cancel) {
+                Ok(msg) => emit_lines(&app, &id, vec![msg]),
+                Err(_) if cancel.load(Ordering::Relaxed) => {
+                    return finish_task(&app, id, -2, vec!["已取消".into()]);
+                }
+                Err(e) => emit_lines(&app, &id, vec![format!("加速下载未生效（{e}），改由 winget 直接下载。")]),
+            }
+        }
+    }
 
     let mut outcome = match run_once(&app, &id, cmd, &slot) {
         Ok(o) => o,
@@ -1355,22 +1387,26 @@ fn stream_task(
         emit_lines(&app, &id, vec!["任务超过 30 分钟，已强制终止。".into()]);
     }
 
-    let code = outcome.code;
+    finish_task(&app, id, outcome.code, outcome.stderr_tail);
+}
+
+/// 发 task-done，清理引擎里的当前任务并调度下一个。
+fn finish_task(app: &AppHandle, id: String, code: i32, error_tail: Vec<String>) {
     let _ = app.emit(
         "task-done",
         TaskDone {
-            id: id.clone(),
+            id,
             code,
             success: code == 0,
-            error_tail: outcome.stderr_tail,
+            error_tail,
         },
     );
-    // 清理自己，调度下一个
     let st = app.state::<AppState>();
     if let Ok(mut engine) = st.0.lock() {
         engine.running = None;
         engine.child = None;
-        schedule_next(&app, &mut engine);
+        engine.cancel = None;
+        schedule_next(app, &mut engine);
     };
 }
 
@@ -1409,6 +1445,9 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
         return false;
     };
     if engine.running.as_deref() == Some(id.as_str()) {
+        if let Some(flag) = &engine.cancel {
+            flag.store(true, Ordering::Relaxed);
+        }
         if let Some(slot) = &engine.child {
             if let Some(c) = slot.lock().unwrap().as_ref() {
                 if let Ok(mut ch) = c.lock() {
@@ -1416,7 +1455,8 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
                 }
             }
         }
-        false
+        // 无子进程 = 处于预下载阶段，取消标志已置位
+        engine.cancel.is_some()
     } else {
         let before = engine.queue.len();
         engine.queue.retain(|(qid, _)| qid != &id);
@@ -1552,33 +1592,27 @@ async fn check_self_update(force: Option<bool>) -> Result<SelfUpdateInfo, String
         let latest = r.tag.trim_start_matches('v').to_string();
         // 更新资产优先级：裸 exe（自有更新机制，Copy 覆盖）> NSIS 固定名 > 首个 setup.exe。
         // 老版本 Release 没有裸 exe 资产时回退 NSIS 链路。
+        // 下载地址必须用资产自带的 tag 固定链接：releases/latest/download 是滑动链接，
+        // 检查与下载之间若有新发布（或 CDN 缓存旧跳转），下到的文件会与本次拿到的签名对不上。
+        // 非 Windows 暂无自动更新资产（发布的是 Windows exe），asset_kind="manual" 交由前端引导去发布页。
         const EXE_ASSET: &str = "tongtop-store.exe";
         const NSIS_ASSET: &str = "tongtop-store-setup.exe";
-        let (asset_url, asset_size, asset_kind, asset_name) =
-            if let Some(a) = r.assets.iter().find(|a| a.name == EXE_ASSET) {
-                (
-                    format!("https://github.com/{SELF_REPO}/releases/latest/download/{EXE_ASSET}"),
-                    a.size,
-                    "exe",
-                    EXE_ASSET.to_string(),
-                )
-            } else if let Some(a) = r.assets.iter().find(|a| a.name == NSIS_ASSET) {
-                (
-                    format!("https://github.com/{SELF_REPO}/releases/latest/download/{NSIS_ASSET}"),
-                    a.size,
-                    "nsis",
-                    NSIS_ASSET.to_string(),
-                )
-            } else {
-                let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
-                let name = asset.map(|a| a.name.clone()).unwrap_or_default();
-                (
-                    asset.map(|a| a.url.clone()).unwrap_or_default(),
-                    asset.map(|a| a.size).unwrap_or(0),
-                    "nsis",
-                    name,
-                )
-            };
+        let (asset_url, asset_size, asset_kind, asset_name) = if !cfg!(windows) {
+            (String::new(), 0, "manual", String::new())
+        } else if let Some(a) = r.assets.iter().find(|a| a.name == EXE_ASSET) {
+            (a.url.clone(), a.size, "exe", EXE_ASSET.to_string())
+        } else if let Some(a) = r.assets.iter().find(|a| a.name == NSIS_ASSET) {
+            (a.url.clone(), a.size, "nsis", NSIS_ASSET.to_string())
+        } else {
+            let asset = r.assets.iter().find(|a| a.name.ends_with("setup.exe"));
+            let name = asset.map(|a| a.name.clone()).unwrap_or_default();
+            (
+                asset.map(|a| a.url.clone()).unwrap_or_default(),
+                asset.map(|a| a.size).unwrap_or(0),
+                "nsis",
+                name,
+            )
+        };
         // 完整性元数据（均经官方 API 资产地址直连获取，不经过任何第三方代理）：
         // minisign 签名（私钥在 CI，公钥编译进应用，防 Release 被整体替换）为信任根；
         // sha256 仅供签名引入前的老版本迁移窗口使用，不能作为签名缺失/失败时的安全降级。
@@ -1679,41 +1713,26 @@ async fn catalog_fetch(base: String) -> Result<CatalogDto, String> {
 }
 
 /// 下载新版安装包到临时目录（进度走 self-update-progress 事件），返回落盘路径。
-/// 多端点容灾：官方直连优先，失败回退加速通道（完整性在 apply 阶段验签/校验，代理不可信也安全）。
+/// 官方地址与 GitHub 加速代理多线路并行（完整性在 apply 阶段验签，代理不可信也安全）。
 /// 有预期大小时校验大小（防半截文件/错误页面）；失败清理残留。
 #[tauri::command]
 async fn download_self_update(
     app: AppHandle,
     url: String,
-    fallback_url: Option<String>,
+    gh_proxies: Option<Vec<String>>,
     expected_size: Option<u64>,
 ) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dest = std::env::temp_dir()
             .join("tongtop-dl")
             .join(url_filename(&url));
-        let mut last = 0u8;
-        let mut attempt = |u: &str, last: &mut u8| -> Result<(), String> {
-            *last = 0;
-            http_download(u, &dest, |got, total| {
-                if let Some(t) = total.filter(|t| *t > 0) {
-                    let pct = (got * 100 / t).min(100) as u8;
-                    if pct != *last {
-                        *last = pct;
-                        let _ = app.emit("self-update-progress", pct);
-                    }
-                }
-            })
-        };
-        // 主线：官方直连
-        if let Err(e1) = attempt(&url, &mut last) {
-            let _ = std::fs::remove_file(&dest);
-            match fallback_url.filter(|f| f.starts_with("http")) {
-                Some(fb) => attempt(&fb, &mut last)
-                    .map_err(|e2| format!("直连失败（{e1}）；加速通道也失败（{e2}）"))?,
-                None => return Err(e1),
+        let sources = fastdl::sources_for(&url, &gh_proxies.unwrap_or_default());
+        let never = AtomicBool::new(false);
+        fastdl::download(&sources, &dest, &never, |got, total, _| {
+            if let Some(pct) = (got * 100).checked_div(total) {
+                let _ = app.emit("self-update-progress", pct.min(100) as u8);
             }
-        }
+        })?;
         if let Some(expect) = expected_size.filter(|s| *s > 0) {
             let actual = std::fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
             if actual != expect {
@@ -1782,6 +1801,9 @@ fn apply_self_update(
     target_version: String,
     asset_kind: String,
 ) -> Result<(), String> {
+    if !cfg!(windows) {
+        return Err("当前平台暂不支持自动更新，请从发布页下载新版安装包".to_string());
+    }
     let path = std::path::Path::new(&installer_path);
     verify_installer_integrity(
         path,
@@ -1794,24 +1816,6 @@ fn apply_self_update(
     let marker_dir = std::env::temp_dir().join("tongtop-dl");
     let _ = std::fs::create_dir_all(&marker_dir);
     let _ = std::fs::write(marker_dir.join("update-target.txt"), &target_version);
-
-    if asset_kind == "exe" && !cfg!(windows) {
-        // Unix 看门狗：sleep 等退出 → cp 覆盖 → open 拉起（同样 15 次重试）
-        let install_dir = current
-            .parent()
-            .ok_or_else(|| "无法定位安装目录".to_string())?
-            .to_path_buf();
-        let sh = format!(
-            "sleep 2; for i in $(seq 1 15); do cp '{}' '{}' && break || sleep 1; done; open '{}'",
-            installer_path,
-            install_dir.display(),
-            current.display()
-        );
-        let mut cmd = std::process::Command::new("sh");
-        cmd.args(["-c", &sh]);
-        cmd.spawn().map_err(|e| format!("拉起更新失败：{e}"))?;
-        return Ok(());
-    }
 
     if asset_kind == "exe" {
         // 裸 exe 覆盖：运行中的 exe 被锁，等退出后 Copy；重试 15 次防关停慢。
@@ -1997,6 +2001,7 @@ async fn mirror_latencies(urls: Vec<String>) -> Vec<MirrorLatency> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .manage(terminal::TermState::default())
         // 系统托盘：关窗口不退出，常驻后台（右键菜单：显示主界面 / 镜像测速 / 退出）

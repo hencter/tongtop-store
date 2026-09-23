@@ -124,7 +124,7 @@ pub fn scan_at(dir: &Path) -> Result<CleanupInfo, String> {
             modified,
         });
     }
-    info.items.sort_by(|a, b| b.size.cmp(&a.size));
+    info.items.sort_by_key(|i| std::cmp::Reverse(i.size));
     info.items.truncate(12);
     Ok(info)
 }

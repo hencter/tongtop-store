@@ -9,6 +9,7 @@
   --accent: #a0661f;
   --accent-fg: #ffffff;
   --ok: #16a34a;
+  --warn: #b45309;
   --code-bg: #f3f4f6;
   --radius: 10px;
   --maxw: 1180px;
@@ -28,6 +29,7 @@
     --accent: #d29a4b;
     --accent-fg: #14161a;
     --ok: #34d399;
+    --warn: #fbbf24;
     --code-bg: #1d2129;
     --brand: #d29a4b;
     --brand-soft: #2a2118;
@@ -124,6 +126,7 @@ p { margin: 0 0 1em; }
 }
 .badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
 .badge.ai { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -183,6 +186,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .notice { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13.5px; }
 .notice.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
 .notice.err { color: #dc2626; border-color: color-mix(in srgb, #dc2626 45%, var(--border)); }
+.notice.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 6%, transparent); }
 
 .muted { color: var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }

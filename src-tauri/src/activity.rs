@@ -24,7 +24,6 @@ use crate::tools;
 pub struct ActivitySession {
     pub alive: Arc<AtomicBool>,
     pub watcher: notify::RecommendedWatcher,
-    pub started: Instant,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -141,7 +140,7 @@ pub fn start(app: AppHandle, roots: Vec<String>) -> Result<ActivitySession, Stri
                         }
                     })
                     .collect();
-                v.sort_by(|a, b| b.count.cmp(&a.count));
+                v.sort_by_key(|g| std::cmp::Reverse(g.count));
                 v.truncate(20);
                 v
             };
@@ -156,11 +155,7 @@ pub fn start(app: AppHandle, roots: Vec<String>) -> Result<ActivitySession, Stri
         }
     });
 
-    Ok(ActivitySession {
-        alive,
-        watcher,
-        started,
-    })
+    Ok(ActivitySession { alive, watcher })
 }
 
 pub fn stop(session: Option<ActivitySession>) {

@@ -26,6 +26,21 @@ export interface Step {
 const NPM_MIRROR = "https://registry.npmmirror.com";
 const PIP_MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple";
 const MAX_LOG = 3000;
+const WEB_READY_TIMEOUT_MS = 60_000;
+
+/** 轮询本地 HTTP 服务直到可连（no-cors：只关心 TCP/HTTP 通不通，不读响应体）。 */
+async function waitForHttp(url: string, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await fetch(url, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(2000) });
+      return true;
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  return false;
+}
 
 function buildSteps(recipe: AgentRecipe): Step[] {
   const steps: Step[] = [];
@@ -46,6 +61,8 @@ interface AgentStore {
   steps: Step[];
   running: boolean;
   finished: boolean;
+  /** 启动进行中（Web 型会等待本地服务就绪，防重复点击拉起多个实例） */
+  launching: boolean;
   log: string[];
   envValues: Record<string, string>;
   useMirror: boolean;
@@ -73,6 +90,7 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
   steps: [],
   running: false,
   finished: false,
+  launching: false,
   log: [],
   envValues: {},
   useMirror: true,
@@ -306,19 +324,20 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
   launch: async () => {
     const { agentId, envValues } = get();
     const recipe = useCatalogStore.getState().agents.find((a) => a.id === agentId);
-    if (!recipe) return;
+    if (!recipe || get().launching) return;
     const env: Record<string, string> = {};
     for (const e of recipe.env) {
       const v = envValues[e.name]?.trim();
       if (v) env[e.name] = v;
     }
-    if (recipe.desktopNames) {
-      // 桌面端（GUI）：经开始菜单 AppID 启动，无需知道 exe 落点
-      await ipc.launchDesktopApp(recipe.desktopNames);
-    } else {
-      // CLI 型一键启动：内嵌终端（商店自己的窗口，ConPTY 直连子进程，
-      // env/PATH 注入 100% 可靠——彻底绕开外部终端的解析怪癖）
-      try {
+    set({ launching: true });
+    try {
+      if (recipe.desktopNames) {
+        // 桌面端（GUI）：经开始菜单 AppID 启动，无需知道 exe 落点
+        await ipc.launchDesktopApp(recipe.desktopNames);
+      } else {
+        // CLI 型一键启动：内嵌终端（商店自己的窗口，ConPTY 直连子进程，
+        // env/PATH 注入 100% 可靠——彻底绕开外部终端的解析怪癖）
         const id = `${recipe.id}-${Date.now().toString(36)}`;
         await ipc.termSpawn(id, {
           program: recipe.bin,
@@ -328,15 +347,20 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
         });
         await ipc.openTerminalWindow(id, recipe.name);
         if (recipe.webPort) {
-          // Web 型：等服务就绪再开浏览器（若此刻退出商店，setTimeout 会随窗口销毁）
-          await new Promise((r) => setTimeout(r, 3000));
-          await openUrl(`http://localhost:${recipe.webPort}`);
+          // Web 型：轮询到服务可连再开浏览器；超时也照开（服务可能仍在初始化，浏览器里刷新即可）
+          const url = `http://localhost:${recipe.webPort}`;
+          if (!(await waitForHttp(url, WEB_READY_TIMEOUT_MS))) {
+            set({ log: [...get().log, `等待 ${url} 就绪超时，已直接打开浏览器；若页面空白请稍后刷新。`] });
+          }
+          await openUrl(url);
         }
-      } catch (e) {
-        // 失败必须可见（窗口权限/进程解析/PTY 创建任何一环出错都写到日志区）
-        set({ log: [...get().log, `启动失败：${String(e)}`] });
-        return;
       }
+    } catch (e) {
+      // 失败必须可见（开始菜单解析/窗口权限/PTY 创建任何一环出错都写到日志区）
+      set({ log: [...get().log, `启动失败：${String(e)}`] });
+      return;
+    } finally {
+      set({ launching: false });
     }
     // 启动成功后：GUI 智能体按 autoExit 退出商店；CLI 是内嵌终端（商店自己的窗口），
     // 宿主退出会把终端一起杀掉——故 CLI 永不退出，只收托盘（终端随宿主存活）。

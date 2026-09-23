@@ -6,7 +6,7 @@
 
 import { create } from "zustand";
 import { CATALOG, CATEGORIES, type CatalogApp, type CategoryId } from "../catalog/apps";
-import { AGENTS, type AgentRecipe } from "../catalog/agents";
+import { AGENTS, sortAgents, type AgentRecipe } from "../catalog/agents";
 import { DEVTOOLS, type DevTool } from "../catalog/devtools";
 import { MIRROR_TOOLS, GH_PROXY_PRESETS, type MirrorPreset, type MirrorTool } from "../catalog/mirrors";
 import * as ipc from "../ipc/client";
@@ -48,6 +48,13 @@ interface CatalogStore {
   refresh: (force?: boolean) => Promise<void>;
 }
 
+/** 下载用 GitHub 加速代理：用户设置的在前，其后是目录内置预设（去重、去掉「直连」空值） */
+export function ghProxyList(): string[] {
+  const user = useSettingsStore.getState().ghProxy.trim();
+  const presets = useCatalogStore.getState().ghProxyPresets.map((p) => p.value.trim());
+  return [...new Set([user, ...presets].filter((v) => v.startsWith("https://")))];
+}
+
 const bundledMap: ReadonlyMap<string, CatalogApp> = new Map(CATALOG.map((a) => [a.id.toLowerCase(), a]));
 
 export const useCatalogStore = create<CatalogStore>()((set, get) => ({
@@ -76,7 +83,7 @@ export const useCatalogStore = create<CatalogStore>()((set, get) => ({
       const apps = d.apps as CatalogApp[];
       set({
         apps,
-        agents: d.agents as AgentRecipe[],
+        agents: sortAgents(d.agents as AgentRecipe[]),
         categories: d.categories as Category[],
         devtools: d.devtools as DevTool[],
         mirrorTools: d.mirrors.tools as MirrorTool[],

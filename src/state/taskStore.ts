@@ -16,6 +16,7 @@ import type {
 } from "../ipc/types";
 import { useAppStore } from "./appStore";
 import { useSettingsStore } from "./settingsStore";
+import { ghProxyList } from "./catalogStore";
 
 const MAX_LOG_LINES = 1500;
 export const MAX_QUEUE = 8;
@@ -81,10 +82,14 @@ export const useTaskStore = create<TaskStore>()((set, get) => ({
       }
       // 集中注入默认安装目录（winget install --location，设置里可配，如 D:\Apps）
       const loc = useSettingsStore.getState().installLocation.trim();
-      const finalSpec =
+      let finalSpec =
         loc && spec.kind === "winget" && (!spec.action || spec.action === "install")
           ? { ...spec, location: loc }
           : spec;
+      // 集中注入下载加速线路（winget 安装/更新与官网直链下载都走宿主多线路下载器）
+      if (spec.kind === "download" || (spec.kind === "winget" && spec.action !== "uninstall")) {
+        finalSpec = { ...finalSpec, ghProxies: ghProxyList() };
+      }
       pending.set(id, resolve);
       set({ done: null, panelOpen: true });
       ipc.startTask(id, finalSpec).catch((e) => {

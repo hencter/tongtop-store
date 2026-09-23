@@ -7,7 +7,7 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import * as ipc from "../ipc/client";
 import type { SelfUpdateInfo } from "../ipc/types";
-import { useSettingsStore } from "./settingsStore";
+import { ghProxyList } from "./catalogStore";
 
 const SKIP_KEY = "tongtop.skipVersion";
 
@@ -74,11 +74,9 @@ export const useUpdateStore = create<UpdateStore>()((set, get) => ({
       set({ progress: e.payload });
     });
     try {
-      // 多端点容灾：官方直连优先，失败回退加速通道——完整性由 minisign 验签（公钥内置）
-      // 与 sha256（摘要走官方 API 直连）双保险，代理链路不可信也安全（issue #13 的解法）
-      const proxy = useSettingsStore.getState().ghProxy;
-      const fallback = proxy ? proxy + info.assetUrl : null;
-      const path = await ipc.downloadSelfUpdate(info.assetUrl, fallback, info.assetSize);
+      // 官方地址与加速代理多线路并行下载——完整性由 minisign 验签（公钥内置）兜底，
+      // 代理链路不可信也安全（issue #13 的解法）
+      const path = await ipc.downloadSelfUpdate(info.assetUrl, ghProxyList(), info.assetSize);
       // 静默更新：watcher 接管（等退出 → 覆盖/安装 → 自动重启新版），本应用立即退出；
       // 完整性 fail closed：minisign 验签强制（≥0.6.3 的发布缺签名即拒绝），sha256 仅限老版本迁移窗口
       await ipc.applySelfUpdate(path, info.expectedSha256 ?? null, info.signature ?? null, info.latest, info.assetKind);

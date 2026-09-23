@@ -37,7 +37,7 @@ export function SelfUpdateDialog() {
           <DialogDescription>
             {upToDate
               ? `${t("当前版本 v")}${info?.current}${t("，无需更新。")}`
-              : `${t("当前 v")}${info?.current} → ${t("最新 v".replace("最新 v", "最新 v"))}${info?.latest}${info?.assetSize ? `（${formatSize(info.assetSize)}）` : ""}`}
+              : `${t("当前 v")}${info?.current} → ${t("最新 v")}${info?.latest}${info?.assetSize ? `（${formatSize(info.assetSize)}）` : ""}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -80,17 +80,23 @@ export function SelfUpdateDialog() {
               <Button variant="ghost" disabled={downloading} onClick={() => dismiss(true)}>
                 {t("忽略此版本")}
               </Button>
-              <Button disabled={downloading || !info?.assetUrl} onClick={() => void start()} title="下载后静默安装并自动重启，全程无弹窗">
-                {downloading ? (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin" /> {t("下载中…")}
-                  </>
-                ) : (
-                  <>
-                    <Download className="size-3.5" /> {t("立即更新")}
-                  </>
-                )}
-              </Button>
+              {!info?.assetUrl ? (
+                <Button disabled={!info?.releaseUrl} onClick={() => void openUrl(info!.releaseUrl)}>
+                  <Download className="size-3.5" /> {t("前往下载")}
+                </Button>
+              ) : (
+                <Button disabled={downloading} onClick={() => void start()} title="下载后静默安装并自动重启，全程无弹窗">
+                  {downloading ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" /> {t("下载中…")}
+                    </>
+                  ) : (
+                    <>
+                      <Download className="size-3.5" /> {t("立即更新")}
+                    </>
+                  )}
+                </Button>
+              )}
             </>
           )}
         </DialogFooter>

@@ -85,7 +85,18 @@ export interface FreeModelProvider {
 
 export const CATEGORIES: { id: string; label: string }[] = categoriesJson;
 export const APPS: AppEntry[] = appsJson as AppEntry[];
-export const AGENTS: AgentEntry[] = agentsJson as AgentEntry[];
+
+/** 闭源判定：concerns 含 "closed"（不接受公众审查，数据泄露/被用于训练的风险更高） */
+export function isClosed(agent: AgentEntry): boolean {
+  return (agent.concerns ?? []).includes("closed");
+}
+
+/** 排序铁律：任何闭源 Harness 不得排在开源 Harness 前面（组内保持原有相对顺序） */
+const agentsAll = agentsJson as AgentEntry[];
+export const AGENTS: AgentEntry[] = [
+  ...agentsAll.filter((a) => !isClosed(a)),
+  ...agentsAll.filter((a) => isClosed(a)),
+];
 export const MIRRORS: MirrorTool[] = mirrorsJson.tools as MirrorTool[];
 export const FREE_MODELS: { updatedAt: string; providers: FreeModelProvider[] } = freeModelsJson;
 

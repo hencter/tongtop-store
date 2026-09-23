@@ -131,8 +131,11 @@ fn read_kind(conn: &Connection, kind: &str) -> Result<(Vec<AppRow>, u64), String
     Ok((out, at as u64))
 }
 
+/// 一类快照：(行, fetched_at 秒)。
+pub type KindSnapshot = (Vec<AppRow>, u64);
+
 /// 读 (installed, fetched_at) 与 (upgrade, fetched_at)。
-pub fn read_snapshot() -> Result<((Vec<AppRow>, u64), (Vec<AppRow>, u64)), String> {
+pub fn read_snapshot() -> Result<(KindSnapshot, KindSnapshot), String> {
     let conn = open()?;
     Ok((read_kind(&conn, "installed")?, read_kind(&conn, "upgrade")?))
 }

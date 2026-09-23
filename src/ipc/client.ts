@@ -251,11 +251,11 @@ export async function catalogFetch(base: string): Promise<CatalogDto> {
 /** 下载新版安装包（进度走 self-update-progress 事件）：直连优先，失败回退加速通道；大小校验 */
 export async function downloadSelfUpdate(
   url: string,
-  fallbackUrl: string | null,
+  ghProxies: string[],
   expectedSize: number,
 ): Promise<string> {
   if (!isTauri()) throw new Error("浏览器预览模式");
-  return invoke<string>("download_self_update", { url, fallbackUrl, expectedSize });
+  return invoke<string>("download_self_update", { url, ghProxies, expectedSize });
 }
 
 /** 静默更新看门狗：minisign 验签（优先）/ sha256 校验 → 应用资产 → 自动拉起新版本 */

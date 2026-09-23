@@ -2,7 +2,7 @@
 import Base from "../layouts/Base.astro";
 import Icon from "../components/Icon.astro";
 import BrandLogo from "../components/BrandLogo.astro";
-import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory, installCommand } from "../lib/data";
+import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory, installCommand, isClosed } from "../lib/data";
 
 const aiApps = appsByCategory("ai").slice(0, 8);
 const agents = AGENTS.slice(0, 8);
@@ -185,6 +185,7 @@ const download =
           </div>
           <div class="home-tags">
             <span class="badge">{a.vendor}</span>
+            {isClosed(a) && <span class="badge warn" data-i18n="闭源">闭源</span>}
             {a.env.length === 0 && <span class="badge ok">免密钥</span>}
           </div>
           <div class="actions">

@@ -138,9 +138,9 @@ pub fn fetch_latest(repo: &str) -> Result<GhRelease, String> {
 
     // 1) gh CLI（已认证 5000 次/小时，且继承用户的 gh 代理/镜像配置）
     if let Some(gh) = gh_cli() {
-        match tools::run_quiet(gh, &["api", &api_path]) {
-            Ok(body) => return parse_release(repo, &body),
-            Err(_) => {} // gh 失败（网络/限额）→ 回落匿名
+        // gh 失败（网络/限额）→ 回落匿名
+        if let Ok(body) = tools::run_quiet(gh, &["api", &api_path]) {
+            return parse_release(repo, &body);
         }
     }
 

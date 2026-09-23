@@ -28,7 +28,6 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { SelfUpdateDialog } from "./components/SelfUpdateDialog";
 import { Titlebar } from "./components/Titlebar";
 import { Button } from "@/components/ui/button";
-import "./styles/global.css";
 
 /** 导航信息架构（issue #16）：按任务分三区——发现软件 / 我的电脑 / 工具与维护（可折叠）。 */
 const NAV_SECTIONS: { title: string; collapsible?: boolean; items: { id: Tab; label: string; icon: typeof Home }[] }[] = [
@@ -120,6 +119,7 @@ function WingetMissing() {
           </Button>
         </div>
       </div>
+      <SelfUpdateDialog />
     </div>
   );
 }
@@ -146,6 +146,8 @@ export default function App() {
     void ipc.takeUpdateError().then((msg) => {
       if (msg) useUpdateStore.setState({ error: msg, open: true });
     });
+    // 自更新：静默检查 GitHub Releases（有新版本才弹窗）；不依赖 winget——缺 winget 的用户更需要新版
+    void useUpdateStore.getState().check(false);
     void (async () => {
       await checkWinget();
       // 启动即后台跑一遍 winget 快照（陈旧才真跑），界面先读 SQLite 毫秒渲染
@@ -155,8 +157,6 @@ export default function App() {
         void refreshSnapshot();
         // 后台镜像测速（只读产出推荐；仅在设置里显式开启「自动切换源」才会修改其他工具配置，issue #21）
         void useMirrorStore.getState().autoTune();
-        // 自更新：静默检查 GitHub Releases（有新版本才弹窗）
-        void useUpdateStore.getState().check(false);
       }
     })();
     const unTask = initTaskListeners();

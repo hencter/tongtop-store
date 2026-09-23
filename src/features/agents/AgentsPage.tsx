@@ -114,6 +114,7 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
   const steps = useAgentStore((s) => s.steps);
   const running = useAgentStore((s) => s.running);
   const finished = useAgentStore((s) => s.finished);
+  const launching = useAgentStore((s) => s.launching);
   const log = useAgentStore((s) => s.log);
   const envValues = useAgentStore((s) => s.envValues);
   const useMirror = useAgentStore((s) => s.useMirror);
@@ -341,8 +342,16 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
               </Button>
             ) : (
               <>
-                <Button size="lg" className="flex-1" onClick={() => void launch()}>
-                  <Play className="size-4" /> {recipe.webPort ? t("启动并打开浏览器") : `${t("启动 ")}${recipe.name}`}
+                <Button size="lg" className="flex-1" disabled={launching} onClick={() => void launch()}>
+                  {launching ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> {recipe.webPort ? t("等待服务就绪…") : t("启动中…")}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="size-4" /> {recipe.webPort ? t("启动并打开浏览器") : `${t("启动 ")}${recipe.name}`}
+                    </>
+                  )}
                 </Button>
                 {installed && !confirmUninstall && (
                   <>

@@ -623,6 +623,10 @@
     "env": [],
     "desktopNames": [
       "LM Studio"
+    ],
+    "concerns": [
+      "closed",
+      "data"
     ]
   },
   {

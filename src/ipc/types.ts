@@ -39,6 +39,8 @@ export interface TaskSpec {
   location?: string;
   /** download 任务：安装包直链（args 为静默安装参数） */
   url?: string;
+  /** GitHub 加速代理前缀：安装包在 GitHub 上时与原地址多线路并行下载（哈希校验兜底） */
+  ghProxies?: string[];
 }
 
 export interface LaunchSpec {

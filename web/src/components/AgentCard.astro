@@ -1,6 +1,6 @@
 ---
 import Icon from "./Icon.astro";
-import { agentKind, installCommand, type AgentEntry } from "../lib/data";
+import { agentKind, installCommand, isClosed, type AgentEntry } from "../lib/data";
 
 interface Props {
   agent: AgentEntry;
@@ -10,6 +10,7 @@ interface Props {
 const { agent, detailed = false } = Astro.props;
 const cmd = installCommand(agent);
 const kind = agentKind(agent);
+const closed = isClosed(agent);
 ---
 <article class="card" id={`agent-${agent.id}`}>
   <div class="row">
@@ -19,9 +20,13 @@ const kind = agentKind(agent);
       <div class="meta">{agent.vendor}</div>
     </div>
     <span class="badge">{kind}</span>
+    {closed && <span class="badge warn" data-i18n="闭源">闭源</span>}
     {agent.env.length === 0 && <span class="badge ok">免密钥</span>}
   </div>
   <p class="desc">{agent.desc}</p>
+  {closed && (
+    <p class="notice warn" data-i18n="闭源软件，不接受公众审查，存在收集使用数据甚至用于模型训练的风险；敏感代码与隐私场景请改用开源方案。">闭源软件，不接受公众审查，存在收集使用数据甚至用于模型训练的风险；敏感代码与隐私场景请改用开源方案。</p>
+  )}
   <div class="copy-row">
     <pre><code>{cmd}</code></pre>
     <button class="copy-btn">复制</button>

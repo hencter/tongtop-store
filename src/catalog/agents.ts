@@ -68,4 +68,13 @@ export const CONCERN_CAUTION: Record<ConcernTag, string> = {
   restriction: "使用限制：绑定厂商账号，受条款/地域/订阅限制，可能随时不可用——不具备公平性",
 };
 
-export const AGENTS: AgentRecipe[] = agents as AgentRecipe[];
+export function isClosed(recipe: Pick<AgentRecipe, "concerns">): boolean {
+  return recipe.concerns?.includes("closed") === true;
+}
+
+/** 排序铁律（与官网一致）：闭源一律排在开源之后，组内保持数据源原有顺序 */
+export function sortAgents<T extends Pick<AgentRecipe, "concerns">>(list: readonly T[]): T[] {
+  return [...list.filter((a) => !isClosed(a)), ...list.filter(isClosed)];
+}
+
+export const AGENTS: AgentRecipe[] = sortAgents(agents as AgentRecipe[]);
