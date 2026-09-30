@@ -32,18 +32,20 @@ export const useDetailStore = create<DetailStore>()((set) => ({
   open: async (id) => {
     const key = id.toLowerCase();
     const cached = detailCache.get(key);
-    const repo = useCatalogStore.getState().appsById.get(key)?.github;
+    const catalog = useCatalogStore.getState().appsById.get(key);
+    const repo = catalog?.github;
+    const directDownload = catalog?.download;
     const ghCached = repo ? ghCache.get(repo) : null;
     set({
       detailId: id,
       detail: cached ?? null,
-      loading: !cached,
+      loading: !cached && !directDownload,
       error: null,
       gh: ghCached ?? null,
       ghLoading: !!repo && !ghCached,
       ghError: null,
     });
-    if (!cached) {
+    if (!cached && !directDownload) {
       ipc
         .appDetail(id)
         .then((d) => {

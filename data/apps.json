@@ -39,6 +39,25 @@
     "ai": true
   },
   {
+    "id": "DeepSeek.Harness",
+    "name": "DeepSeek Harness",
+    "desc": "DeepSeek 官方 Harness 桌面端，智能体运行与插件化工作流",
+    "site": "https://deepseek.com/harness",
+    "category": "ai",
+    "tags": [
+      "AI",
+      "DeepSeek",
+      "智能体",
+      "Harness"
+    ],
+    "ai": true,
+    "official": true,
+    "download": {
+      "url": "https://download.deepseek.com/desktop/dsh-latest-windows-x64.exe",
+      "platform": "Windows x64"
+    }
+  },
+  {
     "id": "kangfenmao.CherryStudio",
     "name": "Cherry Studio",
     "desc": "多模型桌面客户端，接国内外主流大模型",

@@ -6,7 +6,7 @@ interface Props {
   app: AppEntry;
 }
 const { app } = Astro.props;
-const cmd = `winget install --id ${app.id} -e`;
+const cmd = app.download ? null : `winget install --id ${app.id} -e`;
 ---
 <article class="card">
   <div class="row">
@@ -15,11 +15,20 @@ const cmd = `winget install --id ${app.id} -e`;
       <h3>{app.name}</h3>
       <div class="meta">{categoryLabel(app.category)}</div>
     </div>
-    {app.ai && <span class="badge ai">AI</span>}
+    <div style="display:flex;gap:6px;align-items:center">
+      {app.official && <span class="badge">官方</span>}
+      {app.ai && <span class="badge ai">AI</span>}
+    </div>
   </div>
   <p class="desc">{app.desc}</p>
   <div class="actions">
-    <button class="btn sm" data-copy-text={cmd} title={cmd}>复制安装命令</button>
+    {app.download ? (
+      <a class="btn sm" href={app.download.url} target="_blank" rel="noopener">
+        官方下载{app.download.platform ? ` · ${app.download.platform}` : ""}
+      </a>
+    ) : (
+      <button class="btn sm" data-copy-text={cmd} title={cmd ?? undefined}>复制安装命令</button>
+    )}
     <a class="btn sm" href={app.site} target="_blank" rel="noopener">官网</a>
   </div>
 </article>

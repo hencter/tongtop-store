@@ -34,7 +34,8 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
   const silent = useTaskStore((s) => s.silent);
   const openDetail = useDetailStore((s) => s.open);
   const action = state === "upgrade" ? "upgrade" : "install";
-  const taskId = `winget:${action}:${app.id}`;
+  const directDownload = action === "install" ? app.download : undefined;
+  const taskId = directDownload ? `download:install:${app.id}` : `winget:${action}:${app.id}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
   return (
     <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
@@ -46,6 +47,7 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
               <Check className="size-3.5 text-ok" /> {t("已安装")}
             </Badge>
           )}
+          {app.official && <Badge variant="outline">官方</Badge>}
           {app.github && <Badge variant="secondary">GitHub</Badge>}
         </div>
       </div>
@@ -64,13 +66,23 @@ const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: 
             size="sm"
             disabled={taskState !== null}
             onClick={() =>
-              void runTask(taskId, {
-                kind: "winget",
-                action,
-                wingetId: app.id,
-                silent,
-                display: `${action === "upgrade" ? "更新" : "安装"} ${app.name}`,
-              })
+              void runTask(
+                taskId,
+                directDownload
+                  ? {
+                      kind: "download",
+                      url: directDownload.url,
+                      args: directDownload.args,
+                      display: `安装 ${app.name}`,
+                    }
+                  : {
+                      kind: "winget",
+                      action,
+                      wingetId: app.id,
+                      silent,
+                      display: `${action === "upgrade" ? "更新" : "安装"} ${app.name}`,
+                    },
+              )
             }
           >
             {taskState === "running" ? (

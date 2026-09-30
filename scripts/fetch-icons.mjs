@@ -114,6 +114,7 @@ const WANTED = {
   "anysphere.cursor": [{ i: "simple-icons:cursor" }, { fav: "cursor.com" }],
   "codeium.windsurf": [{ i: "simple-icons:windsurf", c: "#0B100F" }, { fav: "windsurf.com" }],
   "elementlabs.lmstudio": [{ fav: "lmstudio.ai" }],
+  "deepseek.harness": [{ i: "simple-icons:deepseek", c: "#4D6BFE" }],
 
   // ---- 镜像中心 ----
   "mirror:winget": [{ i: "simple-icons:windows11", c: "#0078D4" }, { i: "logos:microsoft-icon" }],

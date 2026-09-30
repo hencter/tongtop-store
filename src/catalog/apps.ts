@@ -1,11 +1,9 @@
 /**
  * 精选目录（静态数据，首屏零 IPC 直接渲染）。
  *
- * 定位纪律：本商店**不托管任何安装包**，这里只保存
- * 「winget ID → 官网链接」的分发信息；安装走 winget 官方源，
- * 「官网」按钮直接打开软件官方页面。
- *
- * 所有 ID 均已通过 `winget search --id <id> -e` 逐一验证（winget v1.29）。
+ * 定位纪律：本商店**不托管任何安装包**，这里只保存官方分发信息：
+ * 默认安装走 winget 官方源；少数尚未进入 winget 的软件可声明厂商官方直链，
+ * 由宿主下载后启动原始安装器。
  * 数据本体在 /data/apps.json（与 Astro 网站共用一份数据源）。
  */
 
@@ -24,7 +22,7 @@ export type CategoryId =
   | "netdisk";
 
 export interface CatalogApp {
-  /** winget 包 ID */
+  /** 目录稳定 ID；默认同时作为 winget 包 ID */
   id: string;
   /** 显示名 */
   name: string;
@@ -38,6 +36,16 @@ export interface CatalogApp {
   github?: string;
   /** 具备 AI 功能（用于「AI 应用」分类聚合） */
   ai?: boolean;
+  /** 厂商官方发布/下载渠道（UI 显示“官方”） */
+  official?: boolean;
+  /** 厂商官方安装包直链；存在时安装走宿主 download 任务而不是 winget */
+  download?: {
+    url: string;
+    /** 安装器参数；为空时按厂商安装器默认交互运行 */
+    args?: string[];
+    /** 展示用平台标签，例如 Windows x64 */
+    platform?: string;
+  };
 }
 
 export const CATEGORIES: { id: CategoryId; label: string }[] = categories as {

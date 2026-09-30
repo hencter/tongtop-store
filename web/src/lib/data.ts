@@ -18,6 +18,12 @@ export interface AppEntry {
   tags?: string[];
   github?: string;
   ai?: boolean;
+  official?: boolean;
+  download?: {
+    url: string;
+    args?: string[];
+    platform?: string;
+  };
 }
 
 export interface EnvSpec {
