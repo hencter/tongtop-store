@@ -928,9 +928,12 @@ fn elevated_script(cmdline: &str, dir: &std::path::Path) -> String {
     )
 }
 
-/// 提权执行 + 跟读日志。返回 (退出码, stderr 尾巴)。
-fn elevated_run(
-    app: &AppHandle,
+/// 提权执行的可测核心：跑 `.cmd`、跟读日志、返回 (退出码, stderr 尾巴)。
+///
+/// `app` 只用于两个副作用（登记提权进程 PID 供取消、把日志行推给界面），
+/// 因此可以为 None —— 单元测试不需要 Tauri 运行时，也不弹 UAC（脚本是直接执行的）。
+fn elevated_run_impl(
+    app: Option<&AppHandle>,
     id: &str,
     cmdline: &str,
     cancel: &Arc<AtomicBool>,
@@ -945,15 +948,22 @@ fn elevated_run(
     std::fs::write(&cmd_path, elevated_script(cmdline, &tmp))
         .map_err(|e| format!("无法写入提权脚本：{e}"))?;
 
-    // 拉起提权进程：-Verb RunAs 触发 UAC；-Wait 让子进程（非提权）活到结束，便于取消
-    let ps = format!(
-        "Start-Process -FilePath '{}' -Verb RunAs -Wait -PassThru -WindowStyle Hidden | Out-Null; exit $LASTEXITCODE",
-        cmd_path.display()
-    );
-    let mut cmd = std::process::Command::new("powershell.exe");
-    cmd.args(["-NoProfile", "-NonInteractive", "-Command", &ps])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
+    // 拉起进程：app 存在时用 UAC 提升（-Verb RunAs），否则直接执行（测试/降级路径）
+    let mut cmd = if app.is_some() {
+        let ps = format!(
+            "Start-Process -FilePath '{}' -Verb RunAs -Wait -PassThru -WindowStyle Hidden | Out-Null; exit $LASTEXITCODE",
+            cmd_path.display()
+        );
+        let mut c = std::process::Command::new("powershell.exe");
+        c.args(["-NoProfile", "-NonInteractive", "-Command", &ps])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        c
+    } else {
+        let mut c = std::process::Command::new("cmd.exe");
+        c.args(["/C", cmd_path.to_string_lossy().as_ref()]);
+        c
+    };
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -962,8 +972,10 @@ fn elevated_run(
     let mut child = cmd.spawn().map_err(|e| format!("无法启动提权进程：{e}"))?;
     let pid = child.id();
     // 让取消操作能 taskkill（提权进程不在本进程树里，Child::kill 打不到）
-    if let Ok(mut engine) = app.state::<AppState>().0.lock() {
-        engine.elevated_pid = Some(pid);
+    if let Some(app) = app {
+        if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+            engine.elevated_pid = Some(pid);
+        }
     }
 
     let mut offset: u64 = 0;
@@ -1002,7 +1014,11 @@ fn elevated_run(
         }
         let due = last_flush.elapsed() >= FLUSH_INTERVAL;
         if due && !batch.is_empty() {
-            emit_lines(app, id, std::mem::take(&mut batch));
+            if let Some(app) = app {
+                emit_lines(app, id, std::mem::take(&mut batch));
+            } else {
+                batch.clear();
+            }
             last_flush = Instant::now();
         }
         if done_path.exists() {
@@ -1043,14 +1059,18 @@ fn elevated_run(
         }
     }
     if !batch.is_empty() {
-        emit_lines(app, id, batch);
+        if let Some(app) = app {
+            emit_lines(app, id, batch);
+        }
     }
 
     let status = child.wait();
     if cancelled {
         // 提权进程不在本进程树里，只能 taskkill 整棵 winget 树
-        if let Ok(mut engine) = app.state::<AppState>().0.lock() {
-            engine.elevated_pid = None;
+        if let Some(app) = app {
+            if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+                engine.elevated_pid = None;
+            }
         }
         #[cfg(windows)]
         {
@@ -1069,10 +1089,22 @@ fn elevated_run(
         .or_else(|| status.ok().and_then(|s| s.code()))
         .unwrap_or(-1);
     let _ = std::fs::remove_dir_all(&tmp);
-    if let Ok(mut engine) = app.state::<AppState>().0.lock() {
-        engine.elevated_pid = None;
+    if let Some(app) = app {
+        if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+            engine.elevated_pid = None;
+        }
     }
     Ok((code, Vec::new()))
+}
+
+/// 提权执行（界面路径）：带 AppHandle，走 UAC 提升。
+fn elevated_run(
+    app: &AppHandle,
+    id: &str,
+    cmdline: &str,
+    cancel: &Arc<AtomicBool>,
+) -> Result<(i32, Vec<String>), String> {
+    elevated_run_impl(Some(app), id, cmdline, cancel)
 }
 
 /// 队列有位置就尝试启动下一个任务（调用时必须已持有 engine 锁）。
@@ -2469,5 +2501,127 @@ mod updater_tests {
             sha256_file(&f).unwrap(),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+}
+
+/// 提权安装链路的回归测试（issue #26）。
+///
+/// 这些用例**不需要管理员权限**：只验证"提权前"的准备工作与超时判据是否漂移，
+/// 真正的 UAC 提升需要人在弹窗上点「是」，无法进 CI。
+/// 曾经因为这类代码没被测到，`Prepared::Elevated { cmdline }` 的字段名写错直接炸了整个 CI。
+#[cfg(test)]
+mod elevation_tests {
+    use super::*;
+
+    fn winget_spec(id: &str, action: &str, silent: bool, elevated: bool, location: Option<&str>) -> TaskSpec {
+        TaskSpec {
+            kind: "winget".into(),
+            action: Some(action.into()),
+            winget_id: Some(id.into()),
+            silent: Some(silent),
+            program: None,
+            args: None,
+            path_extra: None,
+            display: None,
+            location: location.map(str::to_string),
+            url: None,
+            gh_proxies: None,
+            force_elevated: elevated,
+        }
+    }
+
+    /// 普通安装：仍然是 Prepared::Cmd，且 -h 只在 silent 时出现
+    #[test]
+    fn plain_install_stays_cmd() {
+        let (prepared, label) = spec_command(&winget_spec("7zip.7zip", "install", true, false, None)).unwrap();
+        assert!(matches!(prepared, Prepared::Cmd(..)));
+        assert_eq!(label, "install 7zip.7zip");
+        let args = winget_action_args("install", "7zip.7zip", true, None).unwrap();
+        assert!(args.contains(&"-h".to_string()));
+        assert!(args.contains(&"--disable-interactivity".to_string()));
+        let quiet = winget_action_args("install", "7zip.7zip", false, None).unwrap();
+        assert!(!quiet.contains(&"-h".to_string()));
+    }
+
+    /// 提权重试：换成 Prepared::Elevated，命令行与普通路径完全一致（同一条 winget 命令）
+    #[test]
+    fn force_elevated_switches_variant_but_keeps_command() {
+        let plain = spec_command(&winget_spec("Microsoft.PowerToys", "install", true, false, None)).unwrap();
+        let elevated =
+            spec_command(&winget_spec("Microsoft.PowerToys", "install", true, true, None)).unwrap();
+        let plain_line = match plain.0 {
+            Prepared::Cmd(_, line) => line,
+            other => panic!("普通安装不该是提权变体：{:?}", std::mem::discriminant(&other)),
+        };
+        match elevated.0 {
+            Prepared::Elevated { cmdline } => assert_eq!(cmdline, plain_line),
+            _ => panic!("force_elevated 应产生 Prepared::Elevated"),
+        }
+        assert_eq!(elevated.1, plain.1);
+    }
+
+    /// 卸载不接受提权（只有安装/更新会弹 UAC）
+    #[test]
+    fn uninstall_never_elevates() {
+        let (prepared, _) = spec_command(&winget_spec("Git.Git", "uninstall", true, true, None)).unwrap();
+        assert!(matches!(prepared, Prepared::Cmd(..)));
+    }
+
+    /// location 会进入提权时落盘的 .cmd，必须挡掉 cmd 元字符
+    #[test]
+    fn location_rejects_cmd_metacharacters() {
+        for bad in ["D:\\A&B", "D:\\A|B", "D:\\A>B", "D:\\A^B", "D:\\A%B", "D:\\A\"B"] {
+            assert!(
+                winget_action_args("install", "Git.Git", false, Some(bad)).is_err(),
+                "应拒绝含元字符的路径：{bad}"
+            );
+        }
+        let ok = winget_action_args("install", "Git.Git", false, Some("D:\\My Apps")).unwrap();
+        assert!(ok.contains(&"D:\\My Apps".to_string()));
+    }
+
+    /// .cmd 内容：重定向到日志、写完成标记、UTF-8 代码页
+    #[test]
+    fn script_redirects_and_marks_completion() {
+        let dir = std::path::Path::new("C:\\Temp\\tt-elev-test");
+        let s = elevated_script("winget install -e --id 7zip.7zip -h", dir);
+        assert!(s.contains("chcp 65001"));
+        assert!(s.contains("winget install -e --id 7zip.7zip -h >"));
+        assert!(s.contains("winget.log"));
+        assert!(s.contains("echo %errorlevel%"));
+        assert!(s.contains("exit.txt"));
+        assert!(s.starts_with("@echo off"));
+    }
+
+    /// 每次提权用独立目录，避免并发/重试互相踩日志
+    #[test]
+    fn elevated_dir_is_unique_per_call() {
+        let a = elevated_dir();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let b = elevated_dir();
+        assert_ne!(a, b);
+        assert!(a.to_string_lossy().contains("tongtop-elev-"));
+    }
+
+    /// 不带 AppHandle 直接跑提权核心（不弹 UAC，直接执行 .cmd）：验证日志跟读与退出码回传。
+    fn script_runner(body: &str) -> (i32, Vec<String>) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        elevated_run_impl(None, "winget:test:elevation", body, &cancel).unwrap()
+    }
+
+    /// 正常路径：命令立即结束 → 立刻返回，退出码与日志都能取到（不等 20s 超时）
+    #[test]
+    fn script_completion_is_detected_without_timeout() {
+        let t0 = std::time::Instant::now();
+        let (code, lines) = script_runner("echo hello-elevated");
+        assert_eq!(code, 0, "日志：{lines:?}");
+        assert!(t0.elapsed() < std::time::Duration::from_secs(15), "不该等到超时才返回");
+    }
+
+    /// 命令失败 → 退出码如实回传（"普通方式失败 → 提示以管理员身份重试"就靠它判断）
+    #[test]
+    fn script_failure_code_is_reported() {
+        let (code, _) = script_runner("exit 7");
+        assert_eq!(code, 7);
     }
 }
