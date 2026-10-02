@@ -994,10 +994,24 @@ fn elevated_run_impl(
     let mut last_flush = Instant::now();
     let mut cancelled = false;
     let mut child_exited = false;
+    let started = Instant::now();
+    /// 兜底硬超时：提权进程连日志都没建出来（启动器异常、脚本被杀）时不能无限等，
+    /// 否则任务队列会永久卡住。正常安装远远用不到这么久。
+    const HARD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
     loop {
         if cancel.load(Ordering::Relaxed) {
             cancelled = true;
             break;
+        }
+        if started.elapsed() > HARD_TIMEOUT {
+            let _ = child.kill();
+            let _ = std::fs::remove_dir_all(&tmp);
+            if let Some(app) = app {
+                if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+                    engine.elevated_pid = None;
+                }
+            }
+            return Err("提权安装超时（30 分钟无结果），已放弃".into());
         }
         // 幂等落盘：只在有新内容时转发（.cmd 追加写日志，重读整文件会重复）
         if let Ok(mut f) = std::fs::File::open(&log_path) {
@@ -1037,11 +1051,20 @@ fn elevated_run_impl(
         if !child_exited && matches!(child.try_wait(), Ok(Some(_))) {
             child_exited = true;
         }
-        // 用户点了 UAC 的「否」的判据：**脚本文件都没有被创建**（提权启动器立刻退出），
-        // 而不是"日志里没有内容"——命令可能本来就没有任何输出，那样会被误判成拒绝。
-        if child_exited && !log_path.exists() {
+        // 子进程已退出却没有完成标记：注意 `.cmd` 里如果正文用 `exit /b N` 直接结束，
+        // 后面两行（写 exit.txt / echo %errorlevel%）根本不会执行。这时用进程退出码兜底，
+        // 绝不能在这里继续等下去（否则任务队列永久卡住）。
+        if child_exited {
+            if !log_path.exists() {
+                let _ = std::fs::remove_dir_all(&tmp);
+                return Ok((1223, vec!["UAC 提权被取消（该安装需要管理员权限）".into()]));
+            }
+            break;
+        }
+        // 启动器异常但也没退出：90 秒仍无日志就按"没能提权起来"处理
+        if !log_path.exists() && started.elapsed() > Duration::from_secs(90) {
             let _ = std::fs::remove_dir_all(&tmp);
-            return Ok((1223, vec!["UAC 提权被取消（该安装需要管理员权限）".into()]));
+            return Err("提权进程未能启动（90 秒内没有产生任何输出）".into());
         }
         std::thread::sleep(Duration::from_millis(250));
     }
