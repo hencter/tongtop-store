@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="TongTop Store">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1468 292" role="img" aria-label="TongTop Store">
   <title>TongTop Store</title>
-  <rect width="512" height="512" rx="112.64" fill="#F7F8FC"/>
-  <g transform="translate(97.280 155.237) scale(0.896723)">
+  <g transform="translate(-0.000 0.000)">
     <g fill="none">
         <path
           fill="#1E9BF0"
@@ -25,4 +24,6 @@
         <circle cx="210" cy="-4" r="8"/>
       </g>
   </g>
+  <text x="457.674" y="251.000" font-family="system-ui, 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei', sans-serif" font-weight="700" font-size="144.544" letter-spacing="-0.0120em" fill="#0B2E6E">TongTop</text>
+  <text x="1092.683" y="251.000" font-family="system-ui, 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei', sans-serif" font-weight="700" font-size="144.544" letter-spacing="-0.0120em" fill="#1E9BF0">Store</text>
 </svg>

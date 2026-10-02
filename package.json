@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "test": "vitest run",
     "preview": "vite preview",
+    "preview:ui": "vite --open /preview-curated.html",
     "tauri": "tauri",
     "web:dev": "pnpm --dir web dev",
     "web:build": "pnpm --dir web build",

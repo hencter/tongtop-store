@@ -1,8 +1,8 @@
 /** 任务面板：进度条 + 队列芯片 + 实时日志（宿主已按时间窗合并事件）。 */
 
 import { useEffect, useRef } from "react";
-import { CheckCircle2, Loader2, X, XCircle } from "lucide-react";
-import { useTaskStore } from "../state/taskStore";
+import { CheckCircle2, Loader2, ShieldAlert, X, XCircle } from "lucide-react";
+import { parseWingetTaskId, useTaskStore } from "../state/taskStore";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 
@@ -16,6 +16,7 @@ export function TaskPanel() {
   const silent = useTaskStore((s) => s.silent);
   const setSilent = useTaskStore((s) => s.setSilent);
   const cancel = useTaskStore((s) => s.cancel);
+  const retryElevated = useTaskStore((s) => s.retryElevated);
   const closePanel = useTaskStore((s) => s.closePanel);
   const openPanel = useTaskStore((s) => s.openPanel);
 
@@ -69,6 +70,21 @@ export function TaskPanel() {
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {/* 安装/更新失败：一条 winget 命令 + 提权重试往往就能过（issue #26） */}
+          {!running && done && !done.success && done.elevatable && (
+            <Button
+              variant="destructive"
+              size="sm"
+              title="以管理员身份重试：弹一次 UAC，用提权后的 winget 再跑一遍（需要写 Program Files / HKLM 的包）"
+              onClick={() => {
+                const parsed = parseWingetTaskId(done.id);
+                retryElevated(done.id, parsed?.wingetId ?? done.id);
+              }}
+            >
+              <ShieldAlert className="size-3.5" />
+              以管理员身份重试
+            </Button>
+          )}
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground" title="静默模式：-h，不弹安装向导">
             <Switch checked={silent} onCheckedChange={setSilent} />
             静默

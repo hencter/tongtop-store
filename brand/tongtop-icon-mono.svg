@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="TongTop Store">
+  <title>TongTop Store</title>
+  <defs>
+    <mask id="tt-mono-dots" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#FFFFFF"/>
+      <g transform="translate(97.280 155.237) scale(0.896723)">
+        <g fill="#000000">
+            <circle cx="27" cy="45" r="9"/>
+            <circle cx="65" cy="47" r="9"/>
+            <circle cx="103" cy="49" r="9"/>
+          </g>
+        <g fill="#000000">
+            <circle cx="150" cy="-8" r="8"/>
+            <circle cx="180" cy="-6" r="8"/>
+            <circle cx="210" cy="-4" r="8"/>
+          </g>
+      </g>
+    </mask>
+  </defs>
+  <g mask="url(#tt-mono-dots)">
+    <g transform="translate(97.280 155.237) scale(0.896723)">
+      <g fill="none">
+          <path
+            fill="#2C2C2C"
+            fill-rule="evenodd"
+            d="M104 3A56 56 0 0 1 160 -53H298A56 56 0 0 1 354 3V195A56 56 0 0 1 298 251H160A56 56 0 0 1 104 195Z
+               M148 11A20 20 0 0 1 168 -9H290A20 20 0 0 1 310 11V187A20 20 0 0 1 290 207H168A20 20 0 0 1 148 187Z"
+          />
+          <path
+            fill="#2C2C2C"
+            d="M0 22A22 22 0 0 1 22 0H215A22 22 0 0 1 237 22V60A22 22 0 0 1 215 82H158V228A22 22 0 0 1 136 250H106A22 22 0 0 1 84 228V82H22A22 22 0 0 1 0 60Z"
+          />
+        </g>
+    </g>
+  </g>
+</svg>

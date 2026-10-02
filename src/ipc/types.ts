@@ -41,6 +41,8 @@ export interface TaskSpec {
   url?: string;
   /** GitHub 加速代理前缀：安装包在 GitHub 上时与原地址多线路并行下载（哈希校验兜底） */
   ghProxies?: string[];
+  /** winget 安装/更新改为提权执行（弹一次 UAC）：失败后的「以管理员身份重试」用 */
+  forceElevated?: boolean;
 }
 
 export interface LaunchSpec {
@@ -196,6 +198,8 @@ export interface TaskDoneEvent {
   code: number;
   success: boolean;
   errorTail: string[];
+  /** winget 安装/更新失败，且提权重试有可能成功（显示「以管理员身份重试」） */
+  elevatable?: boolean;
 }
 
 /** 镜像延迟探测结果（ms 为 null 表示不可达） */

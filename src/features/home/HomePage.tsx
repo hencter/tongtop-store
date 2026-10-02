@@ -1,19 +1,21 @@
 /** 首页（issue #17）：发现与电脑状态工作台。
  *  布局：精简欢迎区 → 我的电脑概览 → 继续上次操作（有上下文才出现）→
- *  编辑精选软件（8 个）→ AI 工具精选（4 个）→ 按用途浏览 → 页脚来源说明。
+ *  日常软件精选（来自 catalog/collections 的「装机必备」，不再是目录前 8 条）
+ *  → AI 工具精选（4 个）→ 按用途浏览 → 页脚来源说明。
  *  不再放与标题栏重复的搜索框；全量目录不铺开，分类入口跳进搜索页（带筛选）。
  *  已安装卡片主操作是「查看详情」，卸载只在详情/已安装页。 */
 
 import { memo, useEffect, useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, ChevronRight, Clock, Download, ExternalLink, Globe, KeyRound, Loader2, Monitor, Play, Rocket, ShieldAlert, SquareTerminal, TrendingUp, XCircle } from "lucide-react";
+import { Check, ChevronRight, Download, ExternalLink, Globe, KeyRound, Loader2, Monitor, Play, Rocket, ShieldAlert, SquareTerminal, XCircle } from "lucide-react";
 import { AppLogo } from "../../components/AppLogo";
+import { AppCard, type CardState } from "../../components/AppCard";
 import { type CatalogApp } from "../../catalog/apps";
+import { ESSENTIALS } from "../../catalog/collections";
 import { CONCERN_CAUTION, type AgentRecipe } from "../../catalog/agents";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { useAgentStore } from "../../state/agentStore";
-import { useDetailStore } from "../../state/detailStore";
 import { useTaskStore } from "../../state/taskStore";
 import { timeLabel } from "../../domain/format";
 import { useT } from "../../i18n";
@@ -24,81 +26,6 @@ import { Card } from "@/components/ui/card";
 
 const FEATURED_APPS = 8;
 const FEATURED_AGENTS = 4;
-
-type CardState = "none" | "installed" | "upgrade";
-
-/** 首页软件卡：名称/用途/来源 + 安装状态；主操作按状态 = 安装 / 更新 / 查看详情（不再有卸载） */
-const AppCard = memo(function AppCard({ app, state }: { app: CatalogApp; state: CardState }) {
-  const t = useT();
-  const runTask = useTaskStore((s) => s.runTask);
-  const silent = useTaskStore((s) => s.silent);
-  const openDetail = useDetailStore((s) => s.open);
-  const action = state === "upgrade" ? "upgrade" : "install";
-  const taskId = `winget:${action}:${app.id}`;
-  const taskState = useTaskStore((s) => s.taskState(taskId));
-  return (
-    <Card className="flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20">
-      <div className="flex items-start justify-between">
-        <AppIcon id={app.id} name={app.name} size={42} />
-        <div className="flex gap-1">
-          {state === "installed" && (
-            <Badge variant="outline">
-              <Check className="size-3.5 text-ok" /> {t("已安装")}
-            </Badge>
-          )}
-          {app.github && <Badge variant="secondary">GitHub</Badge>}
-        </div>
-      </div>
-      <div className="mt-1 font-semibold">{app.name}</div>
-      <div className="line-clamp-2 h-8 text-xs text-muted-foreground" title={app.desc}>
-        {app.desc}
-      </div>
-      <div className="text-[11px] text-muted-foreground">{new URL(app.site).host}</div>
-      <div className="mt-1.5 flex gap-2">
-        {state === "installed" ? (
-          <Button size="sm" variant="outline" onClick={() => openDetail(app.id)} title={t("查看详情")}>
-            {t("查看详情")}
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            disabled={taskState !== null}
-            onClick={() =>
-              void runTask(taskId, {
-                kind: "winget",
-                action,
-                wingetId: app.id,
-                silent,
-                display: `${action === "upgrade" ? "更新" : "安装"} ${app.name}`,
-              })
-            }
-          >
-            {taskState === "running" ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" /> {t("进行中")}
-              </>
-            ) : taskState === "queued" ? (
-              <>
-                <Clock className="size-3.5" /> {t("排队中")}
-              </>
-            ) : state === "upgrade" ? (
-              <>
-                <TrendingUp className="size-3.5" /> {t("更新")}
-              </>
-            ) : (
-              <>
-                <Download className="size-3.5" /> {t("安装")}
-              </>
-            )}
-          </Button>
-        )}
-        <Button variant="outline" size="sm" onClick={() => void openUrl(app.site)} title={app.site}>
-          <ExternalLink className="size-3.5" /> {t("官网")}
-        </Button>
-      </div>
-    </Card>
-  );
-});
 
 /** 智能体形态徽标：桌面 / CLI / Web + 密钥需求（issue #17：标示形态与账号/密钥） */
 function agentKindBadges(recipe: AgentRecipe, t: (s: string) => string) {
@@ -219,8 +146,19 @@ export function HomePage() {
   const cardState = (id: string): CardState =>
     upgradeSet.has(id.toLowerCase()) ? "upgrade" : installedSet.has(id.toLowerCase()) ? "installed" : "none";
 
-  // 编辑精选：固定取目录前 N 个并明确标注「编辑精选」（不冒充个性化推荐）
-  const featuredApps = CATALOG.slice(0, FEATURED_APPS);
+  // 日常软件精选：取「装机必备」分组（不是目录前 N 条——目录前 8 条全是 AI 应用，
+  // 首页会看起来像 AI 专页，issue #26）。按未安装优先排序，缺什么一目了然。
+  const featuredApps = useMemo(() => {
+    const ranked = ESSENTIALS.ids
+      .map((id) => CATALOG.find((a) => a.id.toLowerCase() === id.toLowerCase()))
+      .filter((a): a is CatalogApp => Boolean(a));
+    ranked.sort((a, b) => {
+      const rank = (x: CatalogApp) =>
+        upgradeSet.has(x.id.toLowerCase()) ? 0 : installedSet.has(x.id.toLowerCase()) ? 2 : 1;
+      return rank(a) - rank(b);
+    });
+    return ranked.slice(0, FEATURED_APPS);
+  }, [CATALOG, installedSet, upgradeSet]);
   const featuredAgents = AGENTS.filter((a) => a.desktopNames).slice(0, FEATURED_AGENTS);
 
   const browse = (catId: string) => {
@@ -299,20 +237,20 @@ export function HomePage() {
         </section>
       )}
 
-      {/* 精选软件（编辑精选，固定 8 个） */}
+      {/* 日常软件精选（取自精选分组的「装机必备」，未安装的优先） */}
       <section className="mt-6">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="m-0 text-sm font-semibold tracking-wide">
             {t("精选软件")}
-            <span className="ml-2 text-[11px] font-normal text-muted-foreground">{t("编辑精选")}</span>
+            <span className="ml-2 text-[11px] font-normal text-muted-foreground">{t("日常常用")}</span>
           </h2>
           <Button
             variant="link"
             size="sm"
             className="h-auto p-0 text-xs text-muted-foreground"
-            onClick={() => browse("all")}
+            onClick={() => setTab("curated")}
           >
-            {t("查看全部")} <ChevronRight className="size-3.5" />
+            {t("查看全部精选")} <ChevronRight className="size-3.5" />
           </Button>
         </div>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">

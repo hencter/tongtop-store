@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Radar, Search, Settings, TrendingUp, Zap } from "lucide-react";
+import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Radar, Search, Settings, Sparkles, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
@@ -12,6 +12,7 @@ import * as ipc from "./ipc/client";
 import { initTaskListeners } from "./state/taskStore";
 import { wireAgentLog, useAgentStore } from "./state/agentStore";
 import { HomePage } from "./features/home/HomePage";
+import { CuratedPage } from "./features/curated/CuratedPage";
 import { SearchPage } from "./features/search/SearchPage";
 import { AgentsPage } from "./features/agents/AgentsPage";
 import { GitHubPage } from "./features/github/GitHubPage";
@@ -35,6 +36,7 @@ const NAV_SECTIONS: { title: string; collapsible?: boolean; items: { id: Tab; la
     title: "发现",
     items: [
       { id: "home", label: "首页", icon: Home },
+      { id: "curated", label: "精选软件", icon: Sparkles },
       { id: "search", label: "软件搜索", icon: Search },
       { id: "agents", label: "AI 智能体", icon: Bot },
       { id: "github", label: "GitHub 开源", icon: GitFork },
@@ -241,6 +243,7 @@ export default function App() {
 
         <main className="min-h-0 min-w-0 flex-1">
           {page("home", <HomePage />)}
+          {page("curated", <CuratedPage />)}
           {page("search", <SearchPage />)}
           {page("agents", <AgentsPage />)}
           {page("github", <GitHubPage />)}

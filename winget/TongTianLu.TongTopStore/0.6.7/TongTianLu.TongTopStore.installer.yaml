@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+
 PackageIdentifier: TongTianLu.TongTopStore
-PackageVersion: 0.2.1
+PackageVersion: 0.6.7
 InstallerType: nullsoft
 Scope: user
 InstallModes:
@@ -8,11 +9,11 @@ InstallModes:
   - silent
   - silentWithProgress
 UpgradeBehavior: install
-ReleaseDate: 2026-09-18
+ReleaseDate: 2026-09-23
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/hencter/tongtop-store/releases/download/v0.2.1/tongtop-store_0.2.1_x64-setup.exe
-    InstallerSha256: ED15DB5B265F85313B85805557ACEA800911E3B84630C0B7C83426D193B0AB5C
+    InstallerUrl: https://github.com/hencter/tongtop-store/releases/download/v0.6.7/tongtop-store_0.6.7_x64-setup.exe
+    InstallerSha256: 679F4927881E0868278E80C6EEFBCFC0B60AC1B171C801D3031A49E13111D24D
     AppsAndFeaturesEntries:
       - DisplayName: tongtop-store
         Publisher: tongtianlu

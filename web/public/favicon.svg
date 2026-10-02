@@ -1,34 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <!-- 全出血黑底：方形铺满，Windows 需要圆角时自行遮罩 -->
-    <clipPath id="tile"><rect width="512" height="512"/></clipPath>
-    <!-- 青铜路面：近深远浅，向星而行 -->
-    <linearGradient id="road" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#7E521A"/>
-      <stop offset="0.55" stop-color="#B8792C"/>
-      <stop offset="1" stop-color="#E9B563"/>
-    </linearGradient>
-    <!-- 星光 -->
-    <radialGradient id="glow">
-      <stop offset="0" stop-color="#F5D695" stop-opacity="0.85"/>
-      <stop offset="0.45" stop-color="#F0C87C" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#F0C87C" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-
-  <g clip-path="url(#tile)">
-    <!-- 背景：黑，铺满整个画布 -->
-    <rect width="512" height="512" fill="#060606"/>
-
-    <!-- 通天路：弧形大道自底部升起，冲向右上角（参考路径等比放大） -->
-    <path fill="url(#road)" d="M-27 538 L350 538 C81 296 242 54 538 -81 L447 -81 C188 108 -27 350 -27 538 Z"/>
-
-    <!-- 分道虚线：负空间，路的中线 -->
-    <path d="M161 538 C27 323 215 81 492 -81" fill="none" stroke="#060606"
-          stroke-width="20" stroke-linecap="round" stroke-dasharray="46 42"/>
-
-    <!-- AI 之星（目的地：智能体/精选软件）+ 光晕 -->
-    <circle cx="384" cy="128" r="84" fill="url(#glow)"/>
-    <path fill="#F4D38F" d="M384 76 C388 108 404 124 436 128 C404 132 388 148 384 180 C380 148 364 132 332 128 C364 124 380 108 384 76 Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="TongTop Store">
+  <title>TongTop Store</title>
+  <rect width="512" height="512" rx="112.64" fill="#F7F8FC"/>
+  <g transform="translate(97.280 155.237) scale(0.896723)">
+    <g fill="none">
+        <path
+          fill="#1E9BF0"
+          fill-rule="evenodd"
+          d="M104 3A56 56 0 0 1 160 -53H298A56 56 0 0 1 354 3V195A56 56 0 0 1 298 251H160A56 56 0 0 1 104 195Z
+             M148 11A20 20 0 0 1 168 -9H290A20 20 0 0 1 310 11V187A20 20 0 0 1 290 207H168A20 20 0 0 1 148 187Z"
+        />
+        <path
+          fill="#0B2E6E"
+          d="M0 22A22 22 0 0 1 22 0H215A22 22 0 0 1 237 22V60A22 22 0 0 1 215 82H158V228A22 22 0 0 1 136 250H106A22 22 0 0 1 84 228V82H22A22 22 0 0 1 0 60Z"
+        />
+      </g>
+      <g fill="#FFFFFF">
+        <circle cx="27" cy="45" r="9"/>
+        <circle cx="65" cy="47" r="9"/>
+        <circle cx="103" cy="49" r="9"/>
+      </g>
+      <g fill="#FFFFFF">
+        <circle cx="150" cy="-8" r="8"/>
+        <circle cx="180" cy="-6" r="8"/>
+        <circle cx="210" cy="-4" r="8"/>
+      </g>
   </g>
 </svg>
