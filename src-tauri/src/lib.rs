@@ -912,8 +912,18 @@ async fn leftover_clean(dirs: Vec<String>, keys: Vec<String>) -> Result<CleanRep
 // 提权进程不能重定向 stdout（ShellExecute 不允许），所以走 `> log 2>&1` 落盘再跟读。
 
 /// 提权执行的暂存目录（同一任务的脚本与日志放在一起，收工即删）。
+///
+/// 必须**每次调用都唯一**：时间戳只有毫秒精度，连续两次提权重试（或并行任务）
+/// 可能落在同一毫秒里，共用目录会让日志/退出码互相串（曾经真的踩到过）。
 fn elevated_dir() -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("tongtop-elev-{}-{}", std::process::id(), index_db::now()))
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "tongtop-elev-{}-{}-{}",
+        std::process::id(),
+        index_db::now(),
+        seq
+    ))
 }
 
 /// 生成提权执行的 .cmd 内容：把输出重定向到日志文件，并写完成标记（含真实退出码）。
