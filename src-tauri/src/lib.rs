@@ -221,7 +221,7 @@ fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
                 .unwrap_or_else(|| format!("{action} {id}"));
             // 提权重试：同一条 winget 命令，换到 UAC 提升后的进程里跑
             if spec.force_elevated && matches!(action.as_str(), "install" | "upgrade") {
-                return Ok((Prepared::Elevated { cmdline }, label));
+                return Ok((Prepared::Elevated { cmdline: cmd_line }, label));
             }
             Ok((Prepared::Cmd(process::winget_cmd(&args), cmd_line), label))
         }
