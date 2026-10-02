@@ -1037,9 +1037,9 @@ fn elevated_run_impl(
         if !child_exited && matches!(child.try_wait(), Ok(Some(_))) {
             child_exited = true;
         }
-        // 用户点了 UAC 的「否」：脚本从未执行 → 日志一直是空，且提权请求进程已经退出。
-        // 必须同时满足两条判据，否则用户只是「想了 20 秒才点」也会被误判成拒绝。
-        if child_exited && offset == 0 {
+        // 用户点了 UAC 的「否」的判据：**脚本文件都没有被创建**（提权启动器立刻退出），
+        // 而不是"日志里没有内容"——命令可能本来就没有任何输出，那样会被误判成拒绝。
+        if child_exited && !log_path.exists() {
             let _ = std::fs::remove_dir_all(&tmp);
             return Ok((1223, vec!["UAC 提权被取消（该安装需要管理员权限）".into()]));
         }
@@ -2628,10 +2628,18 @@ mod elevation_tests {
         assert!(t0.elapsed() < std::time::Duration::from_secs(15), "不该等到超时才返回");
     }
 
-    /// 命令失败 → 退出码如实回传（"普通方式失败 → 提示以管理员身份重试"就靠它判断）
+    /// 命令失败 → 退出码如实回传（"普通方式失败 → 提示以管理员身份重试"就靠它判断）。
+    /// 注意用 `exit /b`：裸 `exit` 会直接杀掉 .cmd，连完成标记都来不及写。
     #[test]
     fn script_failure_code_is_reported() {
-        let (code, _) = script_runner("exit 7");
+        let (code, _) = script_runner("echo something-then-fail & exit /b 7");
         assert_eq!(code, 7);
+    }
+
+    /// 命令跑完但没有任何输出时，不能误判成"UAC 被拒绝"（1223）
+    #[test]
+    fn silent_command_is_not_reported_as_uac_denied() {
+        let (code, lines) = script_runner("exit /b 0");
+        assert_eq!(code, 0, "无输出不等于 UAC 被拒：{lines:?}");
     }
 }
