@@ -1,29 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1468 292" role="img" aria-label="TongTop Store">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7 -7 1711 363" role="img" aria-label="TongTop Store">
   <title>TongTop Store</title>
-  <g transform="translate(-0.000 0.000)">
-    <g fill="none">
-        <path
-          fill="#1E9BF0"
-          fill-rule="evenodd"
-          d="M104 3A56 56 0 0 1 160 -53H298A56 56 0 0 1 354 3V195A56 56 0 0 1 298 251H160A56 56 0 0 1 104 195Z
-             M148 11A20 20 0 0 1 168 -9H290A20 20 0 0 1 310 11V187A20 20 0 0 1 290 207H168A20 20 0 0 1 148 187Z"
-        />
-        <path
-          fill="#0B2E6E"
-          d="M0 22A22 22 0 0 1 22 0H215A22 22 0 0 1 237 22V60A22 22 0 0 1 215 82H158V228A22 22 0 0 1 136 250H106A22 22 0 0 1 84 228V82H22A22 22 0 0 1 0 60Z"
-        />
-      </g>
-      <g fill="#FFFFFF">
-        <circle cx="27" cy="45" r="9"/>
-        <circle cx="65" cy="47" r="9"/>
-        <circle cx="103" cy="49" r="9"/>
-      </g>
-      <g fill="#FFFFFF">
-        <circle cx="150" cy="-8" r="8"/>
-        <circle cx="180" cy="-6" r="8"/>
-        <circle cx="210" cy="-4" r="8"/>
-      </g>
+  <defs>
+    <clipPath id="tt-vbox" clipPathUnits="userSpaceOnUse"><rect x="0.000" y="-53.000" width="354.000" height="304.000"/></clipPath>
+  </defs>
+  <g transform="translate(-0.000 53.000)">
+    <g clip-path="url(#tt-vbox)">
+      <g fill="none">
+          <path
+            fill="#1E9BF0"
+            fill-rule="evenodd"
+            d="M104 3A56 56 0 0 1 160 -53H298A56 56 0 0 1 354 3V195A56 56 0 0 1 298 251H160A56 56 0 0 1 104 195Z
+               M148 11A20 20 0 0 1 168 -9H290A20 20 0 0 1 310 11V187A20 20 0 0 1 290 207H168A20 20 0 0 1 148 187Z"
+          />
+          <path
+            fill="#0B2E6E"
+            d="M0 22A22 22 0 0 1 22 0H215A22 22 0 0 1 237 22V60A22 22 0 0 1 215 82H158V228A22 22 0 0 1 136 250H106A22 22 0 0 1 84 228V82H22A22 22 0 0 1 0 60Z"
+          />
+        </g>
+        <g fill="#FFFFFF">
+          <circle cx="27" cy="45" r="9"/>
+          <circle cx="65" cy="47" r="9"/>
+          <circle cx="103" cy="49" r="9"/>
+        </g>
+        <g fill="#FFFFFF">
+          <circle cx="150" cy="-20" r="8"/>
+          <circle cx="180" cy="-20" r="8"/>
+          <circle cx="210" cy="-20" r="8"/>
+        </g>
+    </g>
   </g>
-  <text x="457.674" y="251.000" font-family="system-ui, 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei', sans-serif" font-weight="700" font-size="144.544" letter-spacing="-0.0120em" fill="#0B2E6E">TongTop</text>
-  <text x="1092.683" y="251.000" font-family="system-ui, 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei', sans-serif" font-weight="700" font-size="144.544" letter-spacing="-0.0120em" fill="#1E9BF0">Store</text>
+  <text x="479.565" y="304.000" font-family="system-ui, 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei', sans-serif" font-weight="700" font-size="175.065" letter-spacing="-0.0120em" fill="#0B2E6E">TongTop</text>
+  <text x="1247.643" y="304.000" font-family="system-ui, 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei', sans-serif" font-weight="700" font-size="175.065" letter-spacing="-0.0120em" fill="#1E9BF0">Store</text>
 </svg>

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 354 305" width="354" height="305" role="img" aria-label="TongTop Store">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -53 354 304" width="354" height="304" role="img" aria-label="TongTop Store">
   <title>TongTop Store</title>
   <!--
     TongTop Store 品牌标 · 双窗口「T」
@@ -33,10 +33,10 @@
     <circle cx="65" cy="47" r="9"/>
     <circle cx="103" cy="49" r="9"/>
   </g>
-  <!-- 后排标题栏圆点（只最左一枚露在前排窗口之外） -->
+  <!-- 后排标题栏圆点（中间一枚完整可见，两侧各露出一部分） -->
   <g fill="#FFFFFF">
-    <circle cx="150" cy="-8" r="8"/>
-    <circle cx="180" cy="-6" r="8"/>
-    <circle cx="210" cy="-4" r="8"/>
+    <circle cx="150" cy="-20" r="8"/>
+    <circle cx="180" cy="-20" r="8"/>
+    <circle cx="210" cy="-20" r="8"/>
   </g>
 </svg>
