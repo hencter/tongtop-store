@@ -16,7 +16,6 @@ Installers:
     AppsAndFeaturesEntries:
       - DisplayName: tongtop-store
         Publisher: tongtianlu
-        DisplayVersion: 0.2.1
         InstallerType: nullsoft
 ManifestType: installer
 ManifestVersion: 1.12.0

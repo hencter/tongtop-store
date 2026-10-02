@@ -83,7 +83,6 @@ Installers:
     AppsAndFeaturesEntries:
       - DisplayName: tongtop-store
         Publisher: tongtianlu
-        DisplayVersion: ${version}
         InstallerType: nullsoft
 ManifestType: installer
 ManifestVersion: ${schemaVersion}

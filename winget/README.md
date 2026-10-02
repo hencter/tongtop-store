@@ -29,4 +29,5 @@ wingetcreate submit \
 
 - 首次提交 PR 需要在 PR 里回复 `@microsoft-github-policy-service agree` 签署 CLA（只能由仓库所有者操作）
 - 安装包元数据：Publisher `tongtianlu`、DisplayName `tongtop-store`、Scope user（来自 Tauri NSIS）
+- `AppsAndFeaturesEntries` 不要写 `DisplayVersion`：它与 `PackageVersion` 同值时会被审核打回（PR #436628，2026-10-01），生成脚本已移除该字段
 - 当前包标识：https://github.com/microsoft/winget-pkgs/pull/436628
