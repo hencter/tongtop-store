@@ -57,9 +57,17 @@
               .map(function (x) { return { name: x.name, id: x.id, version: x.version }; });
           },
         };
+        // event 插件在卸载监听时调它（缺了会抛异常并把整棵 React 树打白）
+        window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+          unregisterListener: function () {},
+        };
         window.__TAURI_INTERNALS__ = {
           metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
           transformCallback: function (cb) { var id = Math.floor(Math.random() * 1e9); window["_" + id] = cb; return id; },
+          // 事件系统：@tauri-apps/api/event 监听时会注册，卸载时调 unregisterListener；
+          // 缺了它会在卸载阶段抛异常并让整棵 React 树白屏（本桩曾因此误导了一次排查）
+          registerListener: function () { return Promise.resolve(1); },
+          unregisterListener: function () { return Promise.resolve(); },
           invoke: function (cmd, args) {
             var h = handlers[cmd];
             if (!h) return Promise.resolve(null);

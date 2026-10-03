@@ -1,6 +1,14 @@
 ---
 import Icon from "./Icon.astro";
-import { agentKind, installCommand, isClosed, type AgentEntry } from "../lib/data";
+import VoteButton from "./VoteButton.astro";
+import {
+  agentKind,
+  directMeta,
+  directSilentArgs,
+  installCommand,
+  isClosed,
+  type AgentEntry,
+} from "../lib/data";
 
 interface Props {
   agent: AgentEntry;
@@ -11,6 +19,10 @@ const { agent, detailed = false } = Astro.props;
 const cmd = installCommand(agent);
 const kind = agentKind(agent);
 const closed = isClosed(agent);
+// 可选字段：数据里没有 installDirect 时整块不渲染（第一种装法照旧）
+const direct = agent.installDirect?.url ? agent.installDirect : null;
+const directText = direct ? directMeta(direct, agent.homepage) : "";
+const directSilent = direct ? directSilentArgs(direct) : "";
 ---
 <article class="card" id={`agent-${agent.id}`}>
   <div class="row">
@@ -31,6 +43,28 @@ const closed = isClosed(agent);
     <pre><code>{cmd}</code></pre>
     <button class="copy-btn">复制</button>
   </div>
+  {
+    direct && (
+      <div class="direct">
+        <div class="direct-meta">
+          <span class="badge ok">第二种装法</span>
+          <span class="meta">{directText}</span>
+        </div>
+        <div class="actions">
+          <a
+            class="btn sm primary"
+            href={direct.url}
+            target="_blank"
+            rel="noopener"
+            title={directSilent ? `${directText} · 静默安装参数：${directSilent}` : directText}
+          >
+            下载官方安装包
+          </a>
+          {directSilent && <span class="meta mono">静默安装参数：{directSilent}</span>}
+        </div>
+      </div>
+    )
+  }
   {
     detailed && agent.env.length > 0 && (
       <div>
@@ -64,4 +98,40 @@ const closed = isClosed(agent);
     <a class="btn sm" href={agent.homepage} target="_blank" rel="noopener">官网 / 文档</a>
     {agent.env.length > 0 && <a class="btn sm" href="/ai">去哪领 Key →</a>}
   </div>
+  <div class="vote-row">
+    <span class="meta">这个配方靠谱吗？</span>
+    <VoteButton id={`agent:${agent.id}`} name={agent.name} />
+  </div>
 </article>
+
+<style>
+  .direct {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    background: color-mix(in srgb, var(--brand) 5%, transparent);
+  }
+  .direct-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .direct .actions {
+    margin-top: 0;
+    padding-top: 0;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .vote-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+  }
+</style>

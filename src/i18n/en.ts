@@ -501,4 +501,22 @@ export const EN: Record<string, string> = {
   "全部来源": "Any source",
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
+
+  // ---- 反馈机制：点赞 / 推荐收录（issue #27）----
+  "好用": "Useful",
+  "不好用": "Not useful",
+  "再点一次取消": "Click again to undo",
+  "本机票数": "this device",
+  "官网已部署时会汇总全站票数；桌面端显示本机票数":
+    "Once the website is deployed it aggregates all votes; the desktop app shows this device's votes",
+  "没找到想要的软件？": "Can't find the app you want?",
+  "用 issue 模板推荐收录": "Nominate it with an issue template",
+  "在 GitHub 用结构化模板推荐收录（公开可追踪）":
+    "Nominate with a structured GitHub issue template (public and trackable)",
+  "官网提交表单": "Submit via the website",
+  "用 GitHub issue 模板推荐收录：填 winget ID / 官网 / 推荐理由":
+    "Nominate via the GitHub issue template: winget ID, official site, and why it's worth featuring",
+  "推荐收录": "Nominate",
+  "从官方直链下载并静默安装：": "Download from the official direct link and install silently: ",
+  "官方安装包": "Official installer",
 };

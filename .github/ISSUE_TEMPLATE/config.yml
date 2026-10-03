@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 商店内提交（网页表单，进审核队列）
+    url: https://tongtop.store/submit
+    about: 收录新软件 / 新智能体 / 免费额度情报 / 信息纠错，走站内审核队列，不必开 issue
+  - name: 点赞与评价
+    url: https://tongtop.store/apps
+    about: 已经在库里的软件想表达"好用/不好用"，直接在软件库里点赞，不用开 issue

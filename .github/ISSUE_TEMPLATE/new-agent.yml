@@ -1,0 +1,101 @@
+name: 新智能体收录推荐
+description: 推荐一个值得收录的 AI 智能体 / CLI（审核通过后进入智能体配方列表）
+title: "[收录推荐][新智能体] "
+labels: ["收录推荐", "新智能体"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢推荐！本站只收**官方来源**：官网、官方仓库、官方文档。
+        智能体条目会展示安装命令（npm / pip / winget / 官方直链安装包）与环境变量，请尽量给全。
+  - type: input
+    id: name
+    attributes:
+      label: 智能体名称
+      description: 官方完整名称
+      placeholder: DeepSeek Harness
+    validations:
+      required: true
+  - type: input
+    id: install-ref
+    attributes:
+      label: 安装标识 / 包名
+      description: npm 包名、pip 包名、winget ID，或官方直链安装包地址
+      placeholder: "@deepseek-ai/dsh"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-kind
+    attributes:
+      label: 安装形态
+      description: 官方文档里给的是哪种装法
+      options:
+        - npm 全局安装
+        - pip 安装
+        - winget 安装
+        - 官网直链安装包（.exe / .dmg 等）
+        - 多种方式都有
+        - 其他 / 不确定
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: 官网 / 官方仓库
+      description: 官方来源链接（官网、GitHub 官方仓库或官方文档）
+      placeholder: https://www.deepseek.com/harness
+    validations:
+      required: true
+  - type: dropdown
+    id: official-source
+    attributes:
+      label: 是否官方来源（官网/官方仓库）
+      description: 安装命令与文档是否来自官方渠道
+      options:
+        - 是，官网 / 官方仓库 / 官方文档
+        - 否，只有第三方教程或转载
+        - 不确定
+    validations:
+      required: true
+  - type: dropdown
+    id: tried-locally
+    attributes:
+      label: 是否已在本机试过
+      description: 你自己在这台 Windows 上装过、跑起来过吗
+      options:
+        - 已在本机安装并成功跑通
+        - 装过，但没跑通 / 有明显问题
+        - 还没试过，只是推荐
+    validations:
+      required: true
+  - type: dropdown
+    id: license
+    attributes:
+      label: 开源还是闭源
+      description: 闭源条目会排在开源之后，并带风险提示
+      options:
+        - 开源（有公开仓库与许可证）
+        - 闭源（仅官方安装包 / 在线服务）
+        - 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: desc
+    attributes:
+      label: 为什么值得收录
+      description: 说明好用在哪、有无 AI 功能、需要什么运行时与 API Key
+      placeholder: |
+        例如：
+        - 好用在哪：开箱即用的 Web 端，插件生态
+        - AI 功能：支持多模型接入、工具调用
+        - 依赖：Node.js LTS，DEEPSEEK_API_KEY（可后配）
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 安装体积、静默参数、需要的环境变量、已知坑等（可选）
+      placeholder: 例如：官方 exe 约 276 MB，支持 /S 静默安装
+    validations:
+      required: false

@@ -11,6 +11,8 @@ import { useSettingsStore } from "../state/settingsStore";
 import { formatDate, formatDownloads, formatSize, pickWindowsAssets } from "../domain/github";
 import { useT } from "../i18n";
 import { AppIcon } from "./AppIcon";
+import { VoteButton } from "./VoteButton";
+import { SubmitEntry } from "./SubmitEntry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -59,17 +61,20 @@ export function DetailModal() {
       <DialogContent>
         <div className="flex items-center gap-3.5 border-b border-border p-5">
           <AppIcon id={detailId ?? ""} name={name} size={48} />
-          <div className="min-w-0">
-            <DialogTitle className="flex items-center gap-2">
-              {name}
-              {catalog?.github && (
-                <Badge variant="secondary">
-                  <GithubMark className="size-3" /> GitHub 发布
-                </Badge>
-              )}
-            </DialogTitle>
-            <div className="mt-0.5 truncate text-xs text-muted-foreground">{detailId}</div>
-          </div>
+            <div className="min-w-0">
+              <DialogTitle className="flex items-center gap-2">
+                {name}
+                {catalog?.github && (
+                  <Badge variant="secondary">
+                    <GithubMark className="size-3" /> GitHub 发布
+                  </Badge>
+                )}
+              </DialogTitle>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                <span className="truncate text-xs text-muted-foreground">{detailId}</span>
+                {detailId && <VoteButton id={detailId} />}
+              </div>
+            </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
@@ -193,6 +198,7 @@ export function DetailModal() {
           <p className="mt-4 rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
             {t("本商店不托管安装包。主操作经 winget 官方源安装，可跟踪状态与后续更新；直链下载与「前往官网」均指向软件官方发布渠道，由你自行安装。")}
           </p>
+          <SubmitEntry className="mt-3" />
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border p-4">

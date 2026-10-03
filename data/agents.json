@@ -4,6 +4,7 @@
     "name": "Claude Code",
     "vendor": "Anthropic",
     "desc": "终端里的 AI 编程搭档：读代码库、改 bug、跑命令、提提交",
+    "rank": 1,
     "homepage": "https://www.anthropic.com/claude-code",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -45,6 +46,7 @@
     "name": "Codex CLI",
     "vendor": "OpenAI",
     "desc": "OpenAI 官方终端编程智能体，轻量、可审阅改动",
+    "rank": 1,
     "homepage": "https://github.com/openai/codex",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -84,6 +86,7 @@
     "name": "Gemini CLI",
     "vendor": "Google",
     "desc": "Google 开源终端智能体，免费额度慷慨",
+    "rank": 1,
     "homepage": "https://github.com/google-gemini/gemini-cli",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -118,6 +121,7 @@
     "name": "Qwen Code",
     "vendor": "阿里通义",
     "desc": "通义千问编程 CLI，国内直连、中文友好",
+    "rank": 2,
     "homepage": "https://github.com/QwenLM/qwen-code",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -161,6 +165,7 @@
     "name": "Aider",
     "vendor": "开源社区",
     "desc": "老牌开源 AI 结对编程工具，支持 DeepSeek 等百家模型",
+    "rank": 2,
     "homepage": "https://aider.chat/",
     "runtime": "python",
     "runtimeWinget": "Python.Python.3.13",
@@ -199,6 +204,7 @@
     "name": "Ollama",
     "vendor": "开源社区",
     "desc": "本地跑开源大模型：零密钥、零联网、数据不出机",
+    "rank": 1,
     "homepage": "https://ollama.com/",
     "runtime": "none",
     "install": {
@@ -220,6 +226,7 @@
     "name": "DeepSeek Harness",
     "vendor": "DeepSeek",
     "desc": "DeepSeek 官方智能体运行时：万物皆插件，Web 端开箱即用",
+    "rank": 1,
     "homepage": "https://deepseek.com/harness",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -227,6 +234,14 @@
     "install": {
       "kind": "npm",
       "package": "@deepseek-ai/dsh"
+    },
+    "installDirect": {
+      "url": "https://download.deepseek.com/desktop/dsh-latest-windows-x64.exe",
+      "sizeBytes": 289313640,
+      "label": "官方桌面安装包（约 276 MB）",
+      "silentArgs": [
+        "/S"
+      ]
     },
     "bin": "dsh",
     "pathExtra": [
@@ -255,6 +270,9 @@
     "concerns": [
       "closed",
       "data"
+    ],
+    "desktopNames": [
+      "DeepSeek Harness"
     ]
   },
   {
@@ -262,6 +280,7 @@
     "name": "WorkBuddy CLI",
     "vendor": "WorkBuddy",
     "desc": "WorkBuddy 官方终端智能体，任务编排与执行一体化",
+    "rank": 4,
     "homepage": "https://www.npmjs.com/package/@workbuddy/cli-vnext",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -291,6 +310,7 @@
     "name": "Kimi Code CLI",
     "vendor": "月之暗面",
     "desc": "Moonshot 官方编程智能体，Kimi K2 模型加持，国内直连",
+    "rank": 3,
     "homepage": "https://www.kimi.com/",
     "runtime": "none",
     "install": {
@@ -325,6 +345,7 @@
     "name": "豆包",
     "vendor": "字节跳动",
     "desc": "字节跳动 AI 助手桌面端：对话、写作、绘图、编程全能",
+    "rank": 2,
     "homepage": "https://www.doubao.com/",
     "runtime": "none",
     "install": {
@@ -349,6 +370,7 @@
     "name": "腾讯元宝",
     "vendor": "腾讯",
     "desc": "腾讯混元大模型桌面助手，微信生态文件直读",
+    "rank": 3,
     "homepage": "https://yuanbao.tencent.com/",
     "runtime": "none",
     "install": {
@@ -374,6 +396,7 @@
     "name": "扣子",
     "vendor": "字节跳动",
     "desc": "扣子智能体平台桌面端：零代码搭自己的 AI 应用",
+    "rank": 2,
     "homepage": "https://www.coze.cn/",
     "runtime": "none",
     "install": {
@@ -398,6 +421,7 @@
     "name": "GitHub Copilot CLI",
     "vendor": "GitHub",
     "desc": "GitHub 官方终端智能体：写代码、改 bug、操作仓库一气呵成",
+    "rank": 1,
     "homepage": "https://github.com/features/copilot/cli",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -432,6 +456,7 @@
     "name": "OpenCode",
     "vendor": "开源社区",
     "desc": "人气开源终端编程智能体：模型自由切换，TUI 交互丝滑",
+    "rank": 2,
     "homepage": "https://opencode.ai/",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -461,6 +486,7 @@
     "name": "CodeBuddy CLI",
     "vendor": "腾讯",
     "desc": "腾讯 CodeBuddy 终端编程智能体，国内直连、中文友好",
+    "rank": 3,
     "homepage": "https://www.codebuddy.ai/",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -489,6 +515,7 @@
     "name": "Amp",
     "vendor": "Sourcegraph",
     "desc": "Sourcegraph 出品的前沿编程智能体，不设限的 token 用量",
+    "rank": 3,
     "homepage": "https://ampcode.com/",
     "runtime": "node",
     "runtimeWinget": "OpenJS.NodeJS.LTS",
@@ -522,6 +549,7 @@
     "name": "Open Interpreter",
     "vendor": "开源社区",
     "desc": "让大模型直接在本机跑代码：数据分析、文件处理、系统操作",
+    "rank": 3,
     "homepage": "https://github.com/OpenInterpreter/open-interpreter",
     "runtime": "python",
     "runtimeWinget": "Python.Python.3.13",
@@ -554,6 +582,7 @@
     "name": "ShellGPT",
     "vendor": "开源社区",
     "desc": "命令行 AI 快手：一句话生成 shell 命令、代码片段与解释",
+    "rank": 4,
     "homepage": "https://github.com/TheR1D/shell_gpt",
     "runtime": "python",
     "runtimeWinget": "Python.Python.3.13",
@@ -589,6 +618,7 @@
     "name": "Claude 桌面端",
     "vendor": "Anthropic",
     "desc": "Anthropic 官方桌面助手：对话、写作、编程，与 Claude Code 同源",
+    "rank": 2,
     "homepage": "https://claude.ai/download",
     "runtime": "none",
     "install": {
@@ -612,6 +642,7 @@
     "name": "LM Studio",
     "vendor": "Element Labs",
     "desc": "本地大模型工作台：发现、下载、运行开源模型，自带 OpenAI 兼容服务",
+    "rank": 2,
     "homepage": "https://lmstudio.ai/",
     "runtime": "none",
     "install": {
@@ -634,6 +665,7 @@
     "name": "Cherry Studio",
     "vendor": "开源社区",
     "desc": "国产开源 AI 聚合桌面端：接百家模型、知识库、智能体市场",
+    "rank": 1,
     "homepage": "https://cherry-ai.com/",
     "runtime": "none",
     "install": {
@@ -652,6 +684,7 @@
     "name": "Chatbox",
     "vendor": "开源社区",
     "desc": "老牌开源 AI 客户端：简洁好用，兼容 OpenAI 及百家模型",
+    "rank": 3,
     "homepage": "https://chatboxai.app/",
     "runtime": "none",
     "install": {
@@ -670,6 +703,7 @@
     "name": "Jan",
     "vendor": "开源社区",
     "desc": "开源本地 AI 助手：数据不出机，也能接远程模型",
+    "rank": 3,
     "homepage": "https://jan.ai/",
     "runtime": "none",
     "install": {
@@ -688,6 +722,7 @@
     "name": "GPT4All",
     "vendor": "Nomic AI",
     "desc": "本地跑开源大模型的老牌桌面端：零密钥、零联网",
+    "rank": 3,
     "homepage": "https://www.nomic.ai/gpt4all",
     "runtime": "none",
     "install": {
@@ -706,6 +741,7 @@
     "name": "LobeHub",
     "vendor": "开源社区",
     "desc": "高颜值开源 AI 聚合桌面端，接百家模型、插件市场",
+    "rank": 2,
     "homepage": "https://lobehub.com/",
     "runtime": "none",
     "install": {

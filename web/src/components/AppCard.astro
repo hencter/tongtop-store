@@ -1,5 +1,6 @@
 ---
 import Icon from "./Icon.astro";
+import VoteButton from "./VoteButton.astro";
 import { categoryLabel, type AppEntry } from "../lib/data";
 
 interface Props {
@@ -22,4 +23,19 @@ const cmd = `winget install --id ${app.id} -e`;
     <button class="btn sm" data-copy-text={cmd} title={cmd}>复制安装命令</button>
     <a class="btn sm" href={app.site} target="_blank" rel="noopener">官网</a>
   </div>
+  <div class="vote-row">
+    <span class="meta">这条推荐靠谱吗？</span>
+    <VoteButton id={app.id} name={app.name} />
+  </div>
 </article>
+
+<style>
+  .vote-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+  }
+</style>

@@ -75,7 +75,8 @@ interface AgentStore {
   reset: () => void;
   setEnv: (name: string, value: string) => void;
   setUseMirror: (v: boolean) => void;
-  start: () => Promise<void>;
+  /** opts.direct=true 时用官方直链安装包（recipe.installDirect）而不是包管理器 */
+  start: (opts?: { direct?: boolean }) => Promise<void>;
   launch: () => Promise<void>;
   /** 卸载本体（npm -g / pip / winget 三种渠道对应三种卸载；保留已写的密钥环境变量） */
   uninstall: () => Promise<void>;
@@ -161,8 +162,9 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
   setEnv: (name, value) => set({ envValues: { ...get().envValues, [name]: value } }),
   setUseMirror: (v) => set({ useMirror: v }),
 
-  start: async () => {
+  start: async (opts?: { direct?: boolean }) => {
     const { agentId, envValues, useMirror } = get();
+    const forceDirect = opts?.direct === true;
     const recipe = useCatalogStore.getState().agents.find((a) => a.id === agentId);
     if (!recipe || get().running) return;
     const task = useTaskStore.getState();
@@ -203,7 +205,16 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
       // 2. 安装本体
       upd("install-agent", { status: "running" });
       let spec: TaskSpec;
-      if (recipe.install.kind === "npm") {
+      if (forceDirect && recipe.installDirect) {
+        // 用户选了官方直链安装包（包管理器没有的形态，如官方桌面安装器）：
+        // 宿主多线路下载 → 用 silentArgs 静默安装（download 任务自带校验与加速）
+        spec = {
+          kind: "download",
+          url: recipe.installDirect.url,
+          args: recipe.installDirect.silentArgs ?? ["/S"],
+          display: `下载并安装 ${recipe.name}（官方安装包）`,
+        };
+      } else if (recipe.install?.kind === "npm") {
         const args = ["install", "-g", recipe.install.package];
         if (useMirror) args.push(`--registry=${NPM_MIRROR}`);
         spec = {
@@ -227,11 +238,13 @@ export const useAgentStore = create<AgentStore>()((set, get) => ({
         spec = {
           kind: "winget",
           action: "install",
-          wingetId: recipe.install.package,
+          wingetId: recipe.install.kind === "winget" ? recipe.install.package : "",
           display: `安装 ${recipe.name}`,
         };
       }
-      const r2 = await task.runTask(`agent:${recipe.id}:install`, spec);
+      // 直链安装走独立任务 id：与包管理器路径互不干扰（也不覆盖对方的完成状态）
+      const installTaskId = `agent:${recipe.id}:${forceDirect ? "install-direct" : "install"}`;
+      const r2 = await task.runTask(installTaskId, spec);
       if (!r2.success) return fail("install-agent", `退出码 ${r2.code}`);
       upd("install-agent", { status: "ok" });
 

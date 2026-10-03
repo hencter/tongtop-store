@@ -1,0 +1,105 @@
+name: 新软件收录推荐
+description: 推荐一款值得收录的 Windows 软件（审核通过后进入软件库）
+title: "[收录推荐][新软件] "
+labels: ["收录推荐", "新软件"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢推荐！本站只收**官方来源**：官网、官方仓库、官方文档。
+        已在库里的软件想表达好用/不好用，请直接到 https://tongtop.store/apps 点赞，不用开 issue。
+  - type: input
+    id: name
+    attributes:
+      label: 软件名称
+      description: 官方完整名称
+      placeholder: Cherry Studio
+    validations:
+      required: true
+  - type: input
+    id: winget-id
+    attributes:
+      label: winget ID / 包名
+      description: 优先填 winget 官方源里的 ID（终端执行 winget search 名称 可查）
+      placeholder: kangfenmao.CherryStudio
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: 官网 / 官方仓库
+      description: 官方来源链接（官网、GitHub 官方仓库或官方文档）
+      placeholder: https://github.com/kangfenmao/cherry-studio
+    validations:
+      required: true
+  - type: dropdown
+    id: official-source
+    attributes:
+      label: 是否官方来源（官网/官方仓库）
+      description: 安装包与文档是否来自软件官方渠道
+      options:
+        - 是，官网 / 官方仓库 / 官方文档
+        - 否，只有第三方下载站转载
+        - 不确定
+    validations:
+      required: true
+  - type: dropdown
+    id: tried-locally
+    attributes:
+      label: 是否已在本机试过
+      description: 你自己在这台 Windows 上安装并使用过吗
+      options:
+        - 已在本机安装并正常使用
+        - 装过，但有明显问题
+        - 还没试过，只是推荐
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: 建议分类
+      description: 它最应该出现在软件库的哪个分类下
+      options:
+        - AI 应用
+        - 浏览器
+        - 社交通讯
+        - 办公效率
+        - 开发工具
+        - 影音创作
+        - 游戏平台
+        - 系统工具
+        - 网盘与远程
+        - 其他 / 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: desc
+    attributes:
+      label: 为什么值得收录
+      description: 说明好用在哪、有无 AI 功能、和同类软件比强在哪
+      placeholder: |
+        例如：
+        - 好用在哪：启动快、界面干净、支持便携模式
+        - AI 功能：内置多模型 API 对接与知识库
+        - 对比同类：比 XX 更轻量，中文适配更好
+    validations:
+      required: true
+  - type: dropdown
+    id: ai-feature
+    attributes:
+      label: 有无 AI 功能
+      description: 会影响它在软件库里的 AI 标记
+      options:
+        - 有，且是核心功能
+        - 有，但只是附加功能
+        - 没有
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 安装体积、是否闭源、静默安装参数、已知坑等（可选）
+      placeholder: 例如：约 120 MB，MIT 开源，NSIS 安装包支持 /S 静默安装
+    validations:
+      required: false

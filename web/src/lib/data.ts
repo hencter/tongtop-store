@@ -31,6 +31,20 @@ export interface EnvSpec {
   defaultValue?: string;
 }
 
+/**
+ * 官方直链安装包（桌面端 .exe / 安装器等）：
+ * 官网文档给的"第二种装法"，不经过 npm/pip/winget。
+ */
+export interface InstallDirect {
+  url: string;
+  /** 文件大小（字节）；官网卡片上换算成 MB 显式标注 */
+  sizeBytes?: number;
+  /** 展示文案，如"官方桌面安装包（约 276 MB）" */
+  label?: string;
+  /** 静默安装参数，如 ["/S"]（NSIS 常见） */
+  silentArgs?: string[];
+}
+
 export interface AgentEntry {
   id: string;
   name: string;
@@ -40,6 +54,8 @@ export interface AgentEntry {
   runtime: "node" | "python" | "none";
   runtimeLabel?: string;
   install: { kind: "npm" | "pip" | "winget"; package: string };
+  /** 可选：官方直链安装包。缺省时官网照旧只展示 npm/pip/winget 一种装法 */
+  installDirect?: InstallDirect;
   bin: string;
   env: EnvSpec[];
   webPort?: number;
@@ -118,6 +134,60 @@ export function installCommand(agent: AgentEntry): string {
     default:
       return `winget install --id ${agent.install.package} -e`;
   }
+}
+
+/** 取主机名（非法 URL 返回空串，不抛错） */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** 可注册域（取最后两段，够用于 deepseek.com 这类站点） */
+function registrableDomain(host: string): string {
+  const parts = host.split(".").filter(Boolean);
+  return parts.length >= 2 ? parts.slice(-2).join(".") : host;
+}
+
+/** 字节数 → 人类可读体积（1 MB = 1048576 字节，与文件管理器口径一致） */
+export function formatBytes(bytes?: number): string {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes <= 0) return "";
+  const mb = bytes / 1024 / 1024;
+  return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${Math.round(mb)} MB`;
+}
+
+/**
+ * 直链来源标注：与官网同域时显式说明是官方域名，否则如实给出主机名。
+ * 例：download.deepseek.com（deepseek.com 官方域名）
+ */
+export function directSourceLabel(direct: InstallDirect, homepage?: string): string {
+  const host = hostOf(direct.url);
+  if (!host) return "";
+  const root = registrableDomain(host);
+  const officialRoot = homepage ? registrableDomain(hostOf(homepage)) : "";
+  const isOfficial = Boolean(officialRoot.includes(".")) && officialRoot === root;
+  return isOfficial ? `${host}（${root} 官方域名）` : host;
+}
+
+/**
+ * 直链安装包的一行说明，如：
+ * "官方桌面安装包（约 276 MB） · 来源 download.deepseek.com（官方域名）"
+ * 体积不重复堆叠：label 里已含体积时不再补一条。
+ */
+export function directMeta(direct: InstallDirect, homepage?: string): string {
+  const label = direct.label?.trim() || "官方安装包";
+  const size = formatBytes(direct.sizeBytes);
+  const source = directSourceLabel(direct, homepage);
+  return [label, size && !label.includes(size) ? `约 ${size}` : "", source && `来源 ${source}`]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** 静默安装参数（展示用，如 "/S"） */
+export function directSilentArgs(direct: InstallDirect): string {
+  return (direct.silentArgs ?? []).filter((a) => typeof a === "string" && a.trim()).join(" ");
 }
 
 export function agentKind(agent: AgentEntry): string {

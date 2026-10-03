@@ -10,7 +10,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Check, ChevronRight, Clock, Download, ExternalLink, LayoutGrid, Loader2, TrendingUp } from "lucide-react";
+import { Check, ChevronRight, Clock, Download, ExternalLink, LayoutGrid, Lightbulb, Loader2, TrendingUp } from "lucide-react";
 import { ESSENTIALS, CURATED_COLLECTIONS } from "../../catalog/collections";
 import type { CatalogApp } from "../../catalog/apps";
 import { useCatalogStore } from "../../state/catalogStore";
@@ -20,11 +20,15 @@ import { useDetailStore } from "../../state/detailStore";
 import { useT } from "../../i18n";
 import { AppIcon } from "../../components/AppIcon";
 import { Chip } from "../../components/FilterChips";
+import { SuggestEntryButton } from "../../components/SubmitEntry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 type Status = "none" | "installed" | "upgrade";
+
+/** 收录推荐入口（GitHub issue 模板选择页） */
+const NOMINATE_URL = "https://github.com/hencter/tongtop-store/issues/new/choose";
 
 /** 精选页的紧凑软件行：一屏能看更多，状态一眼可辨（图标 + 名字 + 一句简介 + 状态/动作）。 */
 const CuratedRow = memo(function CuratedRow({ app, status }: { app: CatalogApp; status: Status }) {
@@ -172,6 +176,7 @@ export function CuratedPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <SuggestEntryButton />
           <Button variant="outline" size="sm" onClick={() => setTab("search")}>
             <LayoutGrid className="size-3.5" /> {t("浏览全部")}
           </Button>
@@ -225,6 +230,15 @@ export function CuratedPage() {
                   }}
                 >
                   {t("在全部软件中查看")} <ChevronRight className="size-3.5" />
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto shrink-0 p-0 text-xs text-muted-foreground"
+                  title={t("用 GitHub issue 模板推荐收录：填 winget ID / 官网 / 推荐理由")}
+                  onClick={() => void openUrl(NOMINATE_URL)}
+                >
+                  <Lightbulb className="size-3.5" /> {t("推荐收录")}
                 </Button>
               </div>
               <div className="flex flex-col gap-1.5">

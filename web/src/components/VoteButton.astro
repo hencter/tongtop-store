@@ -1,0 +1,241 @@
+---
+/**
+ * 点赞 / 踩 + 云端计数。
+ * - 首次渲染后批量 GET /api/votes?ids=… 拉当前计数（一次最多 50 个 id）
+ * - 点击 POST /api/votes { id, value }
+ * - localStorage("tongtop.votes") 记住本机投过的条目：已投过就禁用并高亮
+ * - 接口不可用时静默降级（不弹错、不阻塞页面），已投记录仍留在本机
+ * 计数键与商店条目对齐：软件用 winget ID，智能体用 `agent:<id>`。
+ */
+interface Props {
+  /** 计数键：winget ID 或 agent:<id> */
+  id: string;
+  /** 无障碍名称，默认用 id */
+  name?: string;
+}
+const { id, name = id } = Astro.props;
+---
+<div class="vote" data-vote-id={id} data-vote-name={name}>
+  <button
+    type="button"
+    class="vote-btn"
+    data-vote-value="up"
+    aria-label={`有用：${name}`}
+    title="有用，值得推荐"
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M7 22V11l4.2-8.1a1.9 1.9 0 0 1 3.5 1.3L13.8 9h4.6A2.6 2.6 0 0 1 21 12l-1.6 7.5A3 3 0 0 1 16.5 22Z"></path>
+      <path d="M7 11H3.6v11H7"></path>
+    </svg>
+    <span class="vote-count" data-vote-count="up">–</span>
+  </button>
+  <button
+    type="button"
+    class="vote-btn"
+    data-vote-value="down"
+    aria-label={`不好用：${name}`}
+    title="不好用 / 有问题"
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M17 2v11l-4.2 8.1a1.9 1.9 0 0 1-3.5-1.3L10.2 15H5.6A2.6 2.6 0 0 1 3 12l1.6-7.5A3 3 0 0 1 7.5 2Z"></path>
+      <path d="M17 13h3.4V2H17"></path>
+    </svg>
+    <span class="vote-count" data-vote-count="down">–</span>
+  </button>
+</div>
+
+<style>
+  .vote {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .vote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .vote-btn:hover:not(:disabled) {
+    color: var(--fg);
+    border-color: color-mix(in srgb, var(--fg) 25%, var(--border));
+  }
+  .vote-btn:disabled {
+    cursor: default;
+    opacity: 0.8;
+  }
+  .vote-btn.voted {
+    color: var(--brand);
+    border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
+    background: color-mix(in srgb, var(--brand) 10%, transparent);
+  }
+  .vote-btn[data-vote-value="down"].voted {
+    color: #dc2626;
+    border-color: color-mix(in srgb, #dc2626 45%, var(--border));
+    background: color-mix(in srgb, #dc2626 8%, transparent);
+  }
+  .vote-btn svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .vote-count {
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+
+<script>
+  type VoteValue = "up" | "down";
+  type Counts = { up: number; down: number };
+
+  const STORE_KEY = "tongtop.votes";
+  const MAX_IDS = 50;
+
+  const widgets = Array.from(document.querySelectorAll<HTMLElement>("[data-vote-id]"));
+
+  function readMine(): Record<string, VoteValue> {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORE_KEY) ?? "{}");
+      return raw && typeof raw === "object" ? (raw as Record<string, VoteValue>) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function writeMine(map: Record<string, VoteValue>): void {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(map));
+    } catch {
+      // 隐私模式下 localStorage 可能不可写：忽略，不影响投票本身
+    }
+  }
+
+  function countEl(widget: HTMLElement, value: VoteValue): HTMLElement | null {
+    return widget.querySelector<HTMLElement>(`[data-vote-count="${value}"]`);
+  }
+
+  /** 已投过的条目：高亮对应按钮并禁用，避免重复刷 */
+  function lockWidget(widget: HTMLElement, value: VoteValue): void {
+    widget.querySelectorAll<HTMLButtonElement>(".vote-btn").forEach((btn) => {
+      const mine = btn.dataset.voteValue === value;
+      btn.disabled = true;
+      btn.classList.toggle("voted", mine);
+      if (mine) btn.title = "本机已投过（已记录）";
+    });
+  }
+
+  function setCounts(widget: HTMLElement, counts: Counts): void {
+    const up = countEl(widget, "up");
+    const down = countEl(widget, "down");
+    if (up) up.textContent = String(Math.max(0, counts.up ?? 0));
+    if (down) down.textContent = String(Math.max(0, counts.down ?? 0));
+  }
+
+  /** 本地乐观 +1：拿不到服务端数字时也让点击有反馈 */
+  function bumpLocal(widget: HTMLElement, value: VoteValue): void {
+    const el = countEl(widget, value);
+    if (!el) return;
+    const n = Number.parseInt(el.textContent ?? "", 10);
+    el.textContent = String(Number.isFinite(n) ? n + 1 : 1);
+  }
+
+  async function fetchCounts(ids: string[]): Promise<Record<string, Counts> | null> {
+    const out: Record<string, Counts> = {};
+    try {
+      for (let i = 0; i < ids.length; i += MAX_IDS) {
+        const batch = ids.slice(i, i + MAX_IDS);
+        const resp = await fetch(`/api/votes?ids=${encodeURIComponent(batch.join(","))}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        if (!data?.ok) throw new Error(data?.error ?? "接口返回异常");
+        Object.assign(out, data.votes ?? {});
+      }
+      return out;
+    } catch {
+      // 静默降级：边缘函数未部署 / 离线 / 本机静态预览都会走到这里
+      return null;
+    }
+  }
+
+  async function postVote(id: string, value: VoteValue): Promise<Counts | null> {
+    try {
+      const resp = await fetch("/api/votes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, value }),
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      if (!data?.ok) return null;
+      const counts = data.votes?.[id];
+      if (counts) return counts as Counts;
+      return typeof data.up === "number" ? { up: data.up, down: data.down ?? 0 } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (widgets.length > 0) {
+    const mine = readMine();
+    const ids = [...new Set(widgets.map((w) => w.dataset.voteId ?? "").filter(Boolean))];
+    // 本次会话刚投过的 id：GET 的旧快照不许覆盖它们（POST 返回后以服务端为准）
+    const pending = new Set<string>();
+
+    // 本机已投过的先恢复状态（接口不可用时也能看到自己投过什么）
+    for (const widget of widgets) {
+      const id = widget.dataset.voteId ?? "";
+      const voted = mine[id];
+      if (voted === "up" || voted === "down") lockWidget(widget, voted);
+    }
+
+    for (const widget of widgets) {
+      widget.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const btn = target.closest<HTMLButtonElement>("[data-vote-value]");
+        if (!btn || !widget.contains(btn) || btn.disabled) return;
+        const id = widget.dataset.voteId ?? "";
+        const raw = btn.dataset.voteValue;
+        if (!id || (raw !== "up" && raw !== "down")) return;
+        if (mine[id]) return; // 本机已投过：不重复提交
+        const value: VoteValue = raw;
+
+        mine[id] = value;
+        writeMine(mine);
+        pending.add(id);
+        bumpLocal(widget, value);
+        lockWidget(widget, value);
+
+        void postVote(id, value).then((counts) => {
+          pending.delete(id);
+          if (counts) setCounts(widget, counts);
+        });
+      });
+    }
+
+    if (ids.length > 0) {
+      void fetchCounts(ids).then((counts) => {
+        if (!counts) return;
+        for (const widget of widgets) {
+          const id = widget.dataset.voteId ?? "";
+          if (pending.has(id)) continue;
+          const found = counts[id];
+          if (found) setCounts(widget, { up: found.up ?? 0, down: found.down ?? 0 });
+        }
+      });
+    }
+  }
+</script>

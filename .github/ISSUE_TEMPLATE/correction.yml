@@ -1,0 +1,85 @@
+name: 信息纠错
+description: 报告站点条目里的错误信息（名称、包 ID、链接、描述、体积等）
+title: "[纠错] "
+labels: ["纠错"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢纠错！请尽量给出**官方来源**作为依据，便于核对后直接改数据。
+        已经收录的软件想表达好用/不好用，请到 https://tongtop.store/apps 点赞，不用开 issue。
+  - type: input
+    id: entry
+    attributes:
+      label: 出错的条目
+      description: 软件名或智能体名；有 winget ID / 页面链接更好定位
+      placeholder: Cherry Studio（kangfenmao.CherryStudio）
+    validations:
+      required: true
+  - type: dropdown
+    id: problem
+    attributes:
+      label: 问题类型
+      description: 这条信息哪里不对
+      options:
+        - 名称 / 简介有误
+        - 包 ID 或安装命令不对（装不上）
+        - 官网 / 官方仓库链接失效或指错
+        - 分类或 AI 标记不对
+        - 体积 / 下载地址信息有误
+        - 已经停更 / 不再推荐
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: 正确信息是什么
+      description: 请写清楚"现在写的是 X，应该是 Y"
+      placeholder: |
+        现在写的是：npm install -g xxx
+        应该是：npm install -g @scope/xxx
+    validations:
+      required: true
+  - type: input
+    id: evidence
+    attributes:
+      label: 依据链接
+      description: 官方来源链接（官网、官方仓库、官方文档或官方公告）
+      placeholder: https://github.com/owner/repo/releases
+    validations:
+      required: true
+  - type: dropdown
+    id: official-source
+    attributes:
+      label: 是否官方来源（官网/官方仓库）
+      description: 上面的依据是否来自官方渠道
+      options:
+        - 是，官网 / 官方仓库 / 官方文档
+        - 否，来自第三方文章或社区帖子
+        - 不确定
+    validations:
+      required: true
+  - type: dropdown
+    id: tried-locally
+    attributes:
+      label: 是否已在本机试过
+      description: 你是否在本机复现过这个问题（例如命令确实装不上）
+      options:
+        - 已在本机复现
+        - 在本机试过，但没复现
+        - 没在本机试过
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充说明
+      description: 复现步骤、截图说明、报错信息等（可选）
+      placeholder: |
+        例如：
+        1. 在软件库里搜 XXX
+        2. 复制安装命令执行
+        3. 报错：No package found
+    validations:
+      required: false

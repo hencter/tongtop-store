@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  Download,
   ExternalLink,
   Loader2,
   Play,
@@ -24,6 +25,8 @@ import { useAppStore } from "../../state/appStore";
 import { useT } from "../../i18n";
 import { useSettingsStore } from "../../state/settingsStore";
 import { AppIcon } from "../../components/AppIcon";
+import { SubmitEntry } from "../../components/SubmitEntry";
+import { VoteButton } from "../../components/VoteButton";
 import { PageTabs } from "../../components/PageTabs";
 import { PageFilter } from "../../components/PageFilter";
 import { Badge } from "@/components/ui/badge";
@@ -153,8 +156,9 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
         <AppIcon id={`agent:${recipe.id}`} name={recipe.name} size={40} />
         <div className="min-w-0">
           <div className="font-semibold">{recipe.name}</div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             {recipe.vendor} · {recipe.install.kind === "npm" ? "npm" : recipe.install.kind === "pip" ? "pip" : "winget"} {t("安装")}
+            <VoteButton id={`agent:${recipe.id}`} />
           </div>
           <div className="truncate text-[11px] text-muted-foreground">{recipe.desc}</div>
         </div>
@@ -284,6 +288,8 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
               {n}
             </p>
           ))}
+
+          <SubmitEntry className="px-0.5" />
         </div>
 
         {/* 右：状态摘要 + 操作 + 可展开日志 */}
@@ -336,12 +342,30 @@ function SetupPage({ recipe }: { recipe: AgentRecipe }) {
           )}
           <div className="flex shrink-0 items-center gap-3">
             {!finished ? (
-              <Button size="lg" className="flex-1" disabled={running || missingRequired} onClick={() => void start()}>
-                {running ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
-                {running ? t("装机中…") : anyFail ? t("重试装机") : t("开始装机")}
-              </Button>
-            ) : (
               <>
+                <Button size="lg" className="flex-1" disabled={running || missingRequired} onClick={() => void start()}>
+                  {running ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
+                  {running ? t("装机中…") : anyFail ? t("重试装机") : t("开始装机")}
+                </Button>
+                {/* 官方直链安装包：包管理器没有的形态（如官方桌面安装器）时给第二条装法 */}
+                {recipe.installDirect && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="shrink-0"
+                    disabled={running || missingRequired}
+                    title={`${t("从官方直链下载并静默安装：")}${recipe.installDirect.label ?? recipe.installDirect.url}`}
+                    onClick={() => void start({ direct: true })}
+                  >
+                    <Download className="size-4" />
+                    {t("官方安装包")}
+                    {recipe.installDirect.sizeBytes
+                      ? ` · ${Math.round(recipe.installDirect.sizeBytes / 1024 / 1024)}MB`
+                      : ""}
+                  </Button>
+                )}
+              </>
+            ) : (              <>
                 <Button size="lg" className="flex-1" disabled={launching} onClick={() => void launch()}>
                   {launching ? (
                     <>
