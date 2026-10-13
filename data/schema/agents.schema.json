@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tongtop.store/schema/agents.schema.json",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "name", "vendor", "desc", "homepage", "runtime", "install", "bin", "pathExtra", "env"],
+    "properties": {
+      "id": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/id" },
+      "name": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "vendor": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "desc": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "homepage": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/httpUrl" },
+      "runtime": { "enum": ["node", "python", "none"] },
+      "runtimeWinget": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "runtimeLabel": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "install": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "package"],
+        "properties": {
+          "kind": { "enum": ["npm", "pip", "winget"] },
+          "package": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" }
+        }
+      },
+      "bin": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "pathExtra": {
+        "type": "array",
+        "items": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" }
+      },
+      "env": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "label"],
+          "properties": {
+            "name": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+            "label": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+            "placeholder": { "type": "string" },
+            "secret": { "type": "boolean" },
+            "required": { "type": "boolean" },
+            "hint": { "type": "string" },
+            "url": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/httpUrl" },
+            "defaultValue": { "type": "string" }
+          }
+        }
+      },
+      "concerns": {
+        "type": "array",
+        "items": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" }
+      },
+      "notes": {
+        "type": "array",
+        "items": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" }
+      },
+      "keepOpen": { "type": "boolean" },
+      "webPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+      "launchArgs": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "desktopNames": {
+        "type": "array",
+        "items": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" }
+      }
+    }
+  }
+}

@@ -12,6 +12,10 @@ export default defineConfig(() => ({
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
   },
+  test: {
+    // scripts/validate-data.test.mjs 走 node:test，由 CI 单独执行。
+    include: ["src/**/*.{test,spec}.ts"],
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

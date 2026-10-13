@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tongtop.store/schema/devtools.schema.json",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "name", "lang", "desc", "bin", "winget", "homepage"],
+    "properties": {
+      "id": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/id" },
+      "name": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "lang": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "desc": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "bin": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "winget": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+      "homepage": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/httpUrl" },
+      "mirrorId": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/id" }
+    }
+  }
+}

@@ -14,6 +14,10 @@ import { APPS, CATEGORIES } from "../lib/data";
     <button class="chip active" data-cat="all">全部</button>
     {CATEGORIES.map((c) => <button class="chip" data-cat={c.id}>{c.label}</button>)}
   </div>
+  <div class="filters" id="sorts">
+    <button class="chip active" data-sort="default">默认</button>
+    <button class="chip" data-sort="newest">最新收录</button>
+  </div>
   <input id="q" type="search" placeholder="搜索名称 / ID / 标签…" style="max-width:380px" />
 
   <div class="grid" id="grid" style="margin-top:18px">
@@ -23,6 +27,7 @@ import { APPS, CATEGORIES } from "../lib/data";
           class="app-cell"
           data-cat={app.category}
           data-ai={app.ai ? "1" : ""}
+          data-added={app.addedAt ?? ""}
           data-text={`${app.name} ${app.id} ${app.desc} ${(app.tags ?? []).join(" ")}`.toLowerCase()}
         >
           <AppCard app={app} />
@@ -36,13 +41,35 @@ import { APPS, CATEGORIES } from "../lib/data";
 <script>
   const grid = document.getElementById("grid");
   const cells = Array.from(grid.querySelectorAll(".app-cell"));
+  cells.forEach((cell, index) => {
+    cell.dataset.idx = String(index);
+  });
   const chips = Array.from(document.querySelectorAll("#cats .chip"));
+  const sortChips = Array.from(document.querySelectorAll("#sorts .chip"));
   const empty = document.getElementById("empty");
   const input = document.getElementById("q");
-  let cat = new URLSearchParams(location.search).get("cat") || "all";
+  const params = new URLSearchParams(location.search);
+  let cat = params.get("cat") || "all";
+  let sort = params.get("sort") === "newest" ? "newest" : "default";
   // 顶栏搜索框跳转带来的关键词（?q=）：进入即过滤
-  let query = new URLSearchParams(location.search).get("q")?.trim().toLowerCase() || "";
+  let query = params.get("q")?.trim().toLowerCase() || "";
   if (query) input.value = query;
+
+  function applySort() {
+    const ordered = [...cells].sort((a, b) => {
+      const ai = Number(a.dataset.idx);
+      const bi = Number(b.dataset.idx);
+      if (sort !== "newest") return ai - bi;
+      const addedA = a.dataset.added || "";
+      const addedB = b.dataset.added || "";
+      if (addedA === addedB) return ai - bi;
+      if (!addedA) return 1;
+      if (!addedB) return -1;
+      return addedB.localeCompare(addedA);
+    });
+    for (const cell of ordered) grid.appendChild(cell);
+    for (const chip of sortChips) chip.classList.toggle("active", chip.dataset.sort === sort);
+  }
 
   function apply() {
     let visible = 0;
@@ -64,9 +91,16 @@ import { APPS, CATEGORIES } from "../lib/data";
       apply();
     }),
   );
+  sortChips.forEach((chip) =>
+    chip.addEventListener("click", () => {
+      sort = chip.dataset.sort === "newest" ? "newest" : "default";
+      applySort();
+    }),
+  );
   input.addEventListener("input", () => {
     query = input.value.trim().toLowerCase();
     apply();
   });
+  applySort();
   apply();
 </script>

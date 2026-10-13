@@ -23,6 +23,15 @@ export type CategoryId =
   | "system"
   | "netdisk";
 
+export type Pricing = "free" | "freemium" | "paid";
+
+/** 定价枚举对应的中文文案（i18n key） */
+export const PRICING_LABEL: Record<Pricing, string> = {
+  free: "免费",
+  freemium: "免费增值",
+  paid: "付费",
+};
+
 export interface CatalogApp {
   /** winget 包 ID */
   id: string;
@@ -38,6 +47,31 @@ export interface CatalogApp {
   github?: string;
   /** 具备 AI 功能（用于「AI 应用」分类聚合） */
   ai?: boolean;
+  /** 发布者。缺省时详情不展示该行 */
+  publisher?: string;
+  /** SPDX 或常见许可证名 */
+  license?: string;
+  pricing?: Pricing;
+  /** 截图 URL，有则在详情与网站卡片展示 */
+  screenshots?: string[];
+  /** 收录日期 YYYY-MM-DD，用于「最新收录」排序 */
+  addedAt?: string;
+  /** 目录信息更新日期 YYYY-MM-DD */
+  updatedAt?: string;
+}
+
+function addedAtMs(value: string | undefined): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+}
+
+/** 最新收录在前；没有 addedAt 的条目保持原相对顺序并排在后面。不修改入参。 */
+export function sortByNewest<T>(list: readonly T[], addedAt: (item: T) => string | undefined): T[] {
+  return list
+    .map((item, index) => ({ item, index, time: addedAtMs(addedAt(item)) }))
+    .sort((a, b) => (a.time === b.time ? a.index - b.index : b.time - a.time))
+    .map((row) => row.item);
 }
 
 export const CATEGORIES: { id: CategoryId; label: string }[] = categories as {

@@ -10,7 +10,7 @@ import { useCatalogStore } from "../../state/catalogStore";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../state/appStore";
 import { useAgentStore } from "../../state/agentStore";
-import type { CatalogApp } from "../../catalog/apps";
+import { sortByNewest, type CatalogApp } from "../../catalog/apps";
 import type { AppInfo } from "../../ipc/types";
 import { AppIcon } from "../../components/AppIcon";
 import { AppRow } from "../../components/AppRow";
@@ -25,6 +25,7 @@ const ROW_H = 64;
 type SearchTab = "apps" | "agents" | "installed" | "other";
 type StatusFilter = "all" | "installed" | "upgrade" | "notInstalled";
 type SourceFilter = "all" | "curated" | "winget";
+type SortMode = "default" | "newest";
 
 interface SoftRow {
   key: string;
@@ -58,6 +59,7 @@ export function SearchPage() {
   );
   const [status, setStatus] = useState<StatusFilter>("all");
   const [source, setSource] = useState<SourceFilter>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("default");
 
   useEffect(() => {
     if (useAppStore.getState().browseCategory !== null) {
@@ -143,8 +145,10 @@ export function SearchPage() {
       if (status === "notInstalled") return !installedSet.has(lid);
       return true;
     };
-    return softRowsRaw.filter((r) => byStatus(r.info.id));
-  }, [softRowsRaw, status, installedSet, upgradeSet]);
+    const filtered = softRowsRaw.filter((r) => byStatus(r.info.id));
+    if (sortMode !== "newest") return filtered;
+    return sortByNewest(filtered, (row) => row.catalog?.addedAt);
+  }, [softRowsRaw, status, installedSet, upgradeSet, sortMode]);
 
   // ---------- 其余类型 ----------
   const agentHits = useMemo(() => {
@@ -175,6 +179,7 @@ export function SearchPage() {
     setCat("all");
     setStatus("all");
     setSource("all");
+    setSortMode("default");
   };
 
   const wingetStatusLine = !q
@@ -258,7 +263,17 @@ export function SearchPage() {
                   { value: "winget", label: t("winget 源"), count: wingetHits.length },
                 ]}
               />
-              {(status !== "all" || source !== "all") && (
+              <FilterPopover<SortMode>
+                label={t("排序")}
+                value={sortMode}
+                onChange={setSortMode}
+                onReset={() => setSortMode("default")}
+                options={[
+                  { value: "default", label: t("默认排序") },
+                  { value: "newest", label: t("最新收录") },
+                ]}
+              />
+              {(status !== "all" || source !== "all" || sortMode !== "default") && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -279,7 +294,7 @@ export function SearchPage() {
                 {q ? <>{t("没有找到「")}{query.trim()}{t("」匹配的软件。")}</> : t("当前筛选条件下没有软件。")}
               </div>
               <div className="flex gap-2">
-                {(cat !== "all" || status !== "all" || source !== "all") && (
+                {(cat !== "all" || status !== "all" || source !== "all" || sortMode !== "default") && (
                   <Button variant="outline" size="sm" onClick={clearFilters}>{t("清除筛选")}</Button>
                 )}
                 {q && (
