@@ -23,6 +23,12 @@ interface SettingsStore {
   /** 目录数据 API（首页推荐实时更新源；"" = 仅用内置数据） */
   catalogApi: string;
   setCatalogApi: (v: string) => void;
+  /** 通天路 Skills API 根地址。空则配合环境变量，仍空则用内置示例。 */
+  ttlApiBase: string;
+  setTtlApiBase: (v: string) => void;
+  /** 通天路 JWT。只存在本机，不进仓库。 */
+  ttlJwt: string;
+  setTtlJwt: (v: string) => void;
   /** 启动智能体后自动退出商店（默认 false：窗口收进托盘常驻后台） */
   autoExit: boolean;
   setAutoExit: (v: boolean) => void;
@@ -52,6 +58,16 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   setCatalogApi: (v) => {
     localStorage.setItem("tongtop.catalogApi", v);
     set({ catalogApi: v });
+  },
+  ttlApiBase: localStorage.getItem("tongtop.ttlApiBase") ?? "",
+  setTtlApiBase: (v) => {
+    localStorage.setItem("tongtop.ttlApiBase", v);
+    set({ ttlApiBase: v });
+  },
+  ttlJwt: localStorage.getItem("tongtop.ttlJwt") ?? "",
+  setTtlJwt: (v) => {
+    localStorage.setItem("tongtop.ttlJwt", v);
+    set({ ttlJwt: v });
   },
   // 默认常驻托盘（"1" 才是退出商店；未设置过的老用户同样迁移到新默认）
   autoExit: localStorage.getItem("tongtop.autoExit") === "1",

@@ -23,7 +23,8 @@ export type Tab =
   | "updates"
   | "cleanup"
   | "activity"
-  | "github";
+  | "github"
+  | "skills";
 
 const SEARCH_CACHE_MAX = 50;
 const searchCache = new Map<string, AppInfo[]>();

@@ -1,0 +1,26 @@
+[
+  {
+    "slug": "tongtop-agent-access",
+    "name": "通顶智能体接入",
+    "summary": "让通天路智能体读取商店里的技能清单与安装状态",
+    "version": "1.0.0",
+    "versionId": "1",
+    "pricing": "free"
+  },
+  {
+    "slug": "news-aggregator",
+    "name": "新闻聚合",
+    "summary": "按主题汇总公开新闻源，输出可引用的摘要",
+    "version": "1.2.0",
+    "versionId": "3",
+    "pricing": "free"
+  },
+  {
+    "slug": "ttl-probe-skill",
+    "name": "通天路探测",
+    "summary": "探测通天路接口连通性；付费版本需要智能体 key 解锁",
+    "version": "0.3.0",
+    "versionId": "2",
+    "pricing": "paid"
+  }
+]

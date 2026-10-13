@@ -7,6 +7,7 @@
 
 mod activity;
 mod cleanup;
+mod skills;
 mod fastdl;
 mod gh;
 mod index_db;
@@ -2414,6 +2415,7 @@ pub fn run() {
             activity_stop,
             activity_status,
             activity_processes,
+            skills::install_skill_package,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

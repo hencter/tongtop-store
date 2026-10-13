@@ -501,4 +501,24 @@ export const EN: Record<string, string> = {
   "全部来源": "Any source",
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
+
+  // ---- 技能（issue #32）----
+  "技能": "Skills",
+  "没有通天路凭据，当前显示内置示例。": "No Tongtianlu credentials — showing the built-in examples.",
+  "显示本地缓存。": "Showing the local cache.",
+  "已从通天路同步。": "Synced from Tongtianlu.",
+  "同步": "Sync",
+  "通天路账号": "Tongtianlu account",
+  "API 地址，如 https://api.tongtianlu.cn": "API base, e.g. https://api.tongtianlu.cn",
+  "用户名": "Username",
+  "密码": "Password",
+  "重新登录": "Sign in again",
+  "已重新登录": "Signed in again",
+  "API 地址和 JWT 只从这里或环境变量 TONGTIANLU_API_BASE、TONGTIANLU_JWT 读取，不会写进仓库。JWT 约 7 天后过期。":
+    "The API base and JWT come only from here or from TONGTIANLU_API_BASE and TONGTIANLU_JWT. They are never committed. JWTs expire after about 7 days.",
+  "免费": "Free",
+  "付费": "Paid",
+  "解锁入口": "Unlock",
+  "已安装到": "Installed to",
+  "技能包已通过 sha256 校验": "Skill package passed sha256 verification",
 };
