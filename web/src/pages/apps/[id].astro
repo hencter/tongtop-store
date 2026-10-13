@@ -1,0 +1,81 @@
+---
+import Base from "../../layouts/Base.astro";
+import Icon from "../../components/Icon.astro";
+import AppCard from "../../components/AppCard.astro";
+import {
+  APPS,
+  appCanonical,
+  categoryLabel,
+  relatedApps,
+  type AppEntry,
+} from "../../lib/data";
+
+export function getStaticPaths() {
+  return APPS.map((app) => ({ params: { id: app.id }, props: { app } }));
+}
+
+interface Props {
+  app: AppEntry;
+}
+
+const { app } = Astro.props;
+const canonical = appCanonical(app.id);
+const cmd = `winget install --id ${app.id} -e`;
+const githubUrl = app.github && /^[^/\s]+\/[^/\s]+$/.test(app.github) ? `https://github.com/${app.github}` : "";
+const related = relatedApps(app);
+const sameAs = [app.site, githubUrl].filter(Boolean);
+const jsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: app.name,
+  description: app.desc,
+  url: canonical,
+  applicationCategory: categoryLabel(app.category),
+  operatingSystem: "Windows",
+  identifier: app.id,
+  sameAs,
+}).replace(/</g, "\\u003c");
+---
+
+<Base title={`${app.name} · TongTop Store`} description={app.desc} canonical={canonical} jsonLd={jsonLd}>
+  <p class="crumb">
+    <a href="/apps" data-i18n="软件库">软件库</a>
+    <span> / {categoryLabel(app.category)}</span>
+  </p>
+  <article>
+    <div class="detail-head">
+      <Icon id={app.id} name={app.name} size={64} />
+      <div>
+        <h1>{app.name}</h1>
+        <p class="page-sub">{app.desc}</p>
+      </div>
+    </div>
+    <div class="tag-row">
+      <span class="badge">{categoryLabel(app.category)}</span>
+      {app.ai && <span class="badge ai">AI</span>}
+      {(app.tags ?? []).map((tag) => <span class="badge">{tag}</span>)}
+    </div>
+    <p class="meta" style="margin-top:14px"><span data-i18n="安装命令">安装命令</span></p>
+    <pre class="cmd"><code>{cmd}</code></pre>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn primary sm" data-copy-text={cmd} data-i18n="复制安装命令">复制安装命令</button>
+      <a class="btn sm" href={app.site} target="_blank" rel="noopener" data-i18n="官网">官网</a>
+      {githubUrl && <a class="btn sm" href={githubUrl} target="_blank" rel="noopener">GitHub</a>}
+      <a class="btn sm" href={`/download?app=${encodeURIComponent(app.id)}`} data-i18n="在商店中打开">在商店中打开</a>
+    </div>
+    <p class="muted" style="margin-top:10px">winget ID：<span class="mono">{app.id}</span></p>
+  </article>
+
+  {
+    related.length > 0 && (
+      <section class="section">
+        <div class="section-head">
+          <h2 data-i18n="同分类推荐">同分类推荐</h2>
+        </div>
+        <div class="grid">
+          {related.map((item) => <AppCard app={item} />)}
+        </div>
+      </section>
+    )
+  }
+</Base>

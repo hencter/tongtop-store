@@ -86,6 +86,23 @@ export interface FreeModelProvider {
 export const CATEGORIES: { id: string; label: string }[] = categoriesJson;
 export const APPS: AppEntry[] = appsJson as AppEntry[];
 
+/** 索引站公开地址，用于 canonical、OG 与 sitemap。 */
+export const SITE_ORIGIN = "https://store.tongtianlu.cn";
+
+/** 应用详情页路径。点号保留，其余保留字符交给 encodeURIComponent。 */
+export function appPath(id: string): string {
+  return `/apps/${encodeURIComponent(id)}`;
+}
+
+export function appCanonical(id: string): string {
+  return `${SITE_ORIGIN}${appPath(id)}`;
+}
+
+/** 同分类推荐，不含自己，保持目录中的相对顺序。 */
+export function relatedApps(app: AppEntry, limit = 4): AppEntry[] {
+  return APPS.filter((item) => item.id !== app.id && item.category === app.category).slice(0, limit);
+}
+
 /** 闭源判定：concerns 含 "closed"（不接受公众审查，数据泄露/被用于训练的风险更高） */
 export function isClosed(agent: AgentEntry): boolean {
   return (agent.concerns ?? []).includes("closed");

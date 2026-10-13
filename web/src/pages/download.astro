@@ -24,6 +24,7 @@ const sha256 = hasSetup
   : "";
 ---
 <Base title="下载 · TongTop Store" description="TongTop Store 桌面客户端安装包下载。">
+  <p id="open-app" class="notice hidden"></p>
   <h1 class="page-title">下载桌面客户端</h1>
   <p class="page-sub">
     Windows 10/11 x64 · 通过 winget 官方源安装软件 · 智能体一键装机 · 全程本地运行，不上传任何数据。
@@ -78,3 +79,16 @@ const sha256 = hasSetup
     </div>
   </section>
 </Base>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const id = params.get("app")?.trim() ?? "";
+  const el = document.getElementById("open-app");
+  if (id && el && !/[\r\n<>]/.test(id)) {
+    const en = localStorage.getItem("tongtop.lang") === "en";
+    el.textContent = en
+      ? `After you install the desktop app, search for “${id}” to open it in the store.`
+      : `安装客户端后，在商店里搜索「${id}」即可打开。`;
+    el.classList.remove("hidden");
+  }
+</script>
