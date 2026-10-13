@@ -1,3 +1,4 @@
+import { validateRating } from "./ratings.js";
 import { getStore } from "./store.js";
 
 export const json = (data, status = 200) =>
@@ -12,6 +13,7 @@ const TYPES = ["app", "agent", "free-model", "correction"];
 const str = (value, max = 500) => (typeof value === "string" ? value.trim().slice(0, max) : "");
 
 export function validate(body) {
+  if (body?.type === "rating") return validateRating(body);
   const type = TYPES.includes(body?.type) ? body.type : "";
   const name = str(body?.name, 80);
   const refId = str(body?.refId, 120);
@@ -59,6 +61,7 @@ export function sanitizePublic(record) {
     site: record.site,
     category: record.category,
     desc: record.desc,
+    stars: record.stars,
     status: record.status,
     createdAt: record.createdAt,
     reviewedAt: record.reviewedAt,

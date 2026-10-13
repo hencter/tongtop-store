@@ -59,5 +59,9 @@ export const EN: Record<string, string> = {
   "安装步骤": "Install steps",
   "数据与隐私": "Data & privacy",
   "最新": "Latest",
+  "写评价": "Write a review",
+  "评分": "Rating",
+  "提交评价": "Submit review",
+  "简短评价，审核通过后公开": "Short review, public only after approval",
   "下载后双击安装；安装完打开即可搜索、安装软件与配置 AI 智能体。": "Run the installer, then search, install apps and set up AI agents.",
 };

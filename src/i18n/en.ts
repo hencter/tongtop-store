@@ -501,4 +501,9 @@ export const EN: Record<string, string> = {
   "全部来源": "Any source",
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
+
+  "暂无评分": "No ratings yet",
+  "人评分": "ratings",
+  "最近评价": "Recent reviews",
+  "星": "stars",
 };

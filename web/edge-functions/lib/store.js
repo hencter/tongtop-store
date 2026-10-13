@@ -113,6 +113,7 @@ function githubStore(env) {
 - 包 ID / 仓库：${record.refId || "—"}
 - 链接：${record.site || "—"}
 - 分类：${record.category || "—"}
+- 评分：${record.stars ? `${record.stars} 星` : "—"}
 - 联系方式：${record.contact || "—"}
 
 ${record.desc}
@@ -126,7 +127,7 @@ _由 TongTop Store 网站提交；审核通过后同步到站点。_`;
       const issue = await gh("/issues", {
         method: "POST",
         body: JSON.stringify({
-          title: `[投稿] ${record.name}`,
+          title: `${record.type === "rating" ? "[评分]" : "[投稿]"} ${record.name}`,
           body: renderBody(record),
           labels: [LABEL_SUBMISSION, record.status],
         }),

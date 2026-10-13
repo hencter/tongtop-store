@@ -8,6 +8,8 @@ import { Check, Clock, Download, ExternalLink, Loader2, TrendingUp } from "lucid
 import type { CatalogApp } from "../catalog/apps";
 import { useTaskStore } from "../state/taskStore";
 import { useDetailStore } from "../state/detailStore";
+import { useRatingsStore } from "../state/ratingsStore";
+import { formatRating } from "../catalog/ratings";
 import { useT } from "../i18n";
 import { AppIcon } from "./AppIcon";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ export const AppCard = memo(function AppCard({
   const runTask = useTaskStore((s) => s.runTask);
   const silent = useTaskStore((s) => s.silent);
   const openDetail = useDetailStore((s) => s.open);
+  const rating = useRatingsStore((s) => s.byId.get(app.id.toLowerCase()));
   const action = state === "upgrade" ? "upgrade" : "install";
   const taskId = `winget:${action}:${app.id}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
@@ -55,6 +58,7 @@ export const AppCard = memo(function AppCard({
         {app.desc}
       </div>
       <div className="text-[11px] text-muted-foreground">{new URL(app.site).host}</div>
+      <div className="text-[11px] text-muted-foreground">{formatRating(rating, t)}</div>
       <div className="mt-1.5 flex gap-2">
         {state === "installed" ? (
           <Button size="sm" variant="outline" onClick={() => openDetail(app.id)} title={t("查看详情")}>

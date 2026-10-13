@@ -2013,6 +2013,31 @@ async fn catalog_fetch(base: String) -> Result<CatalogDto, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// 评分汇总（与索引站 /api/data/ratings.json 同一份）。调用方在失败时显示「暂无评分」。
+#[tauri::command]
+async fn ratings_fetch(base: String) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base = base.trim_end_matches('/');
+        let url = format!("{base}/api/data/ratings.json");
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(std::time::Duration::from_secs(12)))
+            .user_agent("tongtop-store/0.4")
+            .build()
+            .into();
+        let mut resp = agent.get(&url).call().map_err(|e| match e {
+            ureq::Error::StatusCode(code) => format!("ratings.json 返回 {code}"),
+            other => format!("无法连接评分 API：{other}"),
+        })?;
+        let body = resp
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| format!("读取评分响应失败：{e}"))?;
+        serde_json::from_str(&body).map_err(|e| format!("ratings.json 不是合法 JSON：{e}"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// 下载新版安装包到临时目录（进度走 self-update-progress 事件），返回落盘路径。
 /// 官方地址与 GitHub 加速代理多线路并行（完整性在 apply 阶段验签，代理不可信也安全）。
 /// 有预期大小时校验大小（防半截文件/错误页面）；失败清理残留。
@@ -2402,6 +2427,7 @@ pub fn run() {
             apply_self_update,
             take_update_error,
             catalog_fetch,
+            ratings_fetch,
             terminal::term_spawn,
             terminal::term_backlog,
             terminal::term_write,
