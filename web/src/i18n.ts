@@ -59,5 +59,11 @@ export const EN: Record<string, string> = {
   "安装步骤": "Install steps",
   "数据与隐私": "Data & privacy",
   "最新": "Latest",
+  "默认排序": "Default",
+  "热门": "Popular",
+  "热门来自匿名安装与下载计数，只含应用 id 和次数。桌面端可在设置里关闭安装上报。":
+    "Popular ranking uses anonymous install and download counts: app id and count only. The desktop app can turn install reporting off in Settings.",
+  "不托管第三方安装包。下载按钮的点击和桌面端安装成功会匿名计数（应用 id、版本、时间），同一浏览器对同一应用 24 小时只计一次。桌面端设置里可以关闭，关闭后不再发送统计请求。":
+    "We don't host third-party installers. Download clicks and successful desktop installs are counted anonymously (app id, version, time), once per app per browser each 24 hours. The desktop app can turn this off; then it sends no stats requests.",
   "下载后双击安装；安装完打开即可搜索、安装软件与配置 AI 智能体。": "Run the installer, then search, install apps and set up AI agents.",
 };

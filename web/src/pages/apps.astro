@@ -14,6 +14,13 @@ import { APPS, CATEGORIES } from "../lib/data";
     <button class="chip active" data-cat="all">全部</button>
     {CATEGORIES.map((c) => <button class="chip" data-cat={c.id}>{c.label}</button>)}
   </div>
+  <div class="filters" id="sorts">
+    <button class="chip active" data-sort="default" data-i18n="默认排序">默认排序</button>
+    <button class="chip" data-sort="popular" data-i18n="热门">热门</button>
+  </div>
+  <p class="muted" data-i18n="热门来自匿名安装与下载计数，只含应用 id 和次数。桌面端可在设置里关闭安装上报。">
+    热门来自匿名安装与下载计数，只含应用 id 和次数。桌面端可在设置里关闭安装上报。
+  </p>
   <input id="q" type="search" placeholder="搜索名称 / ID / 标签…" style="max-width:380px" />
 
   <div class="grid" id="grid" style="margin-top:18px">
@@ -21,6 +28,7 @@ import { APPS, CATEGORIES } from "../lib/data";
       APPS.map((app) => (
         <div
           class="app-cell"
+          data-id={app.id}
           data-cat={app.category}
           data-ai={app.ai ? "1" : ""}
           data-text={`${app.name} ${app.id} ${app.desc} ${(app.tags ?? []).join(" ")}`.toLowerCase()}
@@ -37,25 +45,38 @@ import { APPS, CATEGORIES } from "../lib/data";
   const grid = document.getElementById("grid");
   const cells = Array.from(grid.querySelectorAll(".app-cell"));
   const chips = Array.from(document.querySelectorAll("#cats .chip"));
+  const sortChips = Array.from(document.querySelectorAll("#sorts .chip"));
   const empty = document.getElementById("empty");
   const input = document.getElementById("q");
   let cat = new URLSearchParams(location.search).get("cat") || "all";
+  let sort = "default";
+  let popular = null;
   // 顶栏搜索框跳转带来的关键词（?q=）：进入即过滤
   let query = new URLSearchParams(location.search).get("q")?.trim().toLowerCase() || "";
   if (query) input.value = query;
 
   function apply() {
+    const ranking = sort === "popular" && Array.isArray(popular) && popular.length ? popular : null;
+    const ranked = ranking
+      ? ranking
+          .map((id) => cells.find((cell) => (cell.dataset.id || "").toLowerCase() === id.toLowerCase()))
+          .filter(Boolean)
+      : null;
+    for (const cell of cells) grid.append(cell);
+    if (ranked) for (const cell of ranked) grid.append(cell);
     let visible = 0;
     for (const cell of cells) {
+      const inRank = !ranked || ranked.includes(cell);
       const okCat =
         cat === "all" || cell.dataset.cat === cat || (cat === "ai" && cell.dataset.ai === "1");
       const okQuery = !query || cell.dataset.text.includes(query);
-      const show = okCat && okQuery;
+      const show = inRank && okCat && okQuery;
       cell.classList.toggle("hidden", !show);
       if (show) visible += 1;
     }
     empty.classList.toggle("hidden", visible > 0);
     for (const chip of chips) chip.classList.toggle("active", chip.dataset.cat === cat);
+    for (const chip of sortChips) chip.classList.toggle("active", chip.dataset.sort === (ranking ? "popular" : "default"));
   }
 
   chips.forEach((chip) =>
@@ -64,6 +85,23 @@ import { APPS, CATEGORIES } from "../lib/data";
       apply();
     }),
   );
+  sortChips.forEach((chip) =>
+    chip.addEventListener("click", () => {
+      sort = chip.dataset.sort || "default";
+      apply();
+    }),
+  );
+  fetch("/api/data/stats.json")
+    .then((resp) => (resp.ok ? resp.json() : null))
+    .then((data) => {
+      popular = Array.isArray(data?.top) ? data.top.map((item) => item.id).filter(Boolean).slice(0, 20) : null;
+      apply();
+    })
+    .catch(() => {
+      popular = null;
+      sort = "default";
+      apply();
+    });
   input.addEventListener("input", () => {
     query = input.value.trim().toLowerCase();
     apply();

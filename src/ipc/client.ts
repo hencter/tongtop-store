@@ -248,6 +248,35 @@ export async function catalogFetch(base: string): Promise<CatalogDto> {
   return invoke<CatalogDto>("catalog_fetch", { base });
 }
 
+/** 公开热门榜。失败时调用方保持默认排序。 */
+export async function statsFetch(base: string): Promise<unknown> {
+  const url = `${base.replace(/\/$/, "")}/api/data/stats.json`;
+  if (!isTauri()) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`stats ${resp.status}`);
+    return resp.json();
+  }
+  return invoke("stats_fetch", { base });
+}
+
+/** 匿名安装上报。调用方在关闭统计时不会进入这里。 */
+export async function statsReport(
+  base: string,
+  event: { id: string; version: string; client: string; at: string },
+): Promise<void> {
+  const url = `${base.replace(/\/$/, "")}/api/stats`;
+  if (!isTauri()) {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(event),
+    });
+    if (!resp.ok) throw new Error(`stats ${resp.status}`);
+    return;
+  }
+  await invoke("stats_report", { base, event });
+}
+
 /** 下载新版安装包（进度走 self-update-progress 事件）：直连优先，失败回退加速通道；大小校验 */
 export async function downloadSelfUpdate(
   url: string,

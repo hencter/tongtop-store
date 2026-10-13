@@ -9,6 +9,7 @@ import categories from "../../../../../data/categories.json";
 import devtools from "../../../../../data/devtools.json";
 import mirrors from "../../../../../data/mirrors.json";
 import freeModels from "../../../../../data/free-models.json";
+import stats from "../../../../../data/stats.json";
 import { AGENTS } from "../../../lib/data";
 
 const FILES: Record<string, unknown> = {
@@ -19,6 +20,7 @@ const FILES: Record<string, unknown> = {
   devtools,
   mirrors,
   "free-models": freeModels,
+  stats,
 };
 
 export function getStaticPaths() {

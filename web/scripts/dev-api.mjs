@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = path.join(webRoot, ".data");
 const dataFile = path.join(dataDir, "submissions.json");
+const statsFile = path.join(dataDir, "stats.json");
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
 const mem = new Map(
@@ -42,10 +43,25 @@ globalThis.__TONGTOP_STORE__ = {
   },
 };
 
+let statsState = existsSync(statsFile)
+  ? JSON.parse(readFileSync(statsFile, "utf8"))
+  : { seen: {}, counts: {} };
+globalThis.__TONGTOP_STATS__ = {
+  async read() {
+    return statsState;
+  },
+  async write(next) {
+    statsState = next;
+    writeFileSync(statsFile, JSON.stringify(next));
+  },
+};
+
 const ROUTES = {
   "/api/submit": "edge-functions/api/submit.js",
   "/api/submissions": "edge-functions/api/submissions.js",
   "/api/review": "edge-functions/api/review.js",
+  "/api/stats": "edge-functions/api/stats.js",
+  "/api/data/stats.json": "edge-functions/api/data/stats.json.js",
 };
 
 const server = createServer(async (req, res) => {

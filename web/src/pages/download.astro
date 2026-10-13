@@ -26,7 +26,7 @@ const sha256 = hasSetup
 <Base title="下载 · TongTop Store" description="TongTop Store 桌面客户端安装包下载。">
   <h1 class="page-title">下载桌面客户端</h1>
   <p class="page-sub">
-    Windows 10/11 x64 · 通过 winget 官方源安装软件 · 智能体一键装机 · 全程本地运行，不上传任何数据。
+    Windows 10/11 x64 · 通过 winget 官方源安装软件 · 智能体一键装机 · 安装统计可关闭。
   </p>
 
   <section class="section">
@@ -46,7 +46,7 @@ const sha256 = hasSetup
             <button class="copy-btn">复制</button>
           </div>
           <div class="actions">
-            <a class="btn primary" href="/downloads/tongtop-store-setup.exe" download>
+            <a class="btn primary" href="/downloads/tongtop-store-setup.exe" download data-stat-download data-stat-version={version}>
               下载安装包（{sizeText}）
             </a>
           </div>
@@ -73,8 +73,41 @@ const sha256 = hasSetup
       </article>
       <article class="card">
         <h3>数据与隐私</h3>
-        <p class="desc">不托管任何安装包，只做官方下载链接分发；密钥只写入本机用户环境变量。</p>
+        <p class="desc" data-i18n="不托管第三方安装包。下载按钮的点击和桌面端安装成功会匿名计数（应用 id、版本、时间），同一浏览器对同一应用 24 小时只计一次。桌面端设置里可以关闭，关闭后不再发送统计请求。">
+          不托管第三方安装包。下载按钮的点击和桌面端安装成功会匿名计数（应用 id、版本、时间），同一浏览器对同一应用 24 小时只计一次。桌面端设置里可以关闭，关闭后不再发送统计请求。
+        </p>
       </article>
     </div>
   </section>
 </Base>
+
+<script>
+  const DAY = 24 * 60 * 60 * 1000;
+  document.querySelector("[data-stat-download]")?.addEventListener("click", () => {
+    const button = document.querySelector("[data-stat-download]");
+    const id = "tongtop-store";
+    let hits = {};
+    try {
+      hits = JSON.parse(localStorage.getItem("tongtop.statHits") || "{}");
+    } catch {
+      hits = {};
+    }
+    if (typeof hits[id] === "number" && Date.now() - hits[id] < DAY) return;
+    const existing = localStorage.getItem("tongtop.client");
+    const client = existing && /^[0-9a-f-]{36}$/i.test(existing) ? existing : crypto.randomUUID();
+    localStorage.setItem("tongtop.client", client);
+    const body = JSON.stringify({
+      id,
+      version: button?.getAttribute("data-stat-version") || "",
+      client,
+      at: new Date().toISOString(),
+    });
+    fetch("/api/stats", { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true })
+      .then((resp) => {
+        if (!resp.ok) return;
+        hits[id] = Date.now();
+        localStorage.setItem("tongtop.statHits", JSON.stringify(hits));
+      })
+      .catch(() => {});
+  });
+</script>

@@ -14,6 +14,8 @@ import { type CatalogApp } from "../../catalog/apps";
 import { ESSENTIALS } from "../../catalog/collections";
 import { CONCERN_CAUTION, type AgentRecipe } from "../../catalog/agents";
 import { useCatalogStore } from "../../state/catalogStore";
+import { useSettingsStore } from "../../state/settingsStore";
+import { useStatsStore } from "../../state/statsStore";
 import { useAppStore } from "../../state/appStore";
 import { useAgentStore } from "../../state/agentStore";
 import { useTaskStore } from "../../state/taskStore";
@@ -122,11 +124,16 @@ export function HomePage() {
   const catalogAt = useCatalogStore((s) => s.updatedAt);
   const catalogSource = useCatalogStore((s) => s.source);
   const tab = useAppStore((s) => s.tab);
+  const shareStats = useSettingsStore((s) => s.shareStats);
+  const top = useStatsStore((s) => s.top);
 
   // 首页推荐是核心内容：每次回到首页都触发一次目录刷新（store 内 5 分钟冷却）
   useEffect(() => {
-    if (tab === "home") void useCatalogStore.getState().refresh();
-  }, [tab]);
+    if (tab === "home") {
+      void useCatalogStore.getState().refresh();
+      void useStatsStore.getState().refresh();
+    }
+  }, [tab, shareStats]);
 
   // 打开智能体装机页（自动检测到已安装则直接落到「启动」）
   const pickAgent = (id: string) => {
@@ -160,6 +167,14 @@ export function HomePage() {
     return ranked.slice(0, FEATURED_APPS);
   }, [CATALOG, installedSet, upgradeSet]);
   const featuredAgents = AGENTS.filter((a) => a.desktopNames).slice(0, FEATURED_AGENTS);
+  const popular = useMemo(
+    () =>
+      top
+        .map((id) => CATALOG.find((app) => app.id.toLowerCase() === id.toLowerCase()))
+        .filter((app): app is CatalogApp => Boolean(app))
+        .slice(0, 20),
+    [top, CATALOG],
+  );
 
   const browse = (catId: string) => {
     setBrowseCategory(catId);
@@ -236,6 +251,28 @@ export function HomePage() {
           </Card>
         </section>
       )}
+
+      {popular.length > 0 && (
+        <section className="mt-6">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="m-0 text-sm font-semibold tracking-wide">
+              {t("热门")}
+              <span className="ml-2 text-[11px] font-normal text-muted-foreground">Top {popular.length}</span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+            {popular.map((app) => (
+              <AppCard key={app.id} app={app} state={cardState(app.id)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+        {shareStats
+          ? t("安装统计已开启：只上报应用 id、版本和时间，用于热门排序。可在设置中关闭。")
+          : t("安装统计已关闭，不会发送统计请求。")}
+      </p>
 
       {/* 日常软件精选（取自精选分组的「装机必备」，未安装的优先） */}
       <section className="mt-6">

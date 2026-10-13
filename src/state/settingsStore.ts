@@ -32,6 +32,9 @@ interface SettingsStore {
   /** 允许镜像自动切换（默认关闭：只测速出推荐，不擅自改其他工具配置，issue #21） */
   autoSwitchMirrors: boolean;
   setAutoSwitchMirrors: (v: boolean) => void;
+  /** 匿名安装统计。默认开启，并在界面说明上报内容；关闭后不再发统计请求。 */
+  shareStats: boolean;
+  setShareStats: (v: boolean) => void;
   /** 被忽略的更新：winget id 小写 → 版本号 | "*" */
   ignored: IgnoredMap;
   /** 忽略此版本（该版本不再出现在更新列表；再出新版会重新提醒） */
@@ -65,6 +68,11 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     set({ installLocation: v });
   },
   autoSwitchMirrors: localStorage.getItem("tongtop.autoSwitchMirrors") === "1",
+  shareStats: localStorage.getItem("tongtop.shareStats") !== "0",
+  setShareStats: (v) => {
+    localStorage.setItem("tongtop.shareStats", v ? "1" : "0");
+    set({ shareStats: v });
+  },
   setAutoSwitchMirrors: (v) => {
     localStorage.setItem("tongtop.autoSwitchMirrors", v ? "1" : "0");
     set({ autoSwitchMirrors: v });
