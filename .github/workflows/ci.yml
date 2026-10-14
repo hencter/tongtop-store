@@ -39,9 +39,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install --frozen-lockfile
-        working-directory: web
       - run: node --test edge-functions/lib/stats.test.mjs
+        working-directory: web
+      - run: pnpm install --frozen-lockfile
         working-directory: web
       - run: pnpm build
         working-directory: web

@@ -268,6 +268,14 @@ export const EN: Record<string, string> = {
   "，全量源 ": ", full source ",
   " 条": " results",
 
+  "热门": "Popular",
+  "匿名安装统计": "Anonymous install stats",
+  "默认开启。安装成功后上报应用 id、版本和时间，用于热门排序，不含姓名、账号或设备信息。关闭后不再发送任何统计请求。":
+    "On by default. After a successful install we send the app id, version and time for the popular list — no name, account or device info. Turning this off sends no stats requests.",
+  "安装统计已开启：只上报应用 id、版本和时间，用于热门排序。可在设置中关闭。":
+    "Install stats are on: only the app id, version and time are sent for the popular list. You can turn this off in Settings.",
+  "安装统计已关闭，不会发送统计请求。": "Install stats are off. No stats requests are sent.",
+
   // ---- 设置弹层 ----
   "安装与更新偏好，即改即存。": "Install & update preferences, saved instantly.",
   "默认安装目录": "Default install directory",
@@ -502,11 +510,4 @@ export const EN: Record<string, string> = {
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
 
-  "热门": "Popular",
-  "匿名安装统计": "Anonymous install stats",
-  "默认开启。安装成功后上报应用 id、版本和时间，用于热门排序，不含姓名、账号或设备信息。关闭后不再发送任何统计请求。":
-    "On by default. After a successful install we send the app id, version and time for the popular list — no name, account or device info. Turning this off sends no stats requests.",
-  "安装统计已开启：只上报应用 id、版本和时间，用于热门排序。可在设置中关闭。":
-    "Install stats are on: only the app id, version and time are sent for the popular list. You can turn this off in Settings.",
-  "安装统计已关闭，不会发送统计请求。": "Install stats are off. No stats requests are sent.",
 };

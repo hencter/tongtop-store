@@ -4,10 +4,10 @@ import { listen } from "@tauri-apps/api/event";
 import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Radar, Search, Settings, Sparkles, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
-import { useStatsStore } from "./state/statsStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useTaskStore } from "./state/taskStore";
 import { useUpdateStore } from "./state/updateStore";
+import { useStatsStore } from "./state/statsStore";
 import { useT } from "./i18n";
 import * as ipc from "./ipc/client";
 import { initTaskListeners } from "./state/taskStore";
@@ -145,13 +145,13 @@ export default function App() {
     void useAgentStore.getState().detectInstalled();
     // 首页推荐核心：启动即后台拉取网站 API 最新目录（内置数据已先渲染，拉到即换）
     void useCatalogStore.getState().refresh();
-    void useStatsStore.getState().refresh();
     // 上次自动更新若失败（安装器非零退出），启动即如实提示
     void ipc.takeUpdateError().then((msg) => {
       if (msg) useUpdateStore.setState({ error: msg, open: true });
     });
     // 自更新：静默检查 GitHub Releases（有新版本才弹窗）；不依赖 winget——缺 winget 的用户更需要新版
     void useUpdateStore.getState().check(false);
+    void useStatsStore.getState().refresh();
     void (async () => {
       await checkWinget();
       // 启动即后台跑一遍 winget 快照（陈旧才真跑），界面先读 SQLite 毫秒渲染

@@ -57,11 +57,11 @@ globalThis.__TONGTOP_STATS__ = {
 };
 
 const ROUTES = {
+  "/api/stats": "edge-functions/api/stats.js",
+  "/api/data/stats.json": "edge-functions/api/data/stats.json.js",
   "/api/submit": "edge-functions/api/submit.js",
   "/api/submissions": "edge-functions/api/submissions.js",
   "/api/review": "edge-functions/api/review.js",
-  "/api/stats": "edge-functions/api/stats.js",
-  "/api/data/stats.json": "edge-functions/api/data/stats.json.js",
 };
 
 const server = createServer(async (req, res) => {
