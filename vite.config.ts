@@ -12,8 +12,6 @@ export default defineConfig(() => ({
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
   },
-  // 通天路凭据可从环境变量注入本地开发，不会写入仓库。
-  envPrefix: ["VITE_", "TONGTIANLU_"],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -36,4 +34,6 @@ export default defineConfig(() => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  // 通天路凭据可从环境变量注入本地开发，不会写入仓库。
+  envPrefix: ["VITE_", "TONGTIANLU_"],
 }));

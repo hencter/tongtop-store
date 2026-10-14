@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { listen } from "@tauri-apps/api/event";
-import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Puzzle, Radar, Search, Settings, Sparkles, TrendingUp, Zap } from "lucide-react";
+import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Radar, Search, Settings, Sparkles, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
@@ -15,6 +15,7 @@ import { HomePage } from "./features/home/HomePage";
 import { CuratedPage } from "./features/curated/CuratedPage";
 import { SearchPage } from "./features/search/SearchPage";
 import { AgentsPage } from "./features/agents/AgentsPage";
+import { Puzzle } from "lucide-react";
 import { SkillsPage } from "./features/skills/SkillsPage";
 import { GitHubPage } from "./features/github/GitHubPage";
 import { MirrorsPage } from "./features/mirrors/MirrorsPage";
