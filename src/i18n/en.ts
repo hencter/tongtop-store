@@ -90,8 +90,6 @@ export const EN: Record<string, string> = {
   "已重新登录": "Signed in again",
   "API 地址和 JWT 只从这里或环境变量 TONGTIANLU_API_BASE、TONGTIANLU_JWT 读取，不会写进仓库。JWT 约 7 天后过期。":
     "The API base and JWT come only from here or from TONGTIANLU_API_BASE and TONGTIANLU_JWT. They are never committed. JWTs expire after about 7 days.",
-  "免费": "Free",
-  "付费": "Paid",
   "解锁入口": "Unlock",
   "已安装到": "Installed to",
   "技能包已通过 sha256 校验": "Skill package passed sha256 verification",
@@ -523,3 +521,9 @@ export const EN: Record<string, string> = {
   "以管理员身份重试": "Retry as administrator",
 
 };
+
+// 「免费 / 付费」也写在应用元数据 PR 的字典里。放在字面量外面，两边合并后不会变成重复键。
+Object.assign(EN, {
+  "免费": "Free",
+  "付费": "Paid",
+});
