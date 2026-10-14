@@ -44,6 +44,18 @@ export const EN: Record<string, string> = {
   "已就绪": "ready",
   "检测中…": "checking…",
 
+  "我的收藏": "Favorites",
+  "收藏保存在这台电脑上，重启后仍然在。": "Favorites stay on this computer and survive a restart.",
+  "导出收藏": "Export favorites",
+  "导出已安装": "Export installed",
+  "导入并安装": "Import and install",
+  "已加入安装队列": "Queued",
+  "云同步将在通天路账号接入后可用，当前不会上传收藏。":
+    "Cloud sync will be available with a Tongtianlu account. Favorites are not uploaded.",
+  "还没有收藏。在软件卡片上点心形图标即可加入。": "No favorites yet. Use the heart on a card to add one.",
+  "收藏": "Favorite",
+  "取消收藏": "Remove favorite",
+
   // ---- 首页 ----
   "不托管任何安装包，只做官方软件下载链接的分发": "No packages hosted — we only distribute official download links",
   "推荐内容实时更新 · ": "Recommendations live-updated · ",
@@ -502,15 +514,4 @@ export const EN: Record<string, string> = {
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
 
-  "我的收藏": "Favorites",
-  "收藏保存在这台电脑上，重启后仍然在。": "Favorites stay on this computer and survive a restart.",
-  "导出收藏": "Export favorites",
-  "导出已安装": "Export installed",
-  "导入并安装": "Import and install",
-  "已加入安装队列": "Queued",
-  "云同步将在通天路账号接入后可用，当前不会上传收藏。":
-    "Cloud sync will be available with a Tongtianlu account. Favorites are not uploaded.",
-  "还没有收藏。在软件卡片上点心形图标即可加入。": "No favorites yet. Use the heart on a card to add one.",
-  "收藏": "Favorite",
-  "取消收藏": "Remove favorite",
 };
