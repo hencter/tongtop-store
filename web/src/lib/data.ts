@@ -9,6 +9,8 @@ import categoriesJson from "../../../data/categories.json";
 import mirrorsJson from "../../../data/mirrors.json";
 import freeModelsJson from "../../../data/free-models.json";
 
+export type Pricing = "free" | "freemium" | "paid";
+
 export interface AppEntry {
   id: string;
   name: string;
@@ -18,6 +20,22 @@ export interface AppEntry {
   tags?: string[];
   github?: string;
   ai?: boolean;
+  publisher?: string;
+  license?: string;
+  pricing?: Pricing;
+  screenshots?: string[];
+  addedAt?: string;
+  updatedAt?: string;
+}
+
+const PRICING_LABEL: Record<Pricing, string> = {
+  free: "免费",
+  freemium: "免费增值",
+  paid: "付费",
+};
+
+export function pricingLabel(pricing: Pricing): string {
+  return PRICING_LABEL[pricing] ?? pricing;
 }
 
 export interface EnvSpec {

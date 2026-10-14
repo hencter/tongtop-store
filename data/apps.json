@@ -23,7 +23,15 @@
       "编程",
       "编辑器"
     ],
-    "ai": true
+    "ai": true,
+    "publisher": "Anysphere",
+    "license": "Proprietary",
+    "pricing": "freemium",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Cursor_Screenshot.png/960px-Cursor_Screenshot.png"
+    ],
+    "addedAt": "2026-10-08",
+    "updatedAt": "2026-10-10"
   },
   {
     "id": "Codeium.Windsurf",
@@ -167,7 +175,15 @@
     "tags": [
       "google",
       "浏览器"
-    ]
+    ],
+    "publisher": "Google LLC",
+    "license": "Proprietary",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/f/f7/Google_Chrome_OS_browser_ru.png"
+    ],
+    "addedAt": "2026-10-01",
+    "updatedAt": "2026-10-06"
   },
   {
     "id": "Mozilla.Firefox",
@@ -178,7 +194,15 @@
     "tags": [
       "火狐",
       "浏览器"
-    ]
+    ],
+    "publisher": "Mozilla",
+    "license": "MPL-2.0",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/c/c5/Firefox_96_screenshot.png"
+    ],
+    "addedAt": "2026-09-18",
+    "updatedAt": "2026-09-28"
   },
   {
     "id": "Microsoft.Edge",
@@ -357,7 +381,15 @@
       "编辑器",
       "AI"
     ],
-    "ai": true
+    "ai": true,
+    "publisher": "Microsoft",
+    "license": "MIT",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/7/72/Visual_Studio_Code_1.18.1_on_Windows10.jpg"
+    ],
+    "addedAt": "2026-09-20",
+    "updatedAt": "2026-10-02"
   },
   {
     "id": "JetBrains.IntelliJIDEA.Community",
@@ -390,7 +422,15 @@
     "tags": [
       "版本控制"
     ],
-    "github": "git-for-windows/git"
+    "github": "git-for-windows/git",
+    "publisher": "The Git Development Community",
+    "license": "GPL-2.0-only",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/0/0b/Git_gui.png"
+    ],
+    "addedAt": "2026-08-15",
+    "updatedAt": "2026-08-28"
   },
   {
     "id": "OpenJS.NodeJS.LTS",
@@ -471,7 +511,15 @@
     "category": "media",
     "tags": [
       "播放器"
-    ]
+    ],
+    "publisher": "VideoLAN",
+    "license": "GPL-2.0-or-later",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/2/27/VLC_Media_Player_Screenshot.png"
+    ],
+    "addedAt": "2026-08-20",
+    "updatedAt": "2026-09-01"
   },
   {
     "id": "Daum.PotPlayer",
@@ -537,7 +585,15 @@
       "直播",
       "录屏"
     ],
-    "github": "obsproject/obs-studio"
+    "github": "obsproject/obs-studio",
+    "publisher": "OBS Project",
+    "license": "GPL-2.0-or-later",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/OBS_26.1_Screenshot_EN_2020.12.27_-_15.28.46.07.png/960px-OBS_26.1_Screenshot_EN_2020.12.27_-_15.28.46.07.png"
+    ],
+    "addedAt": "2026-09-12",
+    "updatedAt": "2026-09-20"
   },
   {
     "id": "Bandisoft.Honeyview",
@@ -582,7 +638,15 @@
     "category": "game",
     "tags": [
       "游戏"
-    ]
+    ],
+    "publisher": "Valve Corporation",
+    "license": "Proprietary",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Steam%2C_Zusatzinhalt_zu_Account_hinzugef%C3%BCgt_Screenshot_2024-12-24_121709.png/1280px-Steam%2C_Zusatzinhalt_zu_Account_hinzugef%C3%BCgt_Screenshot_2024-12-24_121709.png"
+    ],
+    "addedAt": "2026-09-02",
+    "updatedAt": "2026-09-12"
   },
   {
     "id": "EpicGames.EpicGamesLauncher",
@@ -602,7 +666,15 @@
     "category": "system",
     "tags": [
       "压缩"
-    ]
+    ],
+    "publisher": "Igor Pavlov",
+    "license": "LGPL-2.1-or-later",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/b/b8/7-Zip_File_Manager_Simplified_Chinese_on_Windows_7_20090830.png"
+    ],
+    "addedAt": "2026-08-01",
+    "updatedAt": "2026-08-20"
   },
   {
     "id": "Bandisoft.Bandizip",
@@ -634,7 +706,15 @@
       "微软",
       "效率"
     ],
-    "github": "microsoft/PowerToys"
+    "github": "microsoft/PowerToys",
+    "publisher": "Microsoft",
+    "license": "MIT",
+    "pricing": "free",
+    "screenshots": [
+      "https://upload.wikimedia.org/wikipedia/commons/7/70/Windows_11_PowerToys_ZoomIt_screenshot.webp"
+    ],
+    "addedAt": "2026-09-08",
+    "updatedAt": "2026-09-18"
   },
   {
     "id": "FilesCommunity.Files",

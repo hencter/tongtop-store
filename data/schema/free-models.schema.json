@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tongtop.store/schema/free-models.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["updatedAt", "providers"],
+  "properties": {
+    "updatedAt": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/isoDate" },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "vendor", "summary", "official", "docs", "env", "agents", "verifiedAt"],
+        "properties": {
+          "id": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/id" },
+          "name": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+          "vendor": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+          "summary": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+          "official": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/httpUrl" },
+          "docs": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/httpUrl" },
+          "env": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "label"],
+              "properties": {
+                "name": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+                "label": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
+                "placeholder": { "type": "string" },
+                "value": { "type": "string" }
+              }
+            }
+          },
+          "agents": {
+            "type": "array",
+            "items": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/id" }
+          },
+          "note": { "type": "string" },
+          "verifiedAt": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/isoDate" }
+        }
+      }
+    }
+  }
+}

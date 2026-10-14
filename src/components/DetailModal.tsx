@@ -8,6 +8,7 @@ import { useDetailStore } from "../state/detailStore";
 import { useTaskStore } from "../state/taskStore";
 import { useAppStore } from "../state/appStore";
 import { useSettingsStore } from "../state/settingsStore";
+import { PRICING_LABEL } from "../catalog/apps";
 import { formatDate, formatDownloads, formatSize, pickWindowsAssets } from "../domain/github";
 import { useT } from "../i18n";
 import { AppIcon } from "./AppIcon";
@@ -118,6 +119,66 @@ export function DetailModal() {
                 </>
               )}
             </dl>
+          )}
+
+          {catalog && (catalog.license || catalog.pricing || catalog.addedAt || catalog.updatedAt || (catalog.screenshots?.length ?? 0) > 0 || (catalog.publisher && catalog.publisher !== detail?.publisher)) && (
+            <section className="mt-4">
+              <dl className="grid grid-cols-[72px_1fr] gap-x-4 gap-y-2 text-[13px]">
+                {catalog.publisher && catalog.publisher !== detail?.publisher && (
+                  <>
+                    <dt className="text-muted-foreground">{t("发布者")}</dt>
+                    <dd>{catalog.publisher}</dd>
+                  </>
+                )}
+                {catalog.license && (
+                  <>
+                    <dt className="text-muted-foreground">{t("许可证")}</dt>
+                    <dd>{catalog.license}</dd>
+                  </>
+                )}
+                {catalog.pricing && (
+                  <>
+                    <dt className="text-muted-foreground">{t("定价")}</dt>
+                    <dd>{t(PRICING_LABEL[catalog.pricing])}</dd>
+                  </>
+                )}
+                {catalog.addedAt && (
+                  <>
+                    <dt className="text-muted-foreground">{t("收录于")}</dt>
+                    <dd>{catalog.addedAt}</dd>
+                  </>
+                )}
+                {catalog.updatedAt && (
+                  <>
+                    <dt className="text-muted-foreground">{t("目录更新于")}</dt>
+                    <dd>{catalog.updatedAt}</dd>
+                  </>
+                )}
+              </dl>
+              {(catalog.screenshots?.length ?? 0) > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1.5 text-xs text-muted-foreground">{t("截图")}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {catalog.screenshots!.slice(0, 4).map((src) => (
+                      <button
+                        key={src}
+                        type="button"
+                        className="overflow-hidden rounded-md border border-border bg-muted"
+                        onClick={() => void openUrl(src)}
+                        title={src}
+                      >
+                        <img
+                          src={src}
+                          alt={`${name} ${t("截图")}`}
+                          className="h-28 w-full object-cover"
+                          onError={(event) => event.currentTarget.parentElement?.remove()}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
           )}
 
           {catalog?.github && (

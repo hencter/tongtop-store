@@ -256,6 +256,19 @@ export const EN: Record<string, string> = {
   "暂无活动记录。": "No activity yet.",
   "清空": "Clear",
 
+  // ---- 应用元数据（issue #30）----
+  "许可证": "License",
+  "定价": "Pricing",
+  "免费": "Free",
+  "免费增值": "Freemium",
+  "付费": "Paid",
+  "收录于": "Added",
+  "目录更新于": "Catalog updated",
+  "截图": "Screenshots",
+  "排序": "Sort",
+  "默认排序": "Default",
+  "最新收录": "Recently added",
+
   // ---- 搜索页 ----
   "精选目录": "Curated",
   "智能体": "Agents",
@@ -501,4 +514,5 @@ export const EN: Record<string, string> = {
   "全部来源": "Any source",
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
+
 };
