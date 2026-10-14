@@ -15,6 +15,8 @@ import { HomePage } from "./features/home/HomePage";
 import { CuratedPage } from "./features/curated/CuratedPage";
 import { SearchPage } from "./features/search/SearchPage";
 import { AgentsPage } from "./features/agents/AgentsPage";
+import { Puzzle } from "lucide-react";
+import { SkillsPage } from "./features/skills/SkillsPage";
 import { GitHubPage } from "./features/github/GitHubPage";
 import { MirrorsPage } from "./features/mirrors/MirrorsPage";
 import { InstalledPage } from "./features/installed/InstalledPage";
@@ -39,6 +41,7 @@ const NAV_SECTIONS: { title: string; collapsible?: boolean; items: { id: Tab; la
       { id: "curated", label: "精选软件", icon: Sparkles },
       { id: "search", label: "软件搜索", icon: Search },
       { id: "agents", label: "AI 智能体", icon: Bot },
+      { id: "skills", label: "技能", icon: Puzzle },
       { id: "github", label: "GitHub 开源", icon: GitFork },
     ],
   },
@@ -246,6 +249,7 @@ export default function App() {
           {page("curated", <CuratedPage />)}
           {page("search", <SearchPage />)}
           {page("agents", <AgentsPage />)}
+          {page("skills", <SkillsPage />)}
           {page("github", <GitHubPage />)}
           {page("mirrors", <MirrorsPage />)}
           {page("installed", <InstalledPage />)}

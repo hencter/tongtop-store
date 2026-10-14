@@ -4,6 +4,7 @@ export const EN: Record<string, string> = {
   "首页": "Home",
   "软件库": "Apps",
   "AI 智能体": "AI Agents",
+  "技能": "Skills",
   "镜像中心": "Mirrors",
   "AI 白嫖": "Free AI",
   "社区提交": "Community",

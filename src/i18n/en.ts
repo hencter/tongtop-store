@@ -76,6 +76,24 @@ export const EN: Record<string, string> = {
   "排队中": "Queued",
   "已安装 ": "Installed ",
 
+  // ---- 技能（issue #32）----
+  "技能": "Skills",
+  "没有通天路凭据，当前显示内置示例。": "No Tongtianlu credentials — showing the built-in examples.",
+  "显示本地缓存。": "Showing the local cache.",
+  "已从通天路同步。": "Synced from Tongtianlu.",
+  "同步": "Sync",
+  "通天路账号": "Tongtianlu account",
+  "API 地址，如 https://api.tongtianlu.cn": "API base, e.g. https://api.tongtianlu.cn",
+  "用户名": "Username",
+  "密码": "Password",
+  "重新登录": "Sign in again",
+  "已重新登录": "Signed in again",
+  "API 地址和 JWT 只从这里或环境变量 TONGTIANLU_API_BASE、TONGTIANLU_JWT 读取，不会写进仓库。JWT 约 7 天后过期。":
+    "The API base and JWT come only from here or from TONGTIANLU_API_BASE and TONGTIANLU_JWT. They are never committed. JWTs expire after about 7 days.",
+  "解锁入口": "Unlock",
+  "已安装到": "Installed to",
+  "技能包已通过 sha256 校验": "Skill package passed sha256 verification",
+
   // ---- 智能体页 ----
   "选一个智能体，剩下的交给我们：装运行时、装本体、配镜像、写密钥，全程在一个界面里完成。": "Pick an agent — we handle the runtime, the install, mirrors and keys, all in one place.",
   "最后点「启动」—— 商店退出，任务结束。已安装的会自动识别，直接启动即可。": "Hit Launch when done — the store exits, task complete. Installed ones are auto-detected and launch directly.",
@@ -501,4 +519,11 @@ export const EN: Record<string, string> = {
   "全部来源": "Any source",
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
+
 };
+
+// 「免费 / 付费」也写在应用元数据 PR 的字典里。放在字面量外面，两边合并后不会变成重复键。
+Object.assign(EN, {
+  "免费": "Free",
+  "付费": "Paid",
+});

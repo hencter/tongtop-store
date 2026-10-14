@@ -1,0 +1,32 @@
+---
+import Base from "../layouts/Base.astro";
+import skills from "../../../data/skills.json";
+
+const pricingLabel = { free: "免费", paid: "付费" };
+---
+
+<Base title="技能 · TongTop Store" description="通天路技能目录：名称、版本、简介与免费/付费标识。">
+  <h1 class="page-title" data-i18n="技能">技能</h1>
+  <p class="page-sub">
+    这里列出通天路技能的名称、版本和简介。没有配置
+    <span class="mono">TONGTIANLU_API_BASE</span> 与 <span class="mono">TONGTIANLU_JWT</span>
+    时使用内置示例；安装与 sha256 校验在桌面客户端完成。
+  </p>
+  <div class="grid">
+    {
+      skills.map((skill) => (
+        <article class="card">
+          <div class="row">
+            <div style="flex:1;min-width:0">
+              <h3>{skill.name}</h3>
+              <div class="meta">v{skill.version}</div>
+            </div>
+            <span class={skill.pricing === "paid" ? "badge warn" : "badge ok"}>{pricingLabel[skill.pricing]}</span>
+          </div>
+          <p class="desc">{skill.summary}</p>
+          <div class="meta">{skill.slug}</div>
+        </article>
+      ))
+    }
+  </div>
+</Base>

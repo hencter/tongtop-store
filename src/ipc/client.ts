@@ -336,6 +336,15 @@ export async function openTerminalWindow(id: string, title: string): Promise<voi
   });
 }
 
+/** 把已经核对过 sha256 的技能文件写入本机技能目录。宿主会再核对一次，不符则拒绝写入。 */
+export async function installSkillFiles(
+  slug: string,
+  files: { path: string; sha256: string; contentBase64: string }[],
+): Promise<string> {
+  if (!isTauri()) return "";
+  return invoke<string>("install_skill_package", { slug, files });
+}
+
 /** 隐藏窗口收进托盘（启动智能体后常驻后台；托盘图标可唤回） */
 export async function hideWindow(): Promise<void> {
   if (!isTauri()) return;
