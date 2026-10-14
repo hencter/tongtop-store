@@ -22,6 +22,33 @@ const {
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
+    <!-- 品牌标 SVG 精灵：全站 <use href="#tt-mark"> 复用（几何与 brand/tongtop-mark.svg 一致） -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <symbol id="tt-mark" viewBox="0 0 354 304">
+        <mask id="tt-mark-dots" maskUnits="userSpaceOnUse" x="0" y="-53" width="354" height="304">
+          <rect x="0" y="-53" width="354" height="304" fill="#fff"></rect>
+          <circle cx="27" cy="45" r="9" fill="#000"></circle>
+          <circle cx="65" cy="47" r="9" fill="#000"></circle>
+          <circle cx="103" cy="49" r="9" fill="#000"></circle>
+          <circle cx="150" cy="-20" r="8" fill="#000"></circle>
+          <circle cx="180" cy="-20" r="8" fill="#000"></circle>
+          <circle cx="210" cy="-20" r="8" fill="#000"></circle>
+        </mask>
+        <g mask="url(#tt-mark-dots)">
+          <g transform="translate(0 53)">
+            <path
+              fill="#1E9BF0"
+              fill-rule="evenodd"
+              d="M104 3A56 56 0 0 1 160 -53H298A56 56 0 0 1 354 3V195A56 56 0 0 1 298 251H160A56 56 0 0 1 104 195Z M148 11A20 20 0 0 1 168 -9H290A20 20 0 0 1 310 11V187A20 20 0 0 1 290 207H168A20 20 0 0 1 148 187Z"
+            ></path>
+            <path
+              fill="#0B2E6E"
+              d="M0 22A22 22 0 0 1 22 0H215A22 22 0 0 1 237 22V60A22 22 0 0 1 215 82H158V228A22 22 0 0 1 136 250H106A22 22 0 0 1 84 228V82H22A22 22 0 0 1 0 60Z"
+            ></path>
+          </g>
+        </g>
+      </symbol>
+    </svg>
     <Header />
     <main class="container page">
       <slot />

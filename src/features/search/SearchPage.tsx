@@ -5,7 +5,7 @@
  *  空结果给出清除筛选与浏览全部入口。 */
 
 import { useEffect, useMemo, useState } from "react";
-import { Bot, ListX, Zap } from "lucide-react";
+import { Bot, ListX, X, Zap } from "lucide-react";
 import { useCatalogStore } from "../../state/catalogStore";
 import { useT } from "../../i18n";
 import { useAppStore } from "../../state/appStore";
@@ -14,6 +14,7 @@ import type { CatalogApp } from "../../catalog/apps";
 import type { AppInfo } from "../../ipc/types";
 import { AppIcon } from "../../components/AppIcon";
 import { AppRow } from "../../components/AppRow";
+import { Chip, ChipRow, FilterPopover } from "../../components/FilterChips";
 import { VirtualList } from "../../components/VirtualList";
 import { PageTabs } from "../../components/PageTabs";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +102,39 @@ export function SearchPage() {
     return (results ?? []).filter((a) => !curated.has(a.id.toLowerCase()));
   }, [curatedHits, results, q]);
 
+  // 未套「安装状态」筛选的行数：给筛选面板显示各状态的可选数量
+  const softRowsRaw = useMemo(() => {
+    const rows: SoftRow[] = [];
+    if (source !== "winget") {
+      for (const a of curatedHits) {
+        rows.push({ key: `c:${a.id}`, info: { name: a.name, id: a.id, version: "" }, catalog: a, source: "curated" });
+      }
+    }
+    if (source !== "curated") {
+      for (const a of wingetHits) {
+        rows.push({ key: `w:${a.id}`, info: a, catalog: CATALOG_BY_ID.get(a.id.toLowerCase()), source: "winget" });
+      }
+    }
+    return rows;
+  }, [curatedHits, wingetHits, source, CATALOG_BY_ID]);
+
+  // 各安装状态的实际条数（按当前来源筛选后的行来数，保证下拉里的数字与结果一致）
+  const statusCounts = useMemo(() => {
+    let installed = 0;
+    let upgrade = 0;
+    for (const r of softRowsRaw) {
+      const lid = r.info.id.toLowerCase();
+      if (installedSet.has(lid)) installed += 1;
+      if (upgradeSet.has(lid)) upgrade += 1;
+    }
+    return {
+      all: softRowsRaw.length,
+      installed,
+      upgrade,
+      notInstalled: softRowsRaw.length - installed,
+    };
+  }, [softRowsRaw, installedSet, upgradeSet]);
+
   const softRows = useMemo(() => {
     const byStatus = (id: string) => {
       const lid = id.toLowerCase();
@@ -109,21 +143,8 @@ export function SearchPage() {
       if (status === "notInstalled") return !installedSet.has(lid);
       return true;
     };
-    const rows: SoftRow[] = [];
-    if (source !== "winget") {
-      for (const a of curatedHits) {
-        if (!byStatus(a.id)) continue;
-        rows.push({ key: `c:${a.id}`, info: { name: a.name, id: a.id, version: "" }, catalog: a, source: "curated" });
-      }
-    }
-    if (source !== "curated") {
-      for (const a of wingetHits) {
-        if (!byStatus(a.id)) continue;
-        rows.push({ key: `w:${a.id}`, info: a, catalog: CATALOG_BY_ID.get(a.id.toLowerCase()), source: "winget" });
-      }
-    }
-    return rows;
-  }, [curatedHits, wingetHits, status, source, installedSet, upgradeSet, CATALOG_BY_ID]);
+    return softRowsRaw.filter((r) => byStatus(r.info.id));
+  }, [softRowsRaw, status, installedSet, upgradeSet]);
 
   // ---------- 其余类型 ----------
   const agentHits = useMemo(() => {
@@ -194,41 +215,61 @@ export function SearchPage() {
 
       {stab === "apps" && (
         <>
-          {/* 筛选栏：仅展示数据真实支持的条件（精选类别 / 安装状态 / 来源） */}
-          <div className="mb-2 flex shrink-0 flex-wrap items-center gap-1.5">
-            <Button variant={cat === "all" ? "default" : "outline"} size="sm" className="h-6 rounded-full px-2.5 text-xs" onClick={() => setCat("all")}>
-              {t("全部")}
-            </Button>
-            {CATEGORIES.map((c) => (
-              <Button key={c.id} variant={cat === c.id ? "default" : "outline"} size="sm" className="h-6 rounded-full px-2.5 text-xs" onClick={() => setCat(c.id)}>
-                {t(c.label)}
-              </Button>
-            ))}
-            <span className="mx-1 h-4 w-px bg-border" />
-            {(
-              [
-                ["all", "全部状态"],
-                ["installed", "已安装"],
-                ["upgrade", "可更新"],
-                ["notInstalled", "未安装"],
-              ] as [StatusFilter, string][]
-            ).map(([v, label]) => (
-              <Button key={v} variant={status === v ? "default" : "outline"} size="sm" className="h-6 rounded-full px-2.5 text-xs" onClick={() => setStatus(v)}>
-                {t(label)}
-              </Button>
-            ))}
-            <span className="mx-1 h-4 w-px bg-border" />
-            {(
-              [
-                ["all", "全部来源"],
-                ["curated", "精选目录"],
-                ["winget", "winget 源"],
-              ] as [SourceFilter, string][]
-            ).map(([v, label]) => (
-              <Button key={v} variant={source === v ? "default" : "outline"} size="sm" className="h-6 rounded-full px-2.5 text-xs" onClick={() => setSource(v)}>
-                {t(label)}
-              </Button>
-            ))}
+          {/* 筛选栏（issue #26）：类别横向滚动一行，状态/来源收进下拉面板。
+              窗口再窄也不会折成两三行把列表挤没。 */}
+          <div className="mb-2 flex shrink-0 items-center gap-1.5">
+            <ChipRow className="min-w-0 flex-1" resetKey={cat}>
+              <Chip active={cat === "all"} onClick={() => setCat("all")}>
+                {t("全部")}
+              </Chip>
+              {CATEGORIES.map((c) => {
+                const count = CATALOG.filter((a) =>
+                  c.id === "ai" ? a.category === "ai" || a.ai === true : a.category === c.id,
+                ).length;
+                return (
+                  <Chip key={c.id} active={cat === c.id} onClick={() => setCat(c.id)}>
+                    {t(c.label)}
+                    <span className="text-[10.5px] opacity-70">{count}</span>
+                  </Chip>
+                );
+              })}
+            </ChipRow>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <FilterPopover<StatusFilter>
+                label={t("安装状态")}
+                value={status}
+                onChange={setStatus}
+                onReset={() => setStatus("all")}
+                options={[
+                  { value: "all", label: t("全部状态"), count: statusCounts.all },
+                  { value: "installed", label: t("已安装"), count: statusCounts.installed },
+                  { value: "upgrade", label: t("可更新"), count: statusCounts.upgrade },
+                  { value: "notInstalled", label: t("未安装"), count: statusCounts.notInstalled },
+                ]}
+              />
+              <FilterPopover<SourceFilter>
+                label={t("来源")}
+                value={source}
+                onChange={setSource}
+                onReset={() => setSource("all")}
+                options={[
+                  { value: "all", label: t("全部来源") },
+                  { value: "curated", label: t("精选目录"), count: curatedHits.length },
+                  { value: "winget", label: t("winget 源"), count: wingetHits.length },
+                ]}
+              />
+              {(status !== "all" || source !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 px-2 text-xs text-muted-foreground"
+                  onClick={clearFilters}
+                  title={t("清除筛选")}
+                >
+                  <X className="size-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {softRows.length === 0 && !searching ? (

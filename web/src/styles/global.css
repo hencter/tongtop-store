@@ -5,18 +5,18 @@
   --muted: #6b7280;
   --card: #ffffff;
   --border: #e5e7eb;
-  /* 主题链接/强调色：品牌青铜（白底用深一号保对比度） */
-  --accent: #a0661f;
+  /* 主题链接/强调色：品牌蓝（白底用深一号保对比度） */
+  --accent: #0B2E6E;
   --accent-fg: #ffffff;
   --ok: #16a34a;
   --warn: #b45309;
   --code-bg: #f3f4f6;
   --radius: 10px;
   --maxw: 1180px;
-  /* 品牌：青铜金 + 墨黑（与桌面端图标同源） */
-  --brand: #b8792c;
-  --brand-soft: #f5e8d4;
-  --ink: #111315;
+  /* 品牌：深蓝 + 亮蓝（与 brand/tongtop-mark.svg 同源） */
+  --brand: #1E9BF0;
+  --brand-soft: #e3f1fd;
+  --ink: #0B2E6E;
   --ink-fg: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
@@ -26,13 +26,13 @@
     --muted: #9aa0a6;
     --card: #171a20;
     --border: #262b33;
-    --accent: #d29a4b;
-    --accent-fg: #14161a;
+    --accent: #7CC4F8;
+    --accent-fg: #0B1020;
     --ok: #34d399;
     --warn: #fbbf24;
     --code-bg: #1d2129;
-    --brand: #d29a4b;
-    --brand-soft: #2a2118;
+    --brand: #1E9BF0;
+    --brand-soft: #12233a;
     --ink: #f2f3f5;
     --ink-fg: #14161a;
   }

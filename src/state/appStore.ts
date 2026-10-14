@@ -15,6 +15,7 @@ import type { AppInfo, UpgradeInfo } from "../ipc/types";
 
 export type Tab =
   | "home"
+  | "curated"
   | "search"
   | "agents"
   | "mirrors"

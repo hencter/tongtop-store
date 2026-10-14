@@ -1,13 +1,14 @@
 {
   "name": "tongtop-store",
   "private": true,
-  "version": "0.6.7",
+  "version": "0.7.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "test": "vitest run",
     "preview": "vite preview",
+    "preview:ui": "vite --open /preview-curated.html",
     "tauri": "tauri",
     "web:dev": "pnpm --dir web dev",
     "web:build": "pnpm --dir web build",

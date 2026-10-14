@@ -138,6 +138,14 @@ body {
   }
 }
 
+/* 横向滚动筛选行：隐藏滚动条，靠两端渐隐提示还有内容 */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* 页面容器 */
 .page {
   padding: 20px 28px 48px;

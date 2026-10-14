@@ -73,8 +73,8 @@ export function TerminalWindow({ id, title }: { id: string; title: string }) {
       theme: {
         background: "#0c0c0c",
         foreground: "#e5e5e5",
-        cursor: "#B8792C",
-        selectionBackground: "#B8792C55",
+        cursor: "#1E9BF0",
+        selectionBackground: "#1E9BF055",
       },
     });
     const fit = new FitAddon();

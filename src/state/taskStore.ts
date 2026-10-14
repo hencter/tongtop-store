@@ -37,6 +37,15 @@ interface DoneInfo {
   code: number;
   success: boolean;
   errorTail: string[];
+  /** 可提权重试（winget 安装/更新失败后由宿主标记） */
+  elevatable: boolean;
+}
+
+/** 任务 id 形如 winget:install:<id> / winget:upgrade:<id> / winget:uninstall:<id> */
+export function parseWingetTaskId(taskId: string): { action: string; wingetId: string } | null {
+  const parts = taskId.split(":");
+  if (parts[0] !== "winget" || parts.length < 3) return null;
+  return { action: parts[1], wingetId: parts.slice(2).join(":") };
 }
 
 const pending = new Map<string, (d: TaskDoneEvent) => void>();
@@ -51,6 +60,8 @@ interface TaskStore {
   silent: boolean;
   setSilent: (v: boolean) => void;
   runTask: (id: string, spec: TaskSpec) => Promise<TaskDoneEvent>;
+  /** 失败后以管理员身份重试同一条 winget 安装/更新（弹一次 UAC，issue #26） */
+  retryElevated: (taskId: string, label: string) => void;
   cancel: (id: string) => Promise<void>;
   closePanel: () => void;
   openPanel: () => void;
@@ -65,7 +76,8 @@ export const useTaskStore = create<TaskStore>()((set, get) => ({
   done: null,
   lines: [],
   panelOpen: false,
-  silent: localStorage.getItem("tongtop.silent") === "1",
+  // 静默安装（winget -h）默认开启：少一次安装向导点击，issue #26 起不再需要手动打开
+  silent: localStorage.getItem("tongtop.silent") !== "0",
   setSilent: (v) => {
     localStorage.setItem("tongtop.silent", v ? "1" : "0");
     set({ silent: v });
@@ -94,13 +106,30 @@ export const useTaskStore = create<TaskStore>()((set, get) => ({
       set({ done: null, panelOpen: true });
       ipc.startTask(id, finalSpec).catch((e) => {
         pending.delete(id);
-        set({ done: { id, code: -1, success: false, errorTail: [String(e)] } });
+        set({ done: { id, code: -1, success: false, errorTail: [String(e)], elevatable: false } });
         reject(e instanceof Error ? e : new Error(String(e)));
       });
     });
   },
   cancel: async (id) => {
     await ipc.cancelTask(id);
+  },
+  retryElevated: (taskId, label) => {
+    const parsed = parseWingetTaskId(taskId);
+    if (!parsed) return;
+    const eid = `winget:elevated:${parsed.wingetId}`;
+    void get()
+      .runTask(eid, {
+        kind: "winget",
+        action: parsed.action === "upgrade" ? "upgrade" : "install",
+        wingetId: parsed.wingetId,
+        silent: true,
+        forceElevated: true,
+        display: `管理员安装 ${label}`,
+      })
+      .catch(() => {
+        // 入队失败（队列满/已在队列）由 runTask 自己写 done 状态，这里不再抛
+      });
   },
   closePanel: () => set({ panelOpen: false }),
   openPanel: () => set({ panelOpen: true }),
@@ -154,6 +183,7 @@ export function initTaskListeners(): () => void {
         code: e.payload.code,
         success: e.payload.success,
         errorTail: e.payload.errorTail,
+        elevatable: e.payload.elevatable === true,
       };
       useTaskStore.setState((s) => ({
         running: s.running?.id === e.payload.id ? null : s.running,

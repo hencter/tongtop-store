@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>预览 · 精选软件 / 软件搜索</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #fff;
+      }
+    </style>
+    <script>
+      /* 浏览器预览宿主桩：让界面以为运行在 Tauri 里（本机没有 MSVC 工具链，
+         跑不了 tauri dev），从而能对真实组件截图检查布局。 */
+      (function () {
+        var installed = [
+          { name: "Chrome", id: "Google.Chrome", version: "131.0.6778.86" },
+          { name: "Microsoft Edge", id: "Microsoft.Edge", version: "131.0.2903.70" },
+          { name: "企业微信", id: "Tencent.WeCom", version: "4.1.30" },
+          { name: "钉钉", id: "Alibaba.DingTalk.Mainland", version: "7.6.25" },
+          { name: "Obsidian", id: "Obsidian.Obsidian", version: "1.7.7" },
+          { name: "VS Code", id: "Microsoft.VisualStudioCode", version: "1.96.2" },
+          { name: "Git", id: "Git.Git", version: "2.47.1" },
+          { name: "Node.js LTS", id: "OpenJS.NodeJS.LTS", version: "22.12.0" },
+          { name: "7-Zip", id: "7zip.7zip", version: "24.09" },
+          { name: "微信", id: "Tencent.WeChat", version: "3.9.12" },
+          { name: "VLC 播放器", id: "VideoLAN.VLC", version: "3.0.21" },
+        ];
+        var upgrades = [
+          { name: "Chrome", id: "Google.Chrome", version: "131.0.6778.86", available: "132.0.6834.83" },
+          { name: "Everything", id: "voidtools.Everything", version: "1.4.1.1026", available: "1.4.1.1028" },
+        ];
+        var handlers = {
+          winget_available: function () { return true; },
+          snapshot_load: function () {
+            return { installed: installed, upgrades: upgrades, installedAt: Date.now(), upgradesAt: Date.now() };
+          },
+          snapshot_refresh: function () {
+            return { installed: installed, upgrades: upgrades, installedAt: Date.now(), upgradesAt: Date.now() };
+          },
+          check_tools: function (a) {
+            return (a.names || []).map(function (n) {
+              return { name: n, installed: false, path: null, version: null };
+            });
+          },
+          get_user_envs: function () { return {}; },
+          mirror_status: function (a) {
+            return (a.toolsList || []).map(function (t) { return { tool: t, installed: false, current: "" }; });
+          },
+          list_start_apps: function () { return []; },
+          search_apps: function (a) {
+            var q = String(a.query || "").toLowerCase();
+            return installed
+              .filter(function (x) { return x.id.toLowerCase().indexOf(q) >= 0 || x.name.toLowerCase().indexOf(q) >= 0; })
+              .map(function (x) { return { name: x.name, id: x.id, version: x.version }; });
+          },
+        };
+        window.__TAURI_INTERNALS__ = {
+          metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main" } },
+          transformCallback: function (cb) { var id = Math.floor(Math.random() * 1e9); window["_" + id] = cb; return id; },
+          invoke: function (cmd, args) {
+            var h = handlers[cmd];
+            if (!h) return Promise.resolve(null);
+            return new Promise(function (res) { setTimeout(function () { res(h(args || {})); }, 40); });
+          },
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root" style="height: 100%"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

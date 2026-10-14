@@ -466,4 +466,39 @@ export const EN: Record<string, string> = {
   "（本地命中不受影响）": " (local hits unaffected)",
   "），持久保留": "), persisted",
   "最新 v": "Latest v",
+
+  // ---- 精选页 / 筛选栏（issue #26）----
+  // 说明：类别名（浏览器/社交通讯/办公效率/开发工具/影音与创作/网盘与远程/系统与维护/
+  // AI 应用/游戏平台）与「精选软件」等已在上面字典里，这里只补这次新增的文案。
+  "日常常用": "Everyday picks",
+  "日常真会用到的一批软件，按用途分组；没装的排在前面":
+    "A hand-picked set of everyday apps, grouped by purpose — ones you don't have yet come first",
+  "查看全部精选": "See all featured",
+  "浏览全部": "Browse all",
+  "在全部软件中查看": "Open in all apps",
+  "还有 ": "and ",
+  " 个 —— 查看该组全部": " more — show the whole group",
+  "已装 ": "Installed ",
+  " 个可更新": " updatable",
+  "精选只是编辑挑的日常软件清单，不代表个性化推荐；安装一律走 winget 官方源，商店不托管安装包。":
+    "Featured is a hand-picked everyday-app list, not a personalised recommendation. Installs always go through the official winget source; the store never hosts installers.",
+  "装机必备": "Essentials",
+  "上网入口，先装一个趁手的": "Pick a browser you like first",
+  "聊天、开会、团队协作": "Chat, meetings and teamwork",
+  "文档、笔记、思维导图与绘图": "Documents, notes, mind maps and diagrams",
+  "编辑器、运行时、包管理与调试工具一次配齐":
+    "Editors, runtimes, package managers and debugging tools in one go",
+  "听歌看片、录屏截图、剪辑直播": "Music, video, recording, screenshots and streaming",
+  "文件同步与远程控制": "File sync and remote control",
+  "压缩、启动盘、系统增强与状态监控": "Archivers, boot media, tweaks and monitoring",
+  "对话、写代码、本地跑模型": "Chat, code and local models",
+  "游戏库与联机平台": "Game libraries and launchers",
+  "重装系统后最先补上的那些：解压、输入、播放、沟通、加速下载":
+    "The first things to bring back after a reinstall: archives, input, playback, chat and faster downloads",
+  "安装状态": "Status",
+  "全部状态": "Any status",
+  "来源": "Source",
+  "全部来源": "Any source",
+  "重置此项": "Reset",
+  "以管理员身份重试": "Retry as administrator",
 };

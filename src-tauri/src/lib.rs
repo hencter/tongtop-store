@@ -105,6 +105,9 @@ struct TaskDone {
     code: i32,
     success: bool,
     error_tail: Vec<String>,
+    /// winget 安装/更新失败，且带 UAC 重试一次有可能成功（前端据此显示「以管理员身份重试」）
+    #[serde(default)]
+    elevatable: bool,
 }
 
 // ---------- 任务规格 ----------
@@ -131,6 +134,10 @@ pub struct TaskSpec {
     url: Option<String>,
     /// GitHub 加速代理前缀（安装包在 GitHub 上时与原地址并行多线路下载；内容由哈希校验兜底）
     gh_proxies: Option<Vec<String>>,
+    /// winget 安装/更新改为**提权执行**（UAC 一次）：解决「需要管理员权限」的包，
+    /// 界面上就是失败后的「以管理员身份重试」按钮（issue #26）
+    #[serde(default)]
+    force_elevated: bool,
 }
 
 fn winget_action_args(action: &str, id: &str, silent: bool, location: Option<&str>) -> Result<Vec<String>, String> {
@@ -164,8 +171,13 @@ fn winget_action_args(action: &str, id: &str, silent: bool, location: Option<&st
     // 自定义安装目录（仅 install 支持；安装器不认时 winget 自行忽略）
     if action == "install" {
         if let Some(loc) = location.filter(|l| !l.trim().is_empty()) {
+            let loc = loc.trim();
+            // 该值会进入提权时落盘的 .cmd，必须挡掉 cmd 元字符（防止提权上下文里的命令注入）
+            if loc.contains(['&', '|', '>', '<', '^', '%', '\r', '\n', '"']) {
+                return Err(format!("安装目录包含不允许的字符：{loc}"));
+            }
             args.push("--location".into());
-            args.push(loc.trim().to_string());
+            args.push(loc.to_string());
         }
     }
     Ok(args)
@@ -175,6 +187,8 @@ fn winget_action_args(action: &str, id: &str, silent: bool, location: Option<&st
 enum Prepared {
     Cmd(std::process::Command, String),
     Download { url: String, args: Vec<String> },
+    /// 提权执行（UAC 一次）：命令经临时 .cmd 落盘，由 PowerShell `Start-Process -Verb RunAs` 拉起
+    Elevated { cmdline: String },
 }
 
 fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
@@ -205,6 +219,10 @@ fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
                 .display
                 .clone()
                 .unwrap_or_else(|| format!("{action} {id}"));
+            // 提权重试：同一条 winget 命令，换到 UAC 提升后的进程里跑
+            if spec.force_elevated && matches!(action.as_str(), "install" | "upgrade") {
+                return Ok((Prepared::Elevated { cmdline: cmd_line }, label));
+            }
             Ok((Prepared::Cmd(process::winget_cmd(&args), cmd_line), label))
         }
         "process" => {
@@ -237,6 +255,8 @@ struct Engine {
     child: Option<ChildSlot>,
     /// 当前任务的取消标志（预下载阶段没有子进程可 kill，靠它中止）
     cancel: Option<Arc<AtomicBool>>,
+    /// 提权子进程：取消时 taskkill 用（提权进程不在当前进程树里，Child::kill 无效）
+    elevated_pid: Option<u32>,
 }
 
 /// 当前运行任务的子进程槽位（重试时会被替换；取消操作经它 kill）
@@ -879,6 +899,247 @@ async fn leftover_clean(dirs: Vec<String>, keys: Vec<String>) -> Result<CleanRep
 
 // ---------- 任务（winget / 进程，队列调度 + 流式输出） ----------
 
+// ---------- 按需提权安装（issue #26） ----------
+//
+// 背景：winget 自身不能提权，它只是下载后调用安装器。需要写 HKLM / Program Files 的包
+// （PowerToys、Git、Node LTS 等）会由安装器自己弹 UAC；父进程没提权时，安装器在**独立
+// 提权进程**里跑，winget 的输出流就断了，任务常常判失败。
+//
+// 方案（用户选定）：商店本身保持普通权限（不整体以管理员运行），只在**失败后**给一个
+// 「以管理员身份重试」按钮，点一次弹一次 UAC，重试提权执行同一条 winget 命令，
+// 输出写日志文件、父进程边读边流回界面。
+//
+// 提权进程不能重定向 stdout（ShellExecute 不允许），所以走 `> log 2>&1` 落盘再跟读。
+
+/// 提权执行的暂存目录（同一任务的脚本与日志放在一起，收工即删）。
+///
+/// 必须**每次调用都唯一**：时间戳只有毫秒精度，连续两次提权重试（或并行任务）
+/// 可能落在同一毫秒里，共用目录会让日志/退出码互相串（曾经真的踩到过）。
+fn elevated_dir() -> std::path::PathBuf {
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "tongtop-elev-{}-{}-{}",
+        std::process::id(),
+        index_db::now(),
+        seq
+    ))
+}
+
+/// 生成提权执行的 .cmd 内容：把输出重定向到日志文件，并写完成标记（含真实退出码）。
+fn elevated_script(cmdline: &str, dir: &std::path::Path) -> String {
+    let log = dir.join("winget.log");
+    let done = dir.join("exit.txt");
+    format!(
+        "@echo off\r\nchcp 65001 >nul\r\n{cmdline} >\"{log}\" 2>&1\r\n>\"{done}\" echo %errorlevel%\r\n",
+        cmdline = cmdline,
+        log = log.display(),
+        done = done.display(),
+    )
+}
+
+/// 提权执行的可测核心：跑 `.cmd`、跟读日志、返回 (退出码, stderr 尾巴)。
+///
+/// `app` 只用于两个副作用（登记提权进程 PID 供取消、把日志行推给界面），
+/// 因此可以为 None —— 单元测试不需要 Tauri 运行时，也不弹 UAC（脚本是直接执行的）。
+fn elevated_run_impl(
+    app: Option<&AppHandle>,
+    id: &str,
+    cmdline: &str,
+    cancel: &Arc<AtomicBool>,
+) -> Result<(i32, Vec<String>), String> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let tmp = elevated_dir();
+    std::fs::create_dir_all(&tmp).map_err(|e| format!("无法创建临时目录：{e}"))?;
+    let log_path = tmp.join("winget.log");
+    let done_path = tmp.join("exit.txt");
+    let cmd_path = tmp.join("run.cmd");
+    std::fs::write(&cmd_path, elevated_script(cmdline, &tmp))
+        .map_err(|e| format!("无法写入提权脚本：{e}"))?;
+
+    // 拉起进程：app 存在时用 UAC 提升（-Verb RunAs），否则直接执行（测试/降级路径）
+    let mut cmd = if app.is_some() {
+        let ps = format!(
+            "Start-Process -FilePath '{}' -Verb RunAs -Wait -PassThru -WindowStyle Hidden | Out-Null; exit $LASTEXITCODE",
+            cmd_path.display()
+        );
+        let mut c = std::process::Command::new("powershell.exe");
+        c.args(["-NoProfile", "-NonInteractive", "-Command", &ps])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        c
+    } else {
+        let mut c = std::process::Command::new("cmd.exe");
+        c.args(["/C", cmd_path.to_string_lossy().as_ref()]);
+        c
+    };
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let mut child = cmd.spawn().map_err(|e| format!("无法启动提权进程：{e}"))?;
+    let pid = child.id();
+    // 让取消操作能 taskkill（提权进程不在本进程树里，Child::kill 打不到）
+    if let Some(app) = app {
+        if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+            engine.elevated_pid = Some(pid);
+        }
+    }
+
+    let mut offset: u64 = 0;
+    let mut pending: Vec<u8> = Vec::new();
+    let mut batch: Vec<String> = Vec::new();
+    let mut last_flush = Instant::now();
+    let mut cancelled = false;
+    let mut child_exited = false;
+    let started = Instant::now();
+    /// 兜底硬超时：提权进程连日志都没建出来（启动器异常、脚本被杀）时不能无限等，
+    /// 否则任务队列会永久卡住。正常安装远远用不到这么久。
+    const HARD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
+    loop {
+        if cancel.load(Ordering::Relaxed) {
+            cancelled = true;
+            break;
+        }
+        if started.elapsed() > HARD_TIMEOUT {
+            let _ = child.kill();
+            let _ = std::fs::remove_dir_all(&tmp);
+            if let Some(app) = app {
+                if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+                    engine.elevated_pid = None;
+                }
+            }
+            return Err("提权安装超时（30 分钟无结果），已放弃".into());
+        }
+        // 幂等落盘：只在有新内容时转发（.cmd 追加写日志，重读整文件会重复）
+        if let Ok(mut f) = std::fs::File::open(&log_path) {
+            let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+            if len > offset {
+                if f.seek(SeekFrom::Start(offset)).is_ok() {
+                    let mut buf = [0u8; 8192];
+                    while let Ok(n) = f.read(&mut buf) {
+                        if n == 0 {
+                            break;
+                        }
+                        let mut segs = Vec::new();
+                        process::split_segments(&mut pending, &buf[..n], &mut segs);
+                        for s in segs {
+                            let t = s.trim().to_string();
+                            if !t.is_empty() {
+                                batch.push(t);
+                            }
+                        }
+                    }
+                }
+                offset = len;
+            }
+        }
+        let due = last_flush.elapsed() >= FLUSH_INTERVAL;
+        if due && !batch.is_empty() {
+            if let Some(app) = app {
+                emit_lines(app, id, std::mem::take(&mut batch));
+            } else {
+                batch.clear();
+            }
+            last_flush = Instant::now();
+        }
+        if done_path.exists() {
+            break;
+        }
+        if !child_exited && matches!(child.try_wait(), Ok(Some(_))) {
+            child_exited = true;
+        }
+        // 子进程已退出却没有完成标记：注意 `.cmd` 里如果正文用 `exit /b N` 直接结束，
+        // 后面两行（写 exit.txt / echo %errorlevel%）根本不会执行。这时用进程退出码兜底，
+        // 绝不能在这里继续等下去（否则任务队列永久卡住）。
+        if child_exited {
+            if !log_path.exists() {
+                let _ = std::fs::remove_dir_all(&tmp);
+                return Ok((1223, vec!["UAC 提权被取消（该安装需要管理员权限）".into()]));
+            }
+            break;
+        }
+        // 启动器异常但也没退出：90 秒仍无日志就按"没能提权起来"处理
+        if !log_path.exists() && started.elapsed() > Duration::from_secs(90) {
+            let _ = std::fs::remove_dir_all(&tmp);
+            return Err("提权进程未能启动（90 秒内没有产生任何输出）".into());
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+
+    // 收尾：把剩余输出读干净（.cmd 可能刚写完最后一行）
+    if let Ok(mut f) = std::fs::File::open(&log_path) {
+        if f.seek(SeekFrom::Start(offset)).is_ok() {
+            let mut rest = Vec::new();
+            let _ = f.read_to_end(&mut rest);
+            let mut segs = Vec::new();
+            process::split_segments(&mut pending, &rest, &mut segs);
+            for s in segs {
+                let t = s.trim().to_string();
+                if !t.is_empty() {
+                    batch.push(t);
+                }
+            }
+        }
+    }
+    if !pending.is_empty() {
+        let t = process::decode(&pending);
+        let t = t.trim();
+        if !t.is_empty() {
+            batch.push(t.to_string());
+        }
+    }
+    if !batch.is_empty() {
+        if let Some(app) = app {
+            emit_lines(app, id, batch);
+        }
+    }
+
+    let status = child.wait();
+    if cancelled {
+        // 提权进程不在本进程树里，只能 taskkill 整棵 winget 树
+        if let Some(app) = app {
+            if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+                engine.elevated_pid = None;
+            }
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let _ = std::process::Command::new("taskkill")
+                .args(["/F", "/T", "/PID", &pid.to_string()])
+                .creation_flags(0x0800_0000)
+                .status();
+        }
+        let _ = std::fs::remove_dir_all(&tmp);
+        return Ok((-2, vec!["已取消提权安装".into()]));
+    }
+    let code = std::fs::read_to_string(&done_path)
+        .ok()
+        .and_then(|s| s.trim().parse::<i32>().ok())
+        .or_else(|| status.ok().and_then(|s| s.code()))
+        .unwrap_or(-1);
+    let _ = std::fs::remove_dir_all(&tmp);
+    if let Some(app) = app {
+        if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+            engine.elevated_pid = None;
+        }
+    }
+    Ok((code, Vec::new()))
+}
+
+/// 提权执行（界面路径）：带 AppHandle，走 UAC 提升。
+fn elevated_run(
+    app: &AppHandle,
+    id: &str,
+    cmdline: &str,
+    cancel: &Arc<AtomicBool>,
+) -> Result<(i32, Vec<String>), String> {
+    elevated_run_impl(Some(app), id, cmdline, cancel)
+}
+
 /// 队列有位置就尝试启动下一个任务（调用时必须已持有 engine 锁）。
 fn schedule_next(app: &AppHandle, engine: &mut Engine) {
     if engine.running.is_some() {
@@ -901,6 +1162,7 @@ fn schedule_next(app: &AppHandle, engine: &mut Engine) {
                     code: -1,
                     success: false,
                     error_tail: vec![e],
+                    elevatable: false,
                 },
             );
             return schedule_next(app, engine);
@@ -909,6 +1171,7 @@ fn schedule_next(app: &AppHandle, engine: &mut Engine) {
     let cmd_line = match &prepared {
         Prepared::Cmd(_, line) => line.clone(),
         Prepared::Download { url, .. } => format!("下载 {url}"),
+        Prepared::Elevated { cmdline, .. } => format!("{cmdline}   （以管理员身份运行）"),
     };
     let slot: ChildSlot = Arc::new(Mutex::new(None));
     let cancel = Arc::new(AtomicBool::new(false));
@@ -1310,13 +1573,14 @@ fn stream_task(
 ) {
     let proxies = spec.gh_proxies.clone().unwrap_or_default();
     // download 任务：先下载安装包，再构造安装命令
-    let cmd = match prepared {
-        Prepared::Cmd(cmd, _) => cmd,
+    let (cmd, elevated_cmdline) = match prepared {
+        Prepared::Cmd(cmd, _) => (Some(cmd), None),
+        Prepared::Elevated { cmdline } => (None, Some(cmdline)),
         Prepared::Download { url, args } => match download_installer(&app, &id, &url, &proxies, &cancel) {
-            Ok(file) => installer_command(&file, &args),
+            Ok(file) => (Some(installer_command(&file, &args)), None),
             Err(e) => {
                 let code = if cancel.load(Ordering::Relaxed) { -2 } else { -1 };
-                return finish_task(&app, id, code, vec![e]);
+                return finish_task(&app, id, code, vec![e], false);
             }
         },
     };
@@ -1326,31 +1590,54 @@ fn stream_task(
             spec.action.as_deref(),
             Some("install") | Some("upgrade")
         );
+    // 提权任务由 elevated_run 自己跑 winget，不走预下载（避免重复下载）
+    let elevated = elevated_cmdline.is_some();
 
     // winget 安装/更新：先自己多线路多连接下载安装包，失败则退回 winget 自带下载
-    if retryable {
+    if retryable && !elevated {
         if let Some(wid) = spec.winget_id.as_deref() {
             match winget_prefetch(&app, &id, wid, &proxies, &cancel) {
                 Ok(msg) => emit_lines(&app, &id, vec![msg]),
                 Err(_) if cancel.load(Ordering::Relaxed) => {
-                    return finish_task(&app, id, -2, vec!["已取消".into()]);
+                    return finish_task(&app, id, -2, vec!["已取消".into()], false);
                 }
                 Err(e) => emit_lines(&app, &id, vec![format!("加速下载未生效（{e}），改由 winget 直接下载。")]),
             }
         }
     }
 
-    let mut outcome = match run_once(&app, &id, cmd, &slot) {
-        Ok(o) => o,
-        Err(e) => RunOutcome {
-            code: -1,
-            decision: None,
-            stderr_tail: vec![e],
-        },
+    let mut outcome = if let Some(cmdline) = elevated_cmdline.as_deref() {
+        emit_lines(
+            &app,
+            &id,
+            vec!["正在请求管理员权限（UAC），请在弹窗中点「是」…".into()],
+        );
+        match elevated_run(&app, &id, cmdline, &cancel) {
+            Ok((code, stderr_tail)) => RunOutcome {
+                code,
+                decision: None,
+                stderr_tail,
+            },
+            Err(e) => RunOutcome {
+                code: -1,
+                decision: None,
+                stderr_tail: vec![e],
+            },
+        }
+    } else {
+        match run_once(&app, &id, cmd.expect("非提权任务必有命令"), &slot) {
+            Ok(o) => o,
+            Err(e) => RunOutcome {
+                code: -1,
+                decision: None,
+                stderr_tail: vec![e],
+            },
+        }
     };
 
     // 官方源停滞/过慢 → 切中科大镜像源，原样重试一次（竞态：已成功则不重试）
     if retryable
+        && !elevated
         && outcome.code != 0
         && matches!(outcome.decision, Some(SlowReason::Stall) | Some(SlowReason::Slow(_)))
     {
@@ -1387,11 +1674,13 @@ fn stream_task(
         emit_lines(&app, &id, vec!["任务超过 30 分钟，已强制终止。".into()]);
     }
 
-    finish_task(&app, id, outcome.code, outcome.stderr_tail);
+    // 普通（未提权）的 winget 安装/更新失败 → 前端给「以管理员身份重试」
+    let elevatable = retryable && !elevated && outcome.code != 0;
+    finish_task(&app, id, outcome.code, outcome.stderr_tail, elevatable);
 }
 
 /// 发 task-done，清理引擎里的当前任务并调度下一个。
-fn finish_task(app: &AppHandle, id: String, code: i32, error_tail: Vec<String>) {
+fn finish_task(app: &AppHandle, id: String, code: i32, error_tail: Vec<String>, elevatable: bool) {
     let _ = app.emit(
         "task-done",
         TaskDone {
@@ -1399,6 +1688,7 @@ fn finish_task(app: &AppHandle, id: String, code: i32, error_tail: Vec<String>) 
             code,
             success: code == 0,
             error_tail,
+            elevatable,
         },
     );
     let st = app.state::<AppState>();
@@ -1406,6 +1696,7 @@ fn finish_task(app: &AppHandle, id: String, code: i32, error_tail: Vec<String>) 
         engine.running = None;
         engine.child = None;
         engine.cancel = None;
+        engine.elevated_pid = None;
         schedule_next(app, &mut engine);
     };
 }
@@ -1448,6 +1739,15 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
         if let Some(flag) = &engine.cancel {
             flag.store(true, Ordering::Relaxed);
         }
+        // 提权进程不在本进程树里，Child::kill 打不到 → taskkill /T
+        #[cfg(windows)]
+        if let Some(pid) = engine.elevated_pid {
+            use std::os::windows::process::CommandExt;
+            let _ = std::process::Command::new("taskkill")
+                .args(["/F", "/T", "/PID", &pid.to_string()])
+                .creation_flags(0x0800_0000)
+                .status();
+        }
         if let Some(slot) = &engine.child {
             if let Some(c) = slot.lock().unwrap().as_ref() {
                 if let Ok(mut ch) = c.lock() {
@@ -1468,6 +1768,7 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
                     code: -2,
                     success: false,
                     error_tail: vec!["已从队列取消".into()],
+                    elevatable: false,
                 },
             );
             true
@@ -2233,5 +2534,135 @@ mod updater_tests {
             sha256_file(&f).unwrap(),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+}
+
+/// 提权安装链路的回归测试（issue #26）。
+///
+/// 这些用例**不需要管理员权限**：只验证"提权前"的准备工作与超时判据是否漂移，
+/// 真正的 UAC 提升需要人在弹窗上点「是」，无法进 CI。
+/// 曾经因为这类代码没被测到，`Prepared::Elevated { cmdline }` 的字段名写错直接炸了整个 CI。
+#[cfg(test)]
+mod elevation_tests {
+    use super::*;
+
+    fn winget_spec(id: &str, action: &str, silent: bool, elevated: bool, location: Option<&str>) -> TaskSpec {
+        TaskSpec {
+            kind: "winget".into(),
+            action: Some(action.into()),
+            winget_id: Some(id.into()),
+            silent: Some(silent),
+            program: None,
+            args: None,
+            path_extra: None,
+            display: None,
+            location: location.map(str::to_string),
+            url: None,
+            gh_proxies: None,
+            force_elevated: elevated,
+        }
+    }
+
+    /// 普通安装：仍然是 Prepared::Cmd，且 -h 只在 silent 时出现
+    #[test]
+    fn plain_install_stays_cmd() {
+        let (prepared, label) = spec_command(&winget_spec("7zip.7zip", "install", true, false, None)).unwrap();
+        assert!(matches!(prepared, Prepared::Cmd(..)));
+        assert_eq!(label, "install 7zip.7zip");
+        let args = winget_action_args("install", "7zip.7zip", true, None).unwrap();
+        assert!(args.contains(&"-h".to_string()));
+        assert!(args.contains(&"--disable-interactivity".to_string()));
+        let quiet = winget_action_args("install", "7zip.7zip", false, None).unwrap();
+        assert!(!quiet.contains(&"-h".to_string()));
+    }
+
+    /// 提权重试：换成 Prepared::Elevated，命令行与普通路径完全一致（同一条 winget 命令）
+    #[test]
+    fn force_elevated_switches_variant_but_keeps_command() {
+        let plain = spec_command(&winget_spec("Microsoft.PowerToys", "install", true, false, None)).unwrap();
+        let elevated =
+            spec_command(&winget_spec("Microsoft.PowerToys", "install", true, true, None)).unwrap();
+        let plain_line = match plain.0 {
+            Prepared::Cmd(_, line) => line,
+            other => panic!("普通安装不该是提权变体：{:?}", std::mem::discriminant(&other)),
+        };
+        match elevated.0 {
+            Prepared::Elevated { cmdline } => assert_eq!(cmdline, plain_line),
+            _ => panic!("force_elevated 应产生 Prepared::Elevated"),
+        }
+        assert_eq!(elevated.1, plain.1);
+    }
+
+    /// 卸载不接受提权（只有安装/更新会弹 UAC）
+    #[test]
+    fn uninstall_never_elevates() {
+        let (prepared, _) = spec_command(&winget_spec("Git.Git", "uninstall", true, true, None)).unwrap();
+        assert!(matches!(prepared, Prepared::Cmd(..)));
+    }
+
+    /// location 会进入提权时落盘的 .cmd，必须挡掉 cmd 元字符
+    #[test]
+    fn location_rejects_cmd_metacharacters() {
+        for bad in ["D:\\A&B", "D:\\A|B", "D:\\A>B", "D:\\A^B", "D:\\A%B", "D:\\A\"B"] {
+            assert!(
+                winget_action_args("install", "Git.Git", false, Some(bad)).is_err(),
+                "应拒绝含元字符的路径：{bad}"
+            );
+        }
+        let ok = winget_action_args("install", "Git.Git", false, Some("D:\\My Apps")).unwrap();
+        assert!(ok.contains(&"D:\\My Apps".to_string()));
+    }
+
+    /// .cmd 内容：重定向到日志、写完成标记、UTF-8 代码页
+    #[test]
+    fn script_redirects_and_marks_completion() {
+        let dir = std::path::Path::new("C:\\Temp\\tt-elev-test");
+        let s = elevated_script("winget install -e --id 7zip.7zip -h", dir);
+        assert!(s.contains("chcp 65001"));
+        assert!(s.contains("winget install -e --id 7zip.7zip -h >"));
+        assert!(s.contains("winget.log"));
+        assert!(s.contains("echo %errorlevel%"));
+        assert!(s.contains("exit.txt"));
+        assert!(s.starts_with("@echo off"));
+    }
+
+    /// 每次提权用独立目录，避免并发/重试互相踩日志
+    #[test]
+    fn elevated_dir_is_unique_per_call() {
+        let a = elevated_dir();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let b = elevated_dir();
+        assert_ne!(a, b);
+        assert!(a.to_string_lossy().contains("tongtop-elev-"));
+    }
+
+    /// 不带 AppHandle 直接跑提权核心（不弹 UAC，直接执行 .cmd）：验证日志跟读与退出码回传。
+    fn script_runner(body: &str) -> (i32, Vec<String>) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        elevated_run_impl(None, "winget:test:elevation", body, &cancel).unwrap()
+    }
+
+    /// 正常路径：命令立即结束 → 立刻返回，退出码与日志都能取到（不等 20s 超时）
+    #[test]
+    fn script_completion_is_detected_without_timeout() {
+        let t0 = std::time::Instant::now();
+        let (code, lines) = script_runner("echo hello-elevated");
+        assert_eq!(code, 0, "日志：{lines:?}");
+        assert!(t0.elapsed() < std::time::Duration::from_secs(15), "不该等到超时才返回");
+    }
+
+    /// 命令失败 → 退出码如实回传（"普通方式失败 → 提示以管理员身份重试"就靠它判断）。
+    /// 注意用 `exit /b`：裸 `exit` 会直接杀掉 .cmd，连完成标记都来不及写。
+    #[test]
+    fn script_failure_code_is_reported() {
+        let (code, _) = script_runner("echo something-then-fail & exit /b 7");
+        assert_eq!(code, 7);
+    }
+
+    /// 命令跑完但没有任何输出时，不能误判成"UAC 被拒绝"（1223）
+    #[test]
+    fn silent_command_is_not_reported_as_uac_denied() {
+        let (code, lines) = script_runner("exit /b 0");
+        assert_eq!(code, 0, "无输出不等于 UAC 被拒：{lines:?}");
     }
 }
