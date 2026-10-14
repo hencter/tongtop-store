@@ -1965,6 +1965,22 @@ async fn check_self_update(force: Option<bool>) -> Result<SelfUpdateInfo, String
     .map_err(|e| e.to_string())?
 }
 
+/// 装机清单导入导出：只读写用户在对话框里选定的路径。
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+        }
+    }
+    std::fs::write(path, contents).map_err(|err| err.to_string())
+}
+
 /// 目录数据远程拉取（网站静态 JSON API：首页推荐实时更新的数据源）。
 /// 原始 JSON 透传为 serde_json::Value，前端按既有类型消费（schema 与 /data 一致）。
 #[derive(Serialize, Clone)]
@@ -2408,6 +2424,8 @@ pub fn run() {
             terminal::term_resize,
             terminal::term_kill,
             quit_app,
+            read_text_file,
+            write_text_file,
             start_task,
             cancel_task,
             activity_start,

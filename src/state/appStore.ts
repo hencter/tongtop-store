@@ -20,6 +20,7 @@ export type Tab =
   | "agents"
   | "mirrors"
   | "installed"
+  | "favorites"
   | "updates"
   | "cleanup"
   | "activity"

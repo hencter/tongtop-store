@@ -5,6 +5,7 @@
 import { memo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, Clock, Download, ExternalLink, Loader2, TrendingUp } from "lucide-react";
+import { Heart } from "lucide-react";
 import type { CatalogApp } from "../catalog/apps";
 import { useTaskStore } from "../state/taskStore";
 import { useDetailStore } from "../state/detailStore";
@@ -12,6 +13,7 @@ import { useT } from "../i18n";
 import { AppIcon } from "./AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useFavoriteStore } from "../state/favoriteStore";
 import { Card } from "@/components/ui/card";
 
 export type CardState = "none" | "installed" | "upgrade";
@@ -32,6 +34,8 @@ export const AppCard = memo(function AppCard({
   const action = state === "upgrade" ? "upgrade" : "install";
   const taskId = `winget:${action}:${app.id}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
+  const favorite = useFavoriteStore((s) => s.has(app.id));
+  const toggleFavorite = useFavoriteStore((s) => s.toggle);
   return (
     <Card className={`flex flex-col gap-1.5 p-4 transition-colors hover:border-foreground/20 ${className ?? ""}`}>
       <div className="flex items-start justify-between">
@@ -48,6 +52,15 @@ export const AppCard = memo(function AppCard({
             </Badge>
           )}
           {app.github && <Badge variant="secondary">GitHub</Badge>}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            title={favorite ? t("取消收藏") : t("收藏")}
+            onClick={() => toggleFavorite(app.id)}
+          >
+            <Heart className={`size-3.5 ${favorite ? "fill-current text-primary" : ""}`} />
+          </Button>
         </div>
       </div>
       <div className="mt-1 font-semibold">{app.name}</div>

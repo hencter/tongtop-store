@@ -243,6 +243,16 @@ export interface CatalogDto {
   mirrors: { tools: unknown[]; ghProxies: unknown[] };
   updatedAt: number;
 }
+export async function readTextFile(path: string): Promise<string> {
+  if (!isTauri()) throw new Error("浏览器预览请直接选择文件");
+  return invoke<string>("read_text_file", { path });
+}
+
+export async function writeTextFile(path: string, contents: string): Promise<void> {
+  if (!isTauri()) throw new Error("浏览器预览请使用下载");
+  await invoke("write_text_file", { path, contents });
+}
+
 export async function catalogFetch(base: string): Promise<CatalogDto> {
   if (!isTauri()) throw new Error("浏览器预览模式");
   return invoke<CatalogDto>("catalog_fetch", { base });

@@ -18,6 +18,8 @@ import { AgentsPage } from "./features/agents/AgentsPage";
 import { GitHubPage } from "./features/github/GitHubPage";
 import { MirrorsPage } from "./features/mirrors/MirrorsPage";
 import { InstalledPage } from "./features/installed/InstalledPage";
+import { Heart } from "lucide-react";
+import { FavoritesPage } from "./features/favorites/FavoritesPage";
 import { UpdatesPage } from "./features/updates/UpdatesPage";
 import { CleanupPage } from "./features/cleanup/CleanupPage";
 import { ActivityPage } from "./features/activity/ActivityPage";
@@ -46,6 +48,7 @@ const NAV_SECTIONS: { title: string; collapsible?: boolean; items: { id: Tab; la
     title: "我的电脑",
     items: [
       { id: "installed", label: "已安装", icon: Package },
+      { id: "favorites", label: "我的收藏", icon: Heart },
       { id: "updates", label: "软件更新", icon: TrendingUp },
     ],
   },
@@ -249,6 +252,7 @@ export default function App() {
           {page("github", <GitHubPage />)}
           {page("mirrors", <MirrorsPage />)}
           {page("installed", <InstalledPage />)}
+          {page("favorites", <FavoritesPage />)}
           {page("updates", <UpdatesPage />)}
           {page("cleanup", <CleanupPage />)}
           {page("activity", <ActivityPage />)}
