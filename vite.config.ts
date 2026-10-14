@@ -12,6 +12,9 @@ export default defineConfig(() => ({
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
   },
+  test: {
+    include: ["src/**/*.{test,spec}.ts"],
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

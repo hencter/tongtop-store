@@ -4,6 +4,7 @@ import { useState } from "react";
 import { open as pickDir } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Globe, HardDrive, Loader2, RefreshCw, Rocket } from "lucide-react";
 import { useSettingsStore, DEFAULT_CATALOG_API } from "../state/settingsStore";
+import { useStatsStore } from "../state/statsStore";
 import { useUpdateStore } from "../state/updateStore";
 import { useI18n, useT, type Locale } from "../i18n";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const setInstallLocation = useSettingsStore((s) => s.setInstallLocation);
   const autoExit = useSettingsStore((s) => s.autoExit);
   const setAutoExit = useSettingsStore((s) => s.setAutoExit);
+  const shareStats = useSettingsStore((s) => s.shareStats);
+  const setShareStats = useSettingsStore((s) => s.setShareStats);
   const catalogApi = useSettingsStore((s) => s.catalogApi);
   const setCatalogApi = useSettingsStore((s) => s.setCatalogApi);
   const [apiDraft, setApiDraft] = useState<string | null>(null);
@@ -112,6 +115,25 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <label className="flex cursor-pointer items-center justify-between text-[13px]">
               <span className="text-muted-foreground">{t("退出商店（仅桌面端智能体；CLI 在内嵌终端运行，商店常驻）")}</span>
               <Switch checked={autoExit} onCheckedChange={setAutoExit} />
+            </label>
+          </div>
+
+          <div className="border-t border-border pt-3.5">
+            <label className="flex cursor-pointer items-center justify-between gap-3 text-[13px]">
+              <span>
+                <span className="font-medium">{t("匿名安装统计")}</span>
+                <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
+                  {t("默认开启。安装成功后上报应用 id、版本和时间，用于热门排序，不含姓名、账号或设备信息。关闭后不再发送任何统计请求。")}
+                </span>
+              </span>
+              <Switch
+                checked={shareStats}
+                onCheckedChange={(v) => {
+                  setShareStats(v);
+                  if (v) void useStatsStore.getState().refresh();
+                  else useStatsStore.getState().clear();
+                }}
+              />
             </label>
           </div>
 

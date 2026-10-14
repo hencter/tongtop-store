@@ -5,6 +5,7 @@
  */
 import type { APIRoute } from "astro";
 import apps from "../../../../../data/apps.json";
+import stats from "../../../../../data/stats.json";
 import categories from "../../../../../data/categories.json";
 import devtools from "../../../../../data/devtools.json";
 import mirrors from "../../../../../data/mirrors.json";
@@ -13,6 +14,7 @@ import { AGENTS } from "../../../lib/data";
 
 const FILES: Record<string, unknown> = {
   apps,
+  stats,
   // 已按「闭源沉底」排序：老版本客户端不做本地排序，也能拿到正确顺序
   agents: AGENTS,
   categories,

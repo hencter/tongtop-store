@@ -16,6 +16,7 @@ import type {
 } from "../ipc/types";
 import { useAppStore } from "./appStore";
 import { useSettingsStore } from "./settingsStore";
+import { useStatsStore } from "./statsStore";
 import { ghProxyList } from "./catalogStore";
 
 const MAX_LOG_LINES = 1500;
@@ -198,7 +199,14 @@ export function initTaskListeners(): () => void {
       }
       // winget 类任务成功后快照立即失效重跑（缓存更新规则 2）
       if (e.payload.success && e.payload.id.startsWith("winget:")) {
-        void useAppStore.getState().refreshSnapshot(true);
+        const parsed = parseWingetTaskId(e.payload.id);
+        void useAppStore.getState().refreshSnapshot(true).then(() => {
+          if (!parsed || parsed.action === "uninstall") return;
+          const version =
+            useAppStore.getState().installed?.find((app) => app.id.toLowerCase() === parsed.wingetId.toLowerCase())
+              ?.version ?? "";
+          void useStatsStore.getState().reportInstall(parsed.wingetId, version);
+        });
       }
     }),
   );

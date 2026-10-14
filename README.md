@@ -37,7 +37,7 @@ pnpm --dir web build  # 网站 → web/dist/（自动把最新安装包拷进下
 | --- | --- |
 | `src/` | 桌面端前端（React） |
 | `src-tauri/` | 桌面端宿主（Rust） |
-| `data/` | 目录数据：apps / agents / mirrors / categories / free-models / devtools |
+| `data/` | 目录数据：apps / agents / mirrors / categories / free-models / devtools / stats |
 | `web/` | Astro 索引站（EdgeOne Pages：项目根 `web`，输出 `dist`，函数在 `edge-functions/`） |
 | `scripts/fetch-icons.mjs` | 图标抓取（Iconify + 官网 favicon 兜底，生成 `src/catalog/appIcons.ts`） |
 
@@ -46,3 +46,9 @@ pnpm --dir web build  # 网站 → web/dist/（自动把最新安装包拷进下
 1. 导入仓库，项目根目录 `web`，构建命令 `pnpm build`，输出 `dist`
 2. 环境变量 `ADMIN_TOKEN`（审核令牌）、`GITHUB_TOKEN`（Issues 读写，提交/审核用）
 3. 详见 `web/README.md`
+
+## 隐私
+
+安装统计默认开启，可在桌面端「设置 → 匿名安装统计」关闭。关闭后客户端不再发送任何统计请求。
+
+开启时，安装成功只上报应用 id、版本和时间，外加一个保存在本机的随机标识，用来让同一应用在 24 小时内只计一次。不包含姓名、账号、邮箱或设备硬件信息。网站下载按钮的点击用同样的规则计数。公开榜单 `/api/data/stats.json` 只有应用 id 和次数（最多 20 条）。榜单拉取失败时，首页和软件库保持默认排序。

@@ -2257,6 +2257,67 @@ fn quit_app(app: AppHandle) {
     app.exit(0);
 }
 
+#[derive(serde::Deserialize)]
+struct StatEvent {
+    id: String,
+    version: String,
+    client: String,
+    at: String,
+}
+
+fn stats_agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(12)))
+        .user_agent("tongtop-store/0.4")
+        .build()
+        .into()
+}
+
+/// 公开热门榜。失败由前端降级为默认排序。
+#[tauri::command]
+async fn stats_fetch(base: String) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base = base.trim_end_matches('/');
+        let url = format!("{base}/api/data/stats.json");
+        let mut resp = stats_agent().get(&url).call().map_err(|e| match e {
+            ureq::Error::StatusCode(code) => format!("stats.json 返回 {code}"),
+            other => format!("无法连接统计 API：{other}"),
+        })?;
+        let body = resp.body_mut().read_to_string().map_err(|e| format!("读取统计响应失败：{e}"))?;
+        serde_json::from_str(&body).map_err(|e| format!("stats.json 不是合法 JSON：{e}"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// 匿名安装上报。前端在用户关闭统计时不会调用。
+#[tauri::command]
+async fn stats_report(base: String, event: StatEvent) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let base = base.trim_end_matches('/');
+        let url = format!("{base}/api/stats");
+        let payload = serde_json::json!({
+            "id": event.id,
+            "version": event.version,
+            "client": event.client,
+            "at": event.at,
+        });
+        let mut resp = stats_agent()
+            .post(&url)
+            .header("content-type", "application/json")
+            .send(payload.to_string())
+            .map_err(|e| match e {
+                ureq::Error::StatusCode(code) => format!("统计上报返回 {code}"),
+                other => format!("无法上报安装统计：{other}"),
+            })?;
+        resp.body_mut().read_to_string().map_err(|e| format!("读取统计响应失败：{e}"))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+
 // ---------- 镜像延迟探测（傻瓜化：后台自动测速选最快） ----------
 
 #[derive(Serialize, Clone)]
@@ -2398,6 +2459,8 @@ pub fn run() {
             find_start_app,
             list_start_apps,
             check_self_update,
+            stats_fetch,
+            stats_report,
             download_self_update,
             apply_self_update,
             take_update_error,

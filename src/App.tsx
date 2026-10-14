@@ -7,6 +7,7 @@ import { useCatalogStore } from "./state/catalogStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useTaskStore } from "./state/taskStore";
 import { useUpdateStore } from "./state/updateStore";
+import { useStatsStore } from "./state/statsStore";
 import { useT } from "./i18n";
 import * as ipc from "./ipc/client";
 import { initTaskListeners } from "./state/taskStore";
@@ -150,6 +151,7 @@ export default function App() {
     });
     // 自更新：静默检查 GitHub Releases（有新版本才弹窗）；不依赖 winget——缺 winget 的用户更需要新版
     void useUpdateStore.getState().check(false);
+    void useStatsStore.getState().refresh();
     void (async () => {
       await checkWinget();
       // 启动即后台跑一遍 winget 快照（陈旧才真跑），界面先读 SQLite 毫秒渲染
