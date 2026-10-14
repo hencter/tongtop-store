@@ -14,6 +14,12 @@ export interface AppEntry {
   name: string;
   desc: string;
   site: string;
+  official?: boolean;
+  download?: {
+    url: string;
+    args?: string[];
+    platform?: string;
+  };
   category: string;
   tags?: string[];
   github?: string;

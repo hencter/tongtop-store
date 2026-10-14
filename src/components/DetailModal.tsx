@@ -41,7 +41,12 @@ export function DetailModal() {
     lid ? (s.upgrades?.some((u) => u.id.toLowerCase() === lid) ?? false) : false,
   );
   const action = hasUpgrade ? "upgrade" : "install";
-  const taskState = useTaskStore((s) => s.taskState(`winget:${action}:${detailId}`));
+  const directDownload =
+    action === "install"
+      ? useCatalogStore.getState().appsById.get((detailId ?? "").toLowerCase())?.download
+      : undefined;
+  const taskId = directDownload ? `download:install:${detailId}` : `winget:${action}:${detailId}`;
+  const taskState = useTaskStore((s) => s.taskState(taskId));
   const runTask = useTaskStore((s) => s.runTask);
   const silent = useTaskStore((s) => s.silent);
   const ghProxy = useSettingsStore((s) => s.ghProxy);
@@ -62,6 +67,7 @@ export function DetailModal() {
           <div className="min-w-0">
             <DialogTitle className="flex items-center gap-2">
               {name}
+              {catalog?.official && <Badge variant="outline">官方</Badge>}
               {catalog?.github && (
                 <Badge variant="secondary">
                   <GithubMark className="size-3" /> GitHub 发布
@@ -79,7 +85,7 @@ export function DetailModal() {
             </div>
           )}
           {error && <div className="text-sm text-destructive">{error}</div>}
-          {detail && (
+          {(detail || catalog) && (
             <dl className="grid grid-cols-[72px_1fr] gap-x-4 gap-y-2 text-[13px]">
               {installedVersion && (
                 <>
@@ -89,13 +95,13 @@ export function DetailModal() {
                   </dd>
                 </>
               )}
-              {detail.version && (
+              {detail?.version && (
                 <>
                   <dt className="text-muted-foreground">winget 源版本</dt>
                   <dd>{detail.version}</dd>
                 </>
               )}
-              {detail.publisher && (
+              {detail?.publisher && (
                 <>
                   <dt className="text-muted-foreground">发布者</dt>
                   <dd>{detail.publisher}</dd>
@@ -191,7 +197,9 @@ export function DetailModal() {
           )}
 
           <p className="mt-4 rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
-            {t("本商店不托管安装包。主操作经 winget 官方源安装，可跟踪状态与后续更新；直链下载与「前往官网」均指向软件官方发布渠道，由你自行安装。")}
+            {directDownload
+              ? t("本商店不托管安装包。该软件由厂商官方直链下载，商店下载后启动原始安装器；更新能力以厂商安装器为准。")
+              : t("本商店不托管安装包。主操作经 winget 官方源安装，可跟踪状态与后续更新；直链下载与「前往官网」均指向软件官方发布渠道，由你自行安装。")}
           </p>
         </div>
 
@@ -211,13 +219,23 @@ export function DetailModal() {
               onClick={() => {
                 const id = detailId!;
                 close();
-                void runTask(`winget:${action}:${id}`, {
-                  kind: "winget",
-                  action,
-                  wingetId: id,
-                  silent,
-                  display: `${hasUpgrade ? "更新" : "安装"} ${name}`,
-                });
+                void runTask(
+                  taskId,
+                  directDownload
+                    ? {
+                        kind: "download",
+                        url: directDownload.url,
+                        args: directDownload.args,
+                        display: `安装 ${name}`,
+                      }
+                    : {
+                        kind: "winget",
+                        action,
+                        wingetId: id,
+                        silent,
+                        display: `${hasUpgrade ? "更新" : "安装"} ${name}`,
+                      },
+                );
               }}
             >
               {taskState ? (

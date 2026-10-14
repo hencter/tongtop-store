@@ -189,6 +189,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .notice.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 6%, transparent); }
 
 .muted { color: var(--muted); }
+.card[data-direct] .actions > button[data-copy-text] { display: none; }
 .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0; }
 .filters .chip {

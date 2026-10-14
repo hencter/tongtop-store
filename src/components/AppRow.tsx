@@ -46,7 +46,8 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
   const showInstalled = mode === "install" && installedVersion != null && effectiveMode === "install";
   const shownAvailable = available ?? upgradeAvailable ?? (versionAnomaly ? info.version : undefined);
 
-  const taskId = `winget:${effectiveMode}:${info.id}`;
+  const directDownload = effectiveMode === "install" ? catalog?.download : undefined;
+  const taskId = directDownload ? `download:install:${info.id}` : `winget:${effectiveMode}:${info.id}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
   const uninstallTaskState = useTaskStore((s) => s.taskState(`winget:uninstall:${info.id}`));
   // 队列满与否合成一个布尔订阅：queue/running 的每次变化不再惊动所有行，
@@ -75,6 +76,7 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
           <div className="flex items-center truncate font-semibold">
             {catalog?.name ?? info.name}
             {catalog && <Badge variant="secondary" className="ml-2">精选</Badge>}
+            {catalog?.official && <Badge variant="outline" className="ml-1.5">官方</Badge>}
             {catalog?.github && <Badge variant="outline" className="ml-1.5">GitHub</Badge>}
           </div>
           <div className="truncate text-[11px] text-muted-foreground">{info.id}</div>
@@ -209,13 +211,23 @@ export const AppRow = memo(function AppRow({ info, catalog, available, mode, onN
                 disabled={taskState !== null || queueFull}
                 title={queueFull ? "队列已满，请稍后再试" : undefined}
                 onClick={() =>
-                  void runTask(taskId, {
-                    kind: "winget",
-                    action: effectiveMode,
-                    wingetId: info.id,
-                    silent,
-                    display: `${actionLabel} ${catalog?.name ?? info.name}`,
-                  })
+                  void runTask(
+                    taskId,
+                    directDownload
+                      ? {
+                          kind: "download",
+                          url: directDownload.url,
+                          args: directDownload.args,
+                          display: `安装 ${catalog?.name ?? info.name}`,
+                        }
+                      : {
+                          kind: "winget",
+                          action: effectiveMode,
+                          wingetId: info.id,
+                          silent,
+                          display: `${actionLabel} ${catalog?.name ?? info.name}`,
+                        },
+                  )
                 }
               >
                 {taskState === "running" ? (
