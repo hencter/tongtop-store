@@ -22,6 +22,17 @@
         "pattern": "^[^\\s/]+/[^\\s/]+$"
       },
       "ai": { "type": "boolean" },
+      "official": { "type": "boolean" },
+      "download": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["url"],
+        "properties": {
+          "url": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/httpUrl" },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "platform": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" }
+        }
+      },
       "publisher": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
       "license": { "$ref": "https://tongtop.store/schema/common.schema.json#/$defs/nonEmpty" },
       "pricing": { "enum": ["free", "freemium", "paid"] },
