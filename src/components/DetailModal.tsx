@@ -41,15 +41,18 @@ export function DetailModal() {
     lid ? (s.upgrades?.some((u) => u.id.toLowerCase() === lid) ?? false) : false,
   );
   const action = hasUpgrade ? "upgrade" : "install";
-  const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
-  const catalog = detailId ? CATALOG_BY_ID.get(detailId.toLowerCase()) : undefined;
-  const directDownload = action === "install" ? catalog?.download : undefined;
+  const directDownload =
+    action === "install"
+      ? useCatalogStore.getState().appsById.get((detailId ?? "").toLowerCase())?.download
+      : undefined;
   const taskId = directDownload ? `download:install:${detailId}` : `winget:${action}:${detailId}`;
   const taskState = useTaskStore((s) => s.taskState(taskId));
   const runTask = useTaskStore((s) => s.runTask);
   const silent = useTaskStore((s) => s.silent);
   const ghProxy = useSettingsStore((s) => s.ghProxy);
 
+  const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
+  const catalog = detailId ? CATALOG_BY_ID.get(detailId.toLowerCase()) : undefined;
   const homepage = catalog?.site ?? (detail?.homepage || undefined);
   const name = catalog?.name ?? detail?.name ?? detailId ?? "";
   const desc = catalog?.desc ?? detail?.description;

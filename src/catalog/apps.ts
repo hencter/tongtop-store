@@ -30,12 +30,6 @@ export interface CatalogApp {
   desc: string;
   /** 官方网站 */
   site: string;
-  category: CategoryId;
-  tags?: string[];
-  /** 官方 GitHub 发布仓库（owner/repo）——有它就在详情里分发 Releases 直链 */
-  github?: string;
-  /** 具备 AI 功能（用于「AI 应用」分类聚合） */
-  ai?: boolean;
   /** 厂商官方发布/下载渠道（UI 显示“官方”） */
   official?: boolean;
   /** 厂商官方安装包直链；存在时安装走宿主 download 任务而不是 winget */
@@ -46,6 +40,12 @@ export interface CatalogApp {
     /** 展示用平台标签，例如 Windows x64 */
     platform?: string;
   };
+  category: CategoryId;
+  tags?: string[];
+  /** 官方 GitHub 发布仓库（owner/repo）——有它就在详情里分发 Releases 直链 */
+  github?: string;
+  /** 具备 AI 功能（用于「AI 应用」分类聚合） */
+  ai?: boolean;
 }
 
 export const CATEGORIES: { id: CategoryId; label: string }[] = categories as {

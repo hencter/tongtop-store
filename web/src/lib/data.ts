@@ -14,16 +14,16 @@ export interface AppEntry {
   name: string;
   desc: string;
   site: string;
-  category: string;
-  tags?: string[];
-  github?: string;
-  ai?: boolean;
   official?: boolean;
   download?: {
     url: string;
     args?: string[];
     platform?: string;
   };
+  category: string;
+  tags?: string[];
+  github?: string;
+  ai?: boolean;
 }
 
 export interface EnvSpec {
