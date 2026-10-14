@@ -1,6 +1,6 @@
 ---
 import Icon from "./Icon.astro";
-import { categoryLabel, type AppEntry } from "../lib/data";
+import { appPath, categoryLabel, type AppEntry } from "../lib/data";
 
 interface Props {
   app: AppEntry;
@@ -12,13 +12,14 @@ const cmd = `winget install --id ${app.id} -e`;
   <div class="row">
     <Icon id={app.id} name={app.name} />
     <div style="flex:1;min-width:0">
-      <h3>{app.name}</h3>
+      <h3><a href={appPath(app.id)}>{app.name}</a></h3>
       <div class="meta">{categoryLabel(app.category)}</div>
     </div>
     {app.ai && <span class="badge ai">AI</span>}
   </div>
   <p class="desc">{app.desc}</p>
   <div class="actions">
+    <a class="btn sm" href={appPath(app.id)} data-i18n="详情">详情</a>
     <button class="btn sm" data-copy-text={cmd} title={cmd}>复制安装命令</button>
     <a class="btn sm" href={app.site} target="_blank" rel="noopener">官网</a>
   </div>

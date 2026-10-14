@@ -2,7 +2,7 @@
 import Base from "../layouts/Base.astro";
 import Icon from "../components/Icon.astro";
 import BrandLogo from "../components/BrandLogo.astro";
-import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory, installCommand, isClosed } from "../lib/data";
+import { APPS, AGENTS, FREE_MODELS, MIRRORS, appPath, appsByCategory, installCommand, isClosed } from "../lib/data";
 
 const aiApps = appsByCategory("ai").slice(0, 8);
 const agents = AGENTS.slice(0, 8);
@@ -148,7 +148,7 @@ const download =
           <div class="row">
             <Icon id={a.id} name={a.name} size={40} />
             <div style="flex:1;min-width:0">
-              <h3>{a.name}</h3>
+              <h3><a href={appPath(a.id)}>{a.name}</a></h3>
               <div class="meta">{a.desc}</div>
             </div>
           </div>

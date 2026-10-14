@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-18",
+  "updatedAt": "2026-10-13",
   "providers": [
     {
       "id": "google-ai-studio",
@@ -120,12 +120,12 @@
       "name": "GitHub Models",
       "vendor": "GitHub",
       "summary": "GitHub 账号即可试用多家模型，有免费速率额度",
-      "official": "https://github.com/marketplace/models",
+      "official": "https://github.com/features/models",
       "docs": "https://docs.github.com/en/github-models",
       "env": [{ "name": "GITHUB_TOKEN", "label": "Personal Access Token", "placeholder": "ghp_..." }],
       "agents": [],
       "note": "适合体验与测试，生产使用需注意速率限制",
-      "verifiedAt": "2026-09-18"
+      "verifiedAt": "2026-10-13"
     },
     {
       "id": "cloudflare-workers-ai",

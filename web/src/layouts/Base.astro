@@ -6,10 +6,16 @@ import "../styles/global.css";
 interface Props {
   title?: string;
   description?: string;
+  /** 绝对地址。详情页用来输出 canonical 与 og:url。 */
+  canonical?: string;
+  /** 已经转义过的 JSON-LD 文本（application/ld+json）。 */
+  jsonLd?: string;
 }
 const {
   title = "TongTop Store · 应用与 AI 智能体分发站",
   description = "精选软件目录、AI 智能体一键装机配方、国内镜像源、AI 模型免费额度与密钥配置引导。",
+  canonical,
+  jsonLd,
 } = Astro.props;
 ---
 <!doctype html>
@@ -19,6 +25,12 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    {canonical && <meta property="og:url" content={canonical} />}
+    {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>

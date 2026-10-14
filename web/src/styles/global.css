@@ -112,6 +112,8 @@ p { margin: 0 0 1em; }
 .card:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); }
 .card .row { display: flex; align-items: flex-start; gap: 10px; }
 .card h3 { font-size: 15px; margin: 0; }
+.card h3 a { color: inherit; text-decoration: none; }
+.card h3 a:hover { text-decoration: underline; }
 .card .desc { color: var(--muted); font-size: 13px; margin: 0; }
 .card .meta { color: var(--muted); font-size: 12px; }
 .card .actions { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
@@ -203,6 +205,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .site-footer .container { display: flex; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
 .footer-brand { display: inline-flex; align-items: center; gap: 8px; }
 .hidden { display: none !important; }
+
+.crumb { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.crumb a { color: var(--muted); }
+.detail-head { display: flex; gap: 16px; align-items: flex-start; }
+.detail-head h1 { margin: 0 0 6px; font-size: 28px; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmd {
+  margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--code-bg);
+  overflow-x: auto; font-size: 13px;
+}
 
 /* ================= 首页（hero2 + 特性 + 精选卡 + 产品 mockup） ================= */
 .hero2 {
