@@ -71,12 +71,13 @@ import Base from "../layouts/Base.astro";
   fetch("/api/submissions?status=approved")
     .then((resp) => resp.json())
     .then((json) => {
-      if (!json.ok || json.items.length === 0) {
+      const items = (json.items ?? []).filter((item) => item.type !== "rating");
+      if (!json.ok || items.length === 0) {
         list.textContent = "还没有已通过的社区提交。";
         return;
       }
       const frag = document.createDocumentFragment();
-      for (const item of json.items) frag.append(cardOf(item));
+      for (const item of items) frag.append(cardOf(item));
       list.replaceChildren(frag);
     })
     .catch(() => {

@@ -21,6 +21,9 @@ export async function onRequestPost(context) {
 
   const result = validate(body);
   if (result.error) return err(result.error);
+  if (result.value.type === "rating" && rateLimited(`rating:${ip}`, 3, 10 * 60 * 1000)) {
+    return err("评分提交过于频繁，请稍后再试", 429);
+  }
 
   try {
     const record = await addSubmission(env, result.value);

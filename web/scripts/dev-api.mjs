@@ -46,6 +46,7 @@ const ROUTES = {
   "/api/submit": "edge-functions/api/submit.js",
   "/api/submissions": "edge-functions/api/submissions.js",
   "/api/review": "edge-functions/api/review.js",
+  "/api/data/ratings.json": "edge-functions/api/data/ratings.json.js",
 };
 
 const server = createServer(async (req, res) => {

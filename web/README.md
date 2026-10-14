@@ -31,7 +31,8 @@ pnpm build       # 拷安装包 + astro build → dist/
    - `GITHUB_TOKEN`：Fine-grained PAT，勾选本仓库 `Issues: Read and write`（提交/审核用它建 Issue、打标签）
    - `GITHUB_REPO`（可选）：默认 `hencter/tongtop-store`
 4. 提交审核：`POST /api/submit`；审核：`GET /api/submissions?status=pending`（Bearer 令牌）、`POST /api/review`
-5. 不依赖 EdgeOne KV：提交以 GitHub Issue 存储（标签 `submission` + `pending/approved/rejected`），也可以在 GitHub 上直接改标签审核
+5. 应用评分走同一条投稿：`type: "rating"`，1–5 星加简短评价。审核通过后才进入 `GET /api/data/ratings.json`（平均分、人数、最近 5 条）。没有通过的评价时该接口的 `apps` 为空，页面显示「暂无评分」
+6. 不依赖 EdgeOne KV：提交以 GitHub Issue 存储（标签 `submission` + `pending/approved/rejected`），也可以在 GitHub 上直接改标签审核
 
 ### 安装包发布流程
 

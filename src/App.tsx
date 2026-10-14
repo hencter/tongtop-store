@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Bot, BrushCleaning, ChevronDown, ChevronRight, GitFork, Home, ListChecks, Loader2, Package, PackageX, Radar, Search, Settings, Sparkles, TrendingUp, Zap } from "lucide-react";
 import { useAppStore, type Tab } from "./state/appStore";
 import { useCatalogStore } from "./state/catalogStore";
+import { useRatingsStore } from "./state/ratingsStore";
 import { useMirrorStore } from "./state/mirrorStore";
 import { useTaskStore } from "./state/taskStore";
 import { useUpdateStore } from "./state/updateStore";
@@ -144,6 +145,7 @@ export default function App() {
     void useAgentStore.getState().detectInstalled();
     // 首页推荐核心：启动即后台拉取网站 API 最新目录（内置数据已先渲染，拉到即换）
     void useCatalogStore.getState().refresh();
+    void useRatingsStore.getState().refresh();
     // 上次自动更新若失败（安装器非零退出），启动即如实提示
     void ipc.takeUpdateError().then((msg) => {
       if (msg) useUpdateStore.setState({ error: msg, open: true });

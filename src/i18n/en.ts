@@ -285,6 +285,11 @@ export const EN: Record<string, string> = {
   "发布渠道：GitHub Releases": "Release channel: GitHub Releases",
   "检查更新": "Check for updates",
 
+  "暂无评分": "No ratings yet",
+  "人评分": "ratings",
+  "最近评价": "Recent reviews",
+  "星": "stars",
+
   // ---- 详情 / 卸载残留 / 杂项 ----
   "查看详情": "View details",
   "版本": "Version",
@@ -501,4 +506,5 @@ export const EN: Record<string, string> = {
   "全部来源": "Any source",
   "重置此项": "Reset",
   "以管理员身份重试": "Retry as administrator",
+
 };

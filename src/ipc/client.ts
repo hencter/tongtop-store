@@ -248,6 +248,17 @@ export async function catalogFetch(base: string): Promise<CatalogDto> {
   return invoke<CatalogDto>("catalog_fetch", { base });
 }
 
+/** 评分汇总。浏览器预览直接请求；桌面端走宿主，避免网页来源限制。失败由调用方显示「暂无评分」。 */
+export async function ratingsFetch(base: string): Promise<unknown> {
+  const url = `${base.replace(/\/$/, "")}/api/data/ratings.json`;
+  if (!isTauri()) {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`ratings ${resp.status}`);
+    return resp.json();
+  }
+  return invoke("ratings_fetch", { base });
+}
+
 /** 下载新版安装包（进度走 self-update-progress 事件）：直连优先，失败回退加速通道；大小校验 */
 export async function downloadSelfUpdate(
   url: string,

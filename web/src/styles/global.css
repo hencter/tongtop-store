@@ -331,3 +331,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
   .ai-layout { grid-template-columns: 1fr; }
   .ai-side { position: static; order: -1; }
 }
+
+.rate-box summary { cursor: pointer; color: var(--muted); }
+.rate-form { display: grid; gap: 8px; margin-top: 8px; }
+.rate-form textarea { min-height: 64px; resize: vertical; }

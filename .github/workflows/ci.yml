@@ -26,6 +26,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm test
       - run: pnpm build
 
   web:
@@ -39,6 +40,8 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile
+        working-directory: web
+      - run: node --test edge-functions/lib/ratings.test.mjs
         working-directory: web
       - run: pnpm build
         working-directory: web

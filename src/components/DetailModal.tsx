@@ -10,6 +10,8 @@ import { useAppStore } from "../state/appStore";
 import { useSettingsStore } from "../state/settingsStore";
 import { formatDate, formatDownloads, formatSize, pickWindowsAssets } from "../domain/github";
 import { useT } from "../i18n";
+import { useRatingsStore } from "../state/ratingsStore";
+import { formatRating } from "../catalog/ratings";
 import { AppIcon } from "./AppIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,7 @@ export function DetailModal() {
 
   const CATALOG_BY_ID = useCatalogStore((s) => s.appsById);
   const catalog = detailId ? CATALOG_BY_ID.get(detailId.toLowerCase()) : undefined;
+  const rating = useRatingsStore((s) => (detailId ? s.byId.get(detailId.toLowerCase()) : undefined));
   const homepage = catalog?.site ?? (detail?.homepage || undefined);
   const name = catalog?.name ?? detail?.name ?? detailId ?? "";
   const desc = catalog?.desc ?? detail?.description;
@@ -189,6 +192,26 @@ export function DetailModal() {
               )}
             </section>
           )}
+
+          <section className="mt-4">
+            <div className="text-sm font-medium">{formatRating(rating, t)}</div>
+            {rating && rating.reviews.length > 0 && (
+              <>
+                <div className="mt-2 text-xs text-muted-foreground">{t("最近评价")}</div>
+                <ul className="mt-1 space-y-2">
+                  {rating.reviews.map((review, index) => (
+                    <li key={`${review.createdAt}-${index}`} className="rounded-md border border-border px-3 py-2 text-xs">
+                      <div className="text-muted-foreground">
+                        {review.stars} {t("星")}
+                        {review.createdAt ? ` · ${review.createdAt.slice(0, 10)}` : ""}
+                      </div>
+                      <p className="m-0 mt-1 whitespace-pre-wrap">{review.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
 
           <p className="mt-4 rounded-lg bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
             {t("本商店不托管安装包。主操作经 winget 官方源安装，可跟踪状态与后续更新；直链下载与「前往官网」均指向软件官方发布渠道，由你自行安装。")}

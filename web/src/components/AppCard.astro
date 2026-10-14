@@ -22,4 +22,121 @@ const cmd = `winget install --id ${app.id} -e`;
     <button class="btn sm" data-copy-text={cmd} title={cmd}>复制安装命令</button>
     <a class="btn sm" href={app.site} target="_blank" rel="noopener">官网</a>
   </div>
+  <p class="meta" data-rating-for={app.id}>暂无评分</p>
+  <details class="rate-box">
+    <summary data-i18n="写评价">写评价</summary>
+    <form class="rate-form" data-rating-form data-app-id={app.id} data-app-name={app.name}>
+      <label>
+        <span data-i18n="评分">评分</span>
+        <select name="stars" aria-label="评分">
+          <option value="5">5</option>
+          <option value="4">4</option>
+          <option value="3">3</option>
+          <option value="2">2</option>
+          <option value="1">1</option>
+        </select>
+      </label>
+      <textarea name="text" required maxlength="280" placeholder="简短评价，审核通过后公开" data-i18n-ph="简短评价，审核通过后公开"></textarea>
+      <button class="btn sm primary" type="submit" data-i18n="提交评价">提交评价</button>
+      <p class="meta rate-result" role="status"></p>
+    </form>
+  </details>
 </article>
+
+<script>
+  const copy = {
+    zh: {
+      empty: "暂无评分",
+      people: "人评分",
+      invalid: "请选择 1–5 星并填写简短评价。",
+      ok: "已提交，审核通过后才会公开。",
+      fail: "提交失败：",
+    },
+    en: {
+      empty: "No ratings yet",
+      people: "ratings",
+      invalid: "Enter 1–5 stars and a short review.",
+      ok: "Submitted. It stays private until it is approved in Review.",
+      fail: "Could not submit: ",
+    },
+  };
+
+  const lang = () => (localStorage.getItem("tongtop.lang") === "en" ? "en" : "zh");
+
+  function label(entry) {
+    const text = copy[lang()];
+    const count = entry && typeof entry.count === "number" ? entry.count : 0;
+    const average = entry && typeof entry.average === "number" ? entry.average : NaN;
+    if (!Number.isInteger(count) || count < 1 || !Number.isFinite(average)) return text.empty;
+    return `${average.toFixed(1)} · ${count} ${text.people}`;
+  }
+
+  let payload = { apps: {} };
+
+  function renderRatings() {
+    const apps = payload.apps && typeof payload.apps === "object" ? payload.apps : {};
+    const byId = new Map(Object.entries(apps).map(([id, value]) => [id.toLowerCase(), value]));
+    document.querySelectorAll("[data-rating-for]").forEach((el) => {
+      const id = (el.getAttribute("data-rating-for") || "").toLowerCase();
+      el.textContent = label(byId.get(id));
+    });
+  }
+
+  fetch("/api/data/ratings.json")
+    .then((resp) => (resp.ok ? resp.json() : null))
+    .then((data) => {
+      if (data && typeof data === "object") payload = data;
+      renderRatings();
+    })
+    .catch(() => renderRatings());
+
+  document.getElementById("lang-toggle")?.addEventListener("click", () => {
+    setTimeout(renderRatings, 0);
+  });
+  new MutationObserver(renderRatings).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["lang"],
+  });
+
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-rating-form")) return;
+    event.preventDefault();
+    const result = form.querySelector(".rate-result");
+    const button = form.querySelector("button[type=submit]");
+    const data = new FormData(form);
+    const text = String(data.get("text") ?? "").trim();
+    const stars = Number(data.get("stars"));
+    const say = (message) => {
+      if (result) result.textContent = message;
+    };
+    const textCopy = copy[lang()];
+    if (!text || !Number.isInteger(stars) || stars < 1 || stars > 5) {
+      say(textCopy.invalid);
+      return;
+    }
+    if (button instanceof HTMLButtonElement) button.disabled = true;
+    try {
+      const resp = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "rating",
+          name: form.getAttribute("data-app-name") || "",
+          refId: form.getAttribute("data-app-id") || "",
+          stars,
+          desc: text,
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json.ok) throw new Error(typeof json.error === "string" ? json.error : `HTTP ${resp.status}`);
+      say(textCopy.ok);
+      form.reset();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      say(`${textCopy.fail}${message}`);
+    } finally {
+      if (button instanceof HTMLButtonElement) button.disabled = false;
+    }
+  });
+</script>
