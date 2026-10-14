@@ -26,10 +26,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: node scripts/validate-data.mjs
-      - run: node --test scripts/validate-data.test.mjs
       - run: pnpm test
       - run: pnpm build
+      - run: node scripts/validate-data.mjs
+      - run: node --test scripts/validate-data.test.mjs
 
   web:
     runs-on: windows-latest
