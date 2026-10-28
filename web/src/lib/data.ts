@@ -50,6 +50,11 @@ export interface AgentEntry {
   name: string;
   vendor: string;
   desc: string;
+  /**
+   * 「好用程度」排序权重（1 = 最推荐，缺省视为最后一档）。
+   * 只在开源/闭源组内生效。规则与桌面端 `src/catalog/agents.ts` 的 `sortAgents` 相同。
+   */
+  rank?: number;
   homepage: string;
   runtime: "node" | "python" | "none";
   runtimeLabel?: string;
@@ -103,16 +108,26 @@ export const CATEGORIES: { id: string; label: string }[] = categoriesJson;
 export const APPS: AppEntry[] = appsJson as AppEntry[];
 
 /** 闭源判定：concerns 含 "closed"（不接受公众审查，数据泄露/被用于训练的风险更高） */
-export function isClosed(agent: AgentEntry): boolean {
+export function isClosed(agent: Pick<AgentEntry, "concerns">): boolean {
   return (agent.concerns ?? []).includes("closed");
 }
 
-/** 排序铁律：任何闭源 Harness 不得排在开源 Harness 前面（组内保持原有相对顺序） */
-const agentsAll = agentsJson as AgentEntry[];
-export const AGENTS: AgentEntry[] = [
-  ...agentsAll.filter((a) => !isClosed(a)),
-  ...agentsAll.filter((a) => isClosed(a)),
-];
+/**
+ * 与桌面端 `sortAgents` 同一套规则：
+ *  1. 任何闭源智能体不得排在开源智能体之前；
+ *  2. 同组内按 `rank` 升序（1 最推荐，缺省视为最后一档）；
+ *  3. rank 相同保持数据源原有顺序。
+ */
+export function sortAgents<T extends Pick<AgentEntry, "concerns" | "rank">>(list: readonly T[]): T[] {
+  const weight = (agent: T) => agent.rank ?? Number.MAX_SAFE_INTEGER;
+  return [...list].sort((a, b) => {
+    const closed = Number(isClosed(a)) - Number(isClosed(b));
+    if (closed !== 0) return closed;
+    return weight(a) - weight(b);
+  });
+}
+
+export const AGENTS: AgentEntry[] = sortAgents(agentsJson as AgentEntry[]);
 export const MIRRORS: MirrorTool[] = mirrorsJson.tools as MirrorTool[];
 export const FREE_MODELS: { updatedAt: string; providers: FreeModelProvider[] } = freeModelsJson;
 
