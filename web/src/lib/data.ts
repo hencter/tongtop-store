@@ -18,6 +18,12 @@ export interface AppEntry {
   tags?: string[];
   github?: string;
   ai?: boolean;
+  /** 许可证和仓库已核对的开源或自由软件 */
+  oss?: boolean;
+  /** 展示用许可证简称，对应 proof 里的原文 */
+  license?: string;
+  /** 许可证文件、GitHub 数字、winget 版本或 X 帖子 */
+  proof?: string;
 }
 
 export interface EnvSpec {

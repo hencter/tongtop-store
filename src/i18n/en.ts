@@ -507,6 +507,9 @@ export const EN: Record<string, string> = {
   "游戏库与联机平台": "Game libraries and launchers",
   "重装系统后最先补上的那些：输入、解压、沟通、播放、系统增强":
     "The first things to bring back after a reinstall: input, archives, chat, playback and system extras",
+  "开源免费": "Open source and free",
+  "2026-11-03 核对过许可证、GitHub 或上游说明，以及 winget 包":
+    "License, GitHub or upstream notice, and the winget package were checked on 2026-11-03",
   "安装状态": "Status",
   "全部状态": "Any status",
   "来源": "Source",

@@ -6,12 +6,16 @@ import { APPS, CATEGORIES } from "../lib/data";
 <Base title="软件库 · TongTop Store" description="精选软件目录，全部经 winget 官方源验证。">
   <h1 class="page-title">软件库</h1>
   <p class="page-sub">
-    共 {APPS.length} 个精选条目，全部经 winget 官方源验证。点「复制安装命令」到终端即可安装，
-    也可以直接在桌面客户端里一键装。
+    共 {APPS.length} 个精选条目，全部经 winget 官方源验证。带许可证的条目在 2026-11-03 核对过仓库许可证、
+    star 数或上游说明。点「复制安装命令」到终端即可安装，也可以直接在桌面客户端里一键装。
+  </p>
+  <p class="page-sub">
+    RustDesk 在 2026-11-03 被 X 用户 @_guillecasaus 当成免费开源的远程控制推荐（GitHub rustdesk/rustdesk，AGPL-3.0，当天 128018 stars），但 winget 没有正式包，所以没有放进一键安装。
   </p>
 
   <div class="filters" id="cats">
     <button class="chip active" data-cat="all">全部</button>
+    <button class="chip" data-cat="oss" data-i18n="开源">开源</button>
     {CATEGORIES.map((c) => <button class="chip" data-cat={c.id}>{c.label}</button>)}
   </div>
   <input id="q" type="search" placeholder="搜索名称 / ID / 标签…" style="max-width:380px" />
@@ -23,6 +27,7 @@ import { APPS, CATEGORIES } from "../lib/data";
           class="app-cell"
           data-cat={app.category}
           data-ai={app.ai ? "1" : ""}
+          data-oss={app.oss ? "1" : ""}
           data-text={`${app.name} ${app.id} ${app.desc} ${(app.tags ?? []).join(" ")}`.toLowerCase()}
         >
           <AppCard app={app} />
@@ -48,7 +53,10 @@ import { APPS, CATEGORIES } from "../lib/data";
     let visible = 0;
     for (const cell of cells) {
       const okCat =
-        cat === "all" || cell.dataset.cat === cat || (cat === "ai" && cell.dataset.ai === "1");
+        cat === "all" ||
+        cell.dataset.cat === cat ||
+        (cat === "ai" && cell.dataset.ai === "1") ||
+        (cat === "oss" && cell.dataset.oss === "1");
       const okQuery = !query || cell.dataset.text.includes(query);
       const show = okCat && okQuery;
       cell.classList.toggle("hidden", !show);

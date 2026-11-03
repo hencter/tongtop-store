@@ -355,7 +355,10 @@
       "绘图",
       "开源"
     ],
-    "github": "jgraph/drawio-desktop"
+    "github": "jgraph/drawio",
+    "oss": true,
+    "license": "Apache-2.0",
+    "proof": "GitHub jgraph/drawio 标明 Apache-2.0，2026-11-03 为 9156 stars。winget JGraph.Draw。"
   },
   {
     "id": "Microsoft.VisualStudioCode",
@@ -390,7 +393,10 @@
     "tags": [
       "编辑器"
     ],
-    "github": "notepad-plus-plus/notepad-plus-plus"
+    "github": "notepad-plus-plus/notepad-plus-plus",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "LICENSE 写明 GNU GPL 第 3 版并附例外。GitHub notepad-plus-plus/notepad-plus-plus 2026-11-03 为 29774 stars。winget Notepad++.Notepad++。X @rimugu 2026-10-28、@mtdzen 2025-11-24 都把它列进 Windows 必装。"
   },
   {
     "id": "Git.Git",
@@ -459,7 +465,10 @@
       "投屏",
       "开源"
     ],
-    "github": "Genymobile/scrcpy"
+    "github": "Genymobile/scrcpy",
+    "oss": true,
+    "license": "Apache-2.0",
+    "proof": "GitHub Genymobile/scrcpy 标明 Apache-2.0，2026-11-03 为 153913 stars。winget Genymobile.scrcpy。"
   },
   {
     "id": "GitHub.cli",
@@ -482,7 +491,11 @@
     "category": "media",
     "tags": [
       "播放器"
-    ]
+    ],
+    "oss": true,
+    "license": "GPL-2.0",
+    "github": "videolan/vlc",
+    "proof": "GitHub videolan/vlc 标明 GPL-2.0，2026-11-03 为 20309 stars。winget VideoLAN.VLC。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
   },
   {
     "id": "Daum.PotPlayer",
@@ -548,7 +561,10 @@
       "直播",
       "录屏"
     ],
-    "github": "obsproject/obs-studio"
+    "github": "obsproject/obs-studio",
+    "oss": true,
+    "license": "GPL-2.0",
+    "proof": "GitHub obsproject/obs-studio 标明 GPL-2.0，2026-11-03 为 78882 stars。winget OBSProject.OBSStudio。"
   },
   {
     "id": "Bandisoft.Honeyview",
@@ -571,7 +587,10 @@
       "录屏",
       "开源"
     ],
-    "github": "ShareX/ShareX"
+    "github": "ShareX/ShareX",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub ShareX/ShareX 标明 GPL-3.0，2026-11-03 为 40608 stars。winget ShareX.ShareX。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
   },
   {
     "id": "lyswhut.lx-music-desktop",
@@ -613,7 +632,11 @@
     "category": "system",
     "tags": [
       "压缩"
-    ]
+    ],
+    "oss": true,
+    "license": "LGPL-2.1+",
+    "github": "ip7z/7zip",
+    "proof": "ip7z/7zip 的 DOC/License.txt：除另有说明的文件外为 GNU LGPL 2.1 或更高；RAR 相关文件另有 unRAR 限制。2026-11-03 该仓 4386 stars。winget 7zip.7zip。X @mtdzen 2025-11-24 列为 Windows 替代软件。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
   },
   {
     "id": "Bandisoft.Bandizip",
@@ -645,7 +668,10 @@
       "微软",
       "效率"
     ],
-    "github": "microsoft/PowerToys"
+    "github": "microsoft/PowerToys",
+    "oss": true,
+    "license": "MIT",
+    "proof": "GitHub microsoft/PowerToys 标明 MIT，2026-11-03 为 140484 stars。winget Microsoft.PowerToys。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
   },
   {
     "id": "FilesCommunity.Files",
@@ -657,7 +683,10 @@
       "文件管理器",
       "开源"
     ],
-    "github": "files-community/Files"
+    "github": "files-community/Files",
+    "oss": true,
+    "license": "MIT",
+    "proof": "GitHub files-community/Files 标明 MIT，2026-11-03 为 46472 stars。winget FilesCommunity.Files。"
   },
   {
     "id": "Ventoy.Ventoy",
@@ -669,7 +698,10 @@
       "启动盘",
       "开源"
     ],
-    "github": "ventoy/Ventoy"
+    "github": "ventoy/Ventoy",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub ventoy/Ventoy 标明 GPL-3.0，2026-11-03 为 80562 stars。winget Ventoy.Ventoy。"
   },
   {
     "id": "Rufus.Rufus",
@@ -681,7 +713,10 @@
       "启动盘",
       "开源"
     ],
-    "github": "pbatard/rufus"
+    "github": "pbatard/rufus",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub pbatard/rufus 标明 GPL-3.0，2026-11-03 为 38224 stars。winget Rufus.Rufus。"
   },
   {
     "id": "zhongyang219.TrafficMonitor.Full",
@@ -706,7 +741,10 @@
       "局域网",
       "开源"
     ],
-    "github": "localsend/localsend"
+    "github": "localsend/localsend",
+    "oss": true,
+    "license": "Apache-2.0",
+    "proof": "GitHub localsend/localsend 标明 Apache-2.0，2026-11-03 为 97158 stars。winget LocalSend.LocalSend。"
   },
   {
     "id": "agalwood.Motrix",
@@ -759,5 +797,443 @@
     "tags": [
       "同步"
     ]
+  },
+  {
+    "id": "KeePassXCTeam.KeePassXC",
+    "name": "KeePassXC",
+    "desc": "本地密码库，不把密码交给云端",
+    "site": "https://keepassxc.org/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "密码",
+      "本地"
+    ],
+    "github": "keepassxreboot/keepassxc",
+    "oss": true,
+    "license": "GPL-2.0-or-3.0",
+    "proof": "COPYING 写明 GPL-2.0 或 GPL-3.0。GitHub keepassxreboot/keepassxc 2026-11-03 为 29739 stars。winget KeePassXCTeam.KeePassXC 2.8.0。X @rimugu 2026-10-28 列为 Windows 必装。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Bitwarden.Bitwarden",
+    "name": "Bitwarden",
+    "desc": "开源密码管理，可自建服务器",
+    "site": "https://bitwarden.com/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "密码"
+    ],
+    "github": "bitwarden/clients",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "LICENSE.txt：仓库源码默认 GPL-3.0，bitwarden_license 目录另有 Bitwarden License。GitHub bitwarden/clients 2026-11-03 为 14135 stars，当天仍在推送。winget Bitwarden.Bitwarden 2026.10.3。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "TheDocumentFoundation.LibreOffice",
+    "name": "LibreOffice",
+    "desc": "自由办公套件，文档、表格和演示",
+    "site": "https://www.libreoffice.org/",
+    "category": "office",
+    "tags": [
+      "开源",
+      "办公",
+      "文档"
+    ],
+    "github": "LibreOffice/core",
+    "oss": true,
+    "license": "MPL-2.0",
+    "proof": "libreoffice.org/licenses：以 Mozilla Public License v2.0 发布，贡献同时按 MPL-2 与 LGPL-3+ 双许可。winget TheDocumentFoundation.LibreOffice 26.8.2.2。X @windowsforum 2026-11-03 报道 26.2 维护将于 11 月 30 日结束并建议升到 26.8；@Carlos_Gong 同日在下载这套版本。"
+  },
+  {
+    "id": "ONLYOFFICE.DesktopEditors",
+    "name": "ONLYOFFICE",
+    "desc": "开源桌面办公套件，兼容 Office 文档",
+    "site": "https://www.onlyoffice.com/",
+    "category": "office",
+    "tags": [
+      "开源",
+      "办公"
+    ],
+    "github": "ONLYOFFICE/DesktopEditors",
+    "oss": true,
+    "license": "AGPL-3.0",
+    "proof": "GitHub ONLYOFFICE/DesktopEditors 标明 AGPL-3.0，2026-11-03 为 5688 stars。winget ONLYOFFICE.DesktopEditors 10.0.0。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Joplin.Joplin",
+    "name": "Joplin",
+    "desc": "开源笔记，Markdown，可自建同步",
+    "site": "https://joplinapp.org/",
+    "category": "office",
+    "tags": [
+      "开源",
+      "笔记"
+    ],
+    "github": "laurent22/joplin",
+    "oss": true,
+    "license": "AGPL-3.0-or-later",
+    "proof": "LICENSE：默认 AGPL-3.0-or-later，子目录若自带 LICENSE 则例外。GitHub laurent22/joplin 2026-11-03 为 57007 stars。winget Joplin.Joplin 3.7.22。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "SumatraPDF.SumatraPDF",
+    "name": "SumatraPDF",
+    "desc": "轻量 PDF 阅读器",
+    "site": "https://www.sumatrapdfreader.org/",
+    "category": "office",
+    "tags": [
+      "开源",
+      "PDF"
+    ],
+    "github": "sumatrapdfreader/sumatrapdf",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub sumatrapdfreader/sumatrapdf 标明 GPL-3.0，2026-11-03 为 17916 stars。winget SumatraPDF.SumatraPDF 3.6.1。"
+  },
+  {
+    "id": "GIMP.GIMP",
+    "name": "GIMP",
+    "desc": "开源图像编辑",
+    "site": "https://www.gimp.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "图像"
+    ],
+    "github": "GNOME/gimp",
+    "oss": true,
+    "license": "GPL",
+    "proof": "GNOME/gimp 的 LICENSE：官方发行版中未另行许可的部分使用 GNU GPL（全文在 COPYING）。2026-11-03 该镜像 6563 stars。winget GIMP.GIMP 3.2.6。X @mtdzen 2025-11-24 列为 Windows 替代软件。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "KDE.Krita",
+    "name": "Krita",
+    "desc": "开源绘画和插画",
+    "site": "https://krita.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "绘画"
+    ],
+    "github": "KDE/krita",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub KDE/krita 标明 GPL-3.0，2026-11-03 为 10683 stars。winget KDE.Krita 5.3.4.1。X @PearlteaRizzy 2025-08-13 把它和 LibreOffice 一起列为桌面应用。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Inkscape.Inkscape",
+    "name": "Inkscape",
+    "desc": "开源矢量图编辑",
+    "site": "https://inkscape.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "矢量"
+    ],
+    "oss": true,
+    "license": "GPL-2.0-or-later",
+    "proof": "GitLab inkscape/inkscape 的 COPYING：大部分源码是 GPL-2.0 或更高。winget Inkscape.Inkscape 1.4.4。X @mtdzen 2025-11-24 列为 Windows 替代软件。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "BlenderFoundation.Blender",
+    "name": "Blender",
+    "desc": "开源三维制作",
+    "site": "https://www.blender.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "三维"
+    ],
+    "github": "blender/blender",
+    "oss": true,
+    "license": "GPL",
+    "proof": "blender/blender 的 COPYING：使用 GNU GPL，不再以其他许可证提供。2026-11-03 该仓 21576 stars。winget BlenderFoundation.Blender 5.2.3。X @mtdzen 2025-11-24 列为 Windows 替代软件。"
+  },
+  {
+    "id": "Audacity.Audacity",
+    "name": "Audacity",
+    "desc": "开源音频录制和编辑",
+    "site": "https://www.audacityteam.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "音频"
+    ],
+    "github": "audacity/audacity",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "LICENSE.txt：Audacity 以 GPLv3 发布。GitHub audacity/audacity 2026-11-03 为 18944 stars。winget Audacity.Audacity 4.0.2。X @mtdzen 2025-11-24 列为 Windows 替代软件。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "HandBrake.HandBrake",
+    "name": "HandBrake",
+    "desc": "开源视频转码",
+    "site": "https://handbrake.fr/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "视频"
+    ],
+    "github": "HandBrake/HandBrake",
+    "oss": true,
+    "license": "GPL-2.0",
+    "proof": "LICENSE：编译后的 HandBrake 以 GPLv2 发布。GitHub HandBrake/HandBrake 2026-11-03 为 24873 stars。winget HandBrake.HandBrake 1.11.2。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Upscayl.Upscayl",
+    "name": "Upscayl",
+    "desc": "开源图片放大，本地运行",
+    "site": "https://upscayl.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "图像",
+      "AI"
+    ],
+    "github": "upscayl/upscayl",
+    "oss": true,
+    "license": "AGPL-3.0",
+    "ai": true,
+    "proof": "GitHub upscayl/upscayl 标明 AGPL-3.0，2026-11-03 为 51686 stars。winget Upscayl.Upscayl 2.15.0。X @AISystems_hq 2026-11-03 把它列为 Windows、macOS、Linux 都能用的免费开源放大工具。"
+  },
+  {
+    "id": "qBittorrent.qBittorrent",
+    "name": "qBittorrent",
+    "desc": "开源 BitTorrent 客户端，无广告",
+    "site": "https://www.qbittorrent.org/",
+    "category": "netdisk",
+    "tags": [
+      "开源",
+      "下载"
+    ],
+    "github": "qbittorrent/qBittorrent",
+    "oss": true,
+    "license": "GPL-2.0-or-later",
+    "proof": "COPYING：源码 GPLv2 或更高，二进制因包含 GPLv3 资源而为 GPLv3 或更高。GitHub qbittorrent/qBittorrent 2026-11-03 为 41330 stars。winget qBittorrent.qBittorrent 5.3.0。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "M2Team.NanaZip",
+    "name": "NanaZip",
+    "desc": "现代 7-Zip，支持 Windows 11 右键菜单",
+    "site": "https://nanazip.org/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "压缩"
+    ],
+    "github": "M2Team/NanaZip",
+    "oss": true,
+    "license": "MIT",
+    "proof": "License.md：NanaZip 自身代码是 MIT，不含 7-Zip 上游代码。GitHub M2Team/NanaZip 2026-11-03 为 16132 stars。winget M2Team.NanaZip 7.0.1882.0。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Giorgiotani.Peazip",
+    "name": "PeaZip",
+    "desc": "开源压缩和解压",
+    "site": "https://peazip.github.io/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "压缩"
+    ],
+    "github": "peazip/PeaZip",
+    "oss": true,
+    "license": "LGPL-3.0",
+    "proof": "GitHub peazip/PeaZip 标明 LGPL-3.0，2026-11-03 为 8062 stars。winget Giorgiotani.Peazip 11.3.0。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "WinSCP.WinSCP",
+    "name": "WinSCP",
+    "desc": "开源 SFTP、FTP 和 SCP 客户端",
+    "site": "https://winscp.net/",
+    "category": "netdisk",
+    "tags": [
+      "开源",
+      "SFTP"
+    ],
+    "github": "winscp/winscp",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "license.txt 收录 GNU GPL 第 3 版。GitHub winscp/winscp 2026-11-03 为 3927 stars。winget WinSCP.WinSCP 6.7。X @rimugu 2026-10-28 列为 Windows 必装。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Syncthing.Syncthing",
+    "name": "Syncthing",
+    "desc": "设备之间直接同步文件，不经过网盘",
+    "site": "https://syncthing.net/",
+    "category": "netdisk",
+    "tags": [
+      "开源",
+      "同步"
+    ],
+    "github": "syncthing/syncthing",
+    "oss": true,
+    "license": "MPL-2.0",
+    "proof": "GitHub syncthing/syncthing 标明 MPL-2.0，2026-11-03 为 90037 stars。winget Syncthing.Syncthing 2.1.7。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Cryptomator.Cryptomator",
+    "name": "Cryptomator",
+    "desc": "把网盘里的文件先加密再上传",
+    "site": "https://cryptomator.org/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "加密"
+    ],
+    "github": "cryptomator/cryptomator",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub cryptomator/cryptomator 标明 GPL-3.0，2026-11-03 为 16437 stars。winget Cryptomator.Cryptomator 1.19.6。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "IDRIX.VeraCrypt",
+    "name": "VeraCrypt",
+    "desc": "磁盘和卷加密",
+    "site": "https://www.veracrypt.fr/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "加密"
+    ],
+    "github": "veracrypt/VeraCrypt",
+    "oss": true,
+    "license": "Apache-2.0",
+    "proof": "License.txt：Apache-2.0 与 TrueCrypt License 3.0 双许可。GitHub veracrypt/VeraCrypt 2026-11-03 为 12042 stars。winget IDRIX.VeraCrypt 1.26.29。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "GnuPG.Gpg4win",
+    "name": "Gpg4win",
+    "desc": "Windows 上的 GnuPG 邮件和文件加密",
+    "site": "https://www.gpg4win.org/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "加密"
+    ],
+    "github": "gpg/gpg4win",
+    "oss": true,
+    "license": "GPL-2.0",
+    "proof": "GitHub gpg/gpg4win 标明 GPL-2.0（镜像，上游在 git.gnupg.org），2026-11-03 为 224 stars。winget GnuPG.Gpg4win 5.1.1。X @rimugu 2026-10-28 列为 Windows 必装。"
+  },
+  {
+    "id": "Bruno.Bruno",
+    "name": "Bruno",
+    "desc": "开源 API 客户端，集合存在本地 Git 仓库",
+    "site": "https://www.usebruno.com/",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "API"
+    ],
+    "github": "usebruno/bruno",
+    "oss": true,
+    "license": "MIT",
+    "proof": "GitHub usebruno/bruno 标明 MIT，2026-11-03 为 48010 stars，当天仍在推送。winget Bruno.Bruno 4.3.0。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "DBeaver.DBeaver.Community",
+    "name": "DBeaver",
+    "desc": "开源数据库客户端",
+    "site": "https://dbeaver.io/",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "数据库"
+    ],
+    "github": "dbeaver/dbeaver",
+    "oss": true,
+    "license": "Apache-2.0",
+    "proof": "GitHub dbeaver/dbeaver 标明 Apache-2.0，2026-11-03 为 52288 stars。winget 用社区版 DBeaver.DBeaver.Community 26.2.0，不是企业版。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Eugeny.Tabby",
+    "name": "Tabby",
+    "desc": "开源终端，SSH 和串口",
+    "site": "https://tabby.sh/",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "终端"
+    ],
+    "github": "Eugeny/tabby",
+    "oss": true,
+    "license": "MIT",
+    "proof": "GitHub Eugeny/tabby 标明 MIT，2026-11-03 为 75272 stars。winget Eugeny.Tabby 1.0.238。不要和 TabbyML.Tabby 搞混。X @rimugu 2026-10-28 用它换掉 PuTTY。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "Flameshot.Flameshot",
+    "name": "Flameshot",
+    "desc": "开源截图和标注",
+    "site": "https://flameshot.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "截图"
+    ],
+    "github": "flameshot-org/flameshot",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub flameshot-org/flameshot 标明 GPL-3.0，2026-11-03 为 31402 stars。winget Flameshot.Flameshot 14.0.0。清单 0PandaDEV/awesome-windows（CC0，3118 stars，2026-10-28）。"
+  },
+  {
+    "id": "DuongDieuPhap.ImageGlass",
+    "name": "ImageGlass",
+    "desc": "开源看图",
+    "site": "https://imageglass.org/",
+    "category": "media",
+    "tags": [
+      "开源",
+      "看图"
+    ],
+    "github": "d2phap/ImageGlass",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "LICENSE：源码以 GPLv3 发布，个人和商业使用都允许。GitHub d2phap/ImageGlass 2026-11-03 为 14801 stars。winget DuongDieuPhap.ImageGlass 10.0.906.0。"
+  },
+  {
+    "id": "WinDirStat.WinDirStat",
+    "name": "WinDirStat",
+    "desc": "看磁盘空间被哪些目录占掉",
+    "site": "https://windirstat.net/",
+    "category": "system",
+    "tags": [
+      "开源",
+      "磁盘"
+    ],
+    "github": "windirstat/windirstat",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub windirstat/windirstat 标明 GPL-3.0，2026-11-03 为 4471 stars。winget WinDirStat.WinDirStat 2.9.3。X @mtdzen 2025-11-24 列为 Windows 替代软件。"
+  },
+  {
+    "id": "mpv.net",
+    "name": "mpv.net",
+    "desc": "mpv 的 Windows 前端",
+    "site": "https://github.com/stax76/mpv.net",
+    "category": "media",
+    "tags": [
+      "开源",
+      "播放器"
+    ],
+    "github": "stax76/mpv.net",
+    "oss": true,
+    "license": "GPL-2.0",
+    "proof": "GitHub stax76/mpv.net 标明 GPL-2.0，2026-11-03 为 5536 stars，最近推送是 2026-02-09。winget 包名就是 mpv.net 7.1.2.0。上游播放器 mpv-player/mpv 2026-11-03 为 37690 stars。"
+  },
+  {
+    "id": "TorProject.TorBrowser",
+    "name": "Tor Browser",
+    "desc": "走 Tor 网络的浏览器",
+    "site": "https://www.torproject.org/download/",
+    "category": "browser",
+    "tags": [
+      "开源",
+      "浏览器",
+      "隐私"
+    ],
+    "oss": true,
+    "license": "自由软件",
+    "proof": "winget TorProject.TorBrowser 16.0。X @rimugu 2026-10-28 把它和 KeePassXC、WinSCP、VLC 一起列为 Windows 必装。许可证以 Tor Project 的发布说明为准，这里没有把某一份 SPDX 当成整包许可证。"
   }
 ]

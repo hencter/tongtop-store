@@ -17,11 +17,16 @@ const cmd = `winget install --id ${app.id} -e`;
       <div class="meta">{categoryLabel(app.category)}</div>
     </div>
     {app.ai && <span class="badge ai">AI</span>}
+    {app.oss && <span class="badge ok">{app.license ?? "开源"}</span>}
   </div>
   <p class="desc">{app.desc}</p>
+  {app.proof && <p class="proof">{app.proof}</p>}
   <div class="actions">
     <button class="btn sm" data-copy-text={cmd} title={cmd}>复制安装命令</button>
     <a class="btn sm" href={app.site} target="_blank" rel="noopener">官网</a>
+    {app.github && (
+      <a class="btn sm" href={`https://github.com/${app.github}`} target="_blank" rel="noopener">GitHub</a>
+    )}
   </div>
   <div class="vote-row">
     <span class="meta">这条推荐靠谱吗？</span>
@@ -37,5 +42,11 @@ const cmd = `winget install --id ${app.id} -e`;
     flex-wrap: wrap;
     border-top: 1px dashed var(--border);
     padding-top: 8px;
+  }
+  .proof {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+    margin: 0;
   }
 </style>

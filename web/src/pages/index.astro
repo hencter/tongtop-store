@@ -5,6 +5,19 @@ import BrandLogo from "../components/BrandLogo.astro";
 import { APPS, AGENTS, FREE_MODELS, MIRRORS, appsByCategory, installCommand, isClosed } from "../lib/data";
 
 const aiApps = appsByCategory("ai").slice(0, 8);
+const ossHomeIds = [
+  "KeePassXCTeam.KeePassXC",
+  "TheDocumentFoundation.LibreOffice",
+  "Syncthing.Syncthing",
+  "KDE.Krita",
+  "M2Team.NanaZip",
+  "Bruno.Bruno",
+  "Upscayl.Upscayl",
+  "Joplin.Joplin",
+];
+const ossApps = ossHomeIds
+  .map((id) => APPS.find((app) => app.id === id))
+  .filter((app) => app !== undefined);
 const agents = AGENTS.slice(0, 8);
 const mockAgents = AGENTS.filter((a) => !a.desktopNames).slice(0, 4);
 const stats = [
@@ -155,6 +168,39 @@ const download =
           <div class="home-tags">
             <span class="badge">AI 应用</span>
             {(a.tags ?? []).slice(0, 2).map((t) => <span class="badge">{t}</span>)}
+          </div>
+          <div class="actions">
+            <button class="btn primary sm home-cmd" data-copy-text={`winget install --id ${a.id} -e`} data-i18n="复制安装命令">复制安装命令</button>
+            <a class="btn sm" href={a.site} target="_blank" rel="noopener" title={a.site}>
+              <svg viewBox="0 0 24 24" set:html={extLink} />
+            </a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <!-- 开源免费：许可证和 winget 都核对过 -->
+  <section class="section">
+    <div class="section-head">
+      <h2>
+        <span data-i18n="开源免费">开源免费</span>
+        <small class="section-sub" data-i18n="许可证、GitHub 和 winget 包都在 2026-11-03 核对过">许可证、GitHub 和 winget 包都在 2026-11-03 核对过</small>
+      </h2>
+      <a class="more" href="/apps?cat=oss"><span data-i18n="查看更多">查看更多</span> →</a>
+    </div>
+    <div class="grid home-cards">
+      {ossApps.map((a) => (
+        <article class="card home-card">
+          <div class="row">
+            <Icon id={a.id} name={a.name} size={40} />
+            <div style="flex:1;min-width:0">
+              <h3>{a.name}</h3>
+              <div class="meta">{a.desc}</div>
+            </div>
+          </div>
+          <div class="home-tags">
+            <span class="badge ok">{a.license}</span>
           </div>
           <div class="actions">
             <button class="btn primary sm home-cmd" data-copy-text={`winget install --id ${a.id} -e`} data-i18n="复制安装命令">复制安装命令</button>
