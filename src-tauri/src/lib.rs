@@ -931,7 +931,7 @@ fn elevated_script(cmdline: &str, dir: &std::path::Path) -> String {
     let log = dir.join("winget.log");
     let done = dir.join("exit.txt");
     format!(
-        "@echo off\r\nchcp 65001 >nul\r\n{cmdline} >\"{log}\" 2>&1\r\n>\"{done}\" echo %errorlevel%\r\n",
+        "@echo off\r\nchcp 65001 >nul\r\nset SEE_MASK_NOZONECHECKS=1\r\n{cmdline} >\"{log}\" 2>&1\r\n>\"{done}\" echo %errorlevel%\r\n",
         cmdline = cmdline,
         log = log.display(),
         done = done.display(),
@@ -1371,6 +1371,7 @@ fn download_installer(
         .join("tongtop-dl")
         .join(url_filename(url));
     fast_download(app, id, &fastdl::sources_for(url, proxies), &dest, cancel)?;
+    process::unblock_path(&dest);
     emit_lines(app, id, vec!["开始安装…".into()]);
     Ok(dest)
 }
@@ -1411,12 +1412,14 @@ fn winget_prefetch(
         return Err(format!("安装包哈希与 winget 清单不符（预期 {}，实际 {actual}）", inst.sha256));
     }
     std::fs::rename(&part, &dest).map_err(|e| format!("无法写入 winget 缓存：{e}"))?;
+    process::unblock_path(&dest);
     Ok("已校验 SHA256，交给 winget 安装（将复用已下载的安装包）。".into())
 }
 
 /// 安装包执行命令：msi 走 msiexec 静默，exe 用调用方给的静默参数（无则交互式）。
 fn installer_command(file: &std::path::Path, args: &[String]) -> std::process::Command {
-    if file.extension().is_some_and(|e| e == "msi") {
+    process::unblock_path(file);
+    let mut c = if file.extension().is_some_and(|e| e == "msi") {
         let mut c = std::process::Command::new("msiexec.exe");
         c.arg("/i").arg(file);
         if args.is_empty() {
@@ -1429,7 +1432,9 @@ fn installer_command(file: &std::path::Path, args: &[String]) -> std::process::C
         let mut c = std::process::Command::new(file);
         c.args(args);
         c
-    }
+    };
+    process::skip_attachment_prompt(&mut c);
+    c
 }
 
 struct RunOutcome {
@@ -1606,6 +1611,24 @@ fn stream_task(
         }
     }
 
+    // winget 边下边跑安装包：下载瞬间会打上 MOTW，ShellExecute 就会弹「无法验证发布者」。
+    // 安装期间反复清 Zone.Identifier，配合 SEE_MASK_NOZONECHECKS 把这个框压掉。
+    let motw_stop = Arc::new(AtomicBool::new(false));
+    let motw_join = if retryable || spec.kind == "download" {
+        let stop = motw_stop.clone();
+        Some(std::thread::spawn(move || {
+            let dir = std::env::temp_dir().join("WinGet");
+            let dl = std::env::temp_dir().join("tongtop-dl");
+            while !stop.load(Ordering::Relaxed) {
+                process::unblock_installers_under(&dir);
+                process::unblock_installers_under(&dl);
+                std::thread::sleep(Duration::from_millis(200));
+            }
+        }))
+    } else {
+        None
+    };
+
     let mut outcome = if let Some(cmdline) = elevated_cmdline.as_deref() {
         emit_lines(
             &app,
@@ -1672,6 +1695,11 @@ fn stream_task(
     }
     if matches!(outcome.decision, Some(SlowReason::Timeout)) {
         emit_lines(&app, &id, vec!["任务超过 30 分钟，已强制终止。".into()]);
+    }
+
+    motw_stop.store(true, Ordering::Relaxed);
+    if let Some(t) = motw_join {
+        let _ = t.join();
     }
 
     // 普通（未提权）的 winget 安装/更新失败 → 前端给「以管理员身份重试」
@@ -2619,6 +2647,7 @@ mod elevation_tests {
         let dir = std::path::Path::new("C:\\Temp\\tt-elev-test");
         let s = elevated_script("winget install -e --id 7zip.7zip -h", dir);
         assert!(s.contains("chcp 65001"));
+        assert!(s.contains("SEE_MASK_NOZONECHECKS=1"));
         assert!(s.contains("winget install -e --id 7zip.7zip -h >"));
         assert!(s.contains("winget.log"));
         assert!(s.contains("echo %errorlevel%"));

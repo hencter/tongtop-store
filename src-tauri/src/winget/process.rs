@@ -6,11 +6,57 @@
 //!   尾字节范围是 0x40–0xFE，绝不含 0x0A / 0x0D，所以字节级切分是安全的）；
 //! - 事件在 lib.rs 侧按时间窗合并后再发给前端，避免进度条 `\r` 高频刷新打爆 IPC。
 
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 /// Windows 下不弹控制台黑窗。
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// 用户已在商店点了安装：跳过「打开文件 - 安全警告 / 无法验证发布者」。
+///
+/// 安装包从网上落到 `%TEMP%\WinGet\…` 时会带 Mark of the Web（Zone.Identifier）。
+/// 未签名的 setup.exe 被 ShellExecute 拉起就会弹这个框，看起来像权限确认，
+/// 静默安装时还经常闪在商店窗口后面。不关 UAC、不关 SmartScreen，只跳过 MOTW。
+pub fn skip_attachment_prompt(cmd: &mut Command) {
+    cmd.env("SEE_MASK_NOZONECHECKS", "1");
+}
+
+/// 删除 NTFS 备用数据流 `文件:Zone.Identifier`。路径不存在或非 NTFS 时忽略。
+pub fn unblock_path(path: &Path) {
+    #[cfg(windows)]
+    {
+        let mut ads = path.as_os_str().to_os_string();
+        ads.push(":Zone.Identifier");
+        let _ = std::fs::remove_file(&ads);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+    }
+}
+
+/// 递归去掉目录下安装包的 MOTW（winget 自己下载到 `%TEMP%\WinGet` 的那批）。
+pub fn unblock_installers_under(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            unblock_installers_under(&p);
+            continue;
+        }
+        let ext = p
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if matches!(ext.as_str(), "exe" | "msi" | "msix" | "appx" | "msixbundle") {
+            unblock_path(&p);
+        }
+    }
+}
 
 /// 构造一个 winget 命令（stdout/stderr 管道、无窗口）。
 pub fn winget_cmd(args: &[String]) -> Command {
@@ -19,6 +65,7 @@ pub fn winget_cmd(args: &[String]) -> Command {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::null());
+    skip_attachment_prompt(&mut cmd);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -195,5 +242,30 @@ mod tests {
         let d2 = parse_download("已下载 512 KB / 1.0 MB").unwrap();
         assert_eq!(d2.done, 512 * 1024);
         assert!(parse_download("没有进度").is_none());
+    }
+
+    #[test]
+    fn winget_cmd_skips_motw_zone_check() {
+        let cmd = winget_cmd(&["--version".into()]);
+        match cmd.get_envs().find(|(k, _)| *k == "SEE_MASK_NOZONECHECKS") {
+            Some((_, Some(v))) => assert_eq!(v, std::ffi::OsStr::new("1")),
+            other => panic!("应设置 SEE_MASK_NOZONECHECKS=1，实际 {other:?}"),
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn unblock_path_removes_zone_identifier() {
+        let dir = std::env::temp_dir().join(format!("tongtop-motw-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("setup.exe");
+        std::fs::write(&f, b"mz").unwrap();
+        let mut ads = f.as_os_str().to_os_string();
+        ads.push(":Zone.Identifier");
+        std::fs::write(&ads, "[ZoneTransfer]\r\nZoneId=3\r\n").unwrap();
+        assert!(std::fs::read(&ads).is_ok(), "写入 MOTW 失败");
+        unblock_path(&f);
+        assert!(std::fs::read(&ads).is_err(), "Zone.Identifier 应已删除");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
