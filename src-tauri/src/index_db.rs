@@ -63,9 +63,11 @@ fn open_at(path: &Path) -> Result<Connection, String> {
 
 fn kv_get_at(conn: &Connection, key: &str, ttl_secs: u64) -> Option<String> {
     let (value, time): (String, i64) = conn
-        .query_row("SELECT value, time FROM kv WHERE key = ?1", params![key], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })
+        .query_row(
+            "SELECT value, time FROM kv WHERE key = ?1",
+            params![key],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
         .ok()?;
     if now().saturating_sub(time as u64) >= ttl_secs {
         return None;
@@ -147,7 +149,9 @@ fn write_kind_at(path: &Path, kind: &str, rows: &[AppRow]) -> Result<(), String>
         .map_err(|e| e.to_string())?;
     {
         let mut stmt = tx
-            .prepare("INSERT INTO apps (kind, id, name, version, available) VALUES (?1, ?2, ?3, ?4, ?5)")
+            .prepare(
+                "INSERT INTO apps (kind, id, name, version, available) VALUES (?1, ?2, ?3, ?4, ?5)",
+            )
             .map_err(|e| e.to_string())?;
         for r in rows {
             stmt.execute(params![kind, r.id, r.name, r.version, r.available])
@@ -203,8 +207,18 @@ mod tests {
     fn snapshot_write_read_overwrite() {
         let p = temp_db("snap");
         let rows = vec![
-            AppRow { id: "B.B".into(), name: "B应用".into(), version: "1.0".into(), available: None },
-            AppRow { id: "A.A".into(), name: "a应用".into(), version: "2.0".into(), available: Some("3.0".into()) },
+            AppRow {
+                id: "B.B".into(),
+                name: "B应用".into(),
+                version: "1.0".into(),
+                available: None,
+            },
+            AppRow {
+                id: "A.A".into(),
+                name: "a应用".into(),
+                version: "2.0".into(),
+                available: Some("3.0".into()),
+            },
         ];
         write_kind_at(&p, "installed", &rows).unwrap();
         let conn = open_at(&p).unwrap();

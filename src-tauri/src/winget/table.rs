@@ -63,8 +63,7 @@ pub fn parse_table(output: &str) -> Option<Vec<Vec<String>>> {
     // 分隔线：去尾部空白后全由 '-' 和空格组成、且至少 5 个 '-'
     let sep = lines.iter().position(|l| {
         let t = l.trim_end();
-        t.chars().filter(|c| *c == '-').count() >= 5
-            && t.chars().all(|c| c == '-' || c == ' ')
+        t.chars().filter(|c| *c == '-').count() >= 5 && t.chars().all(|c| c == '-' || c == ' ')
     })?;
     if sep == 0 {
         return None;

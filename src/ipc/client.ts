@@ -84,6 +84,12 @@ export async function startTask(id: string, spec: TaskSpec): Promise<void> {
   return invoke("start_task", { id, spec });
 }
 
+/** 安装当前项时，后台把队列里后面的安装包先下到 winget 缓存。立即返回。 */
+export async function prefetchWinget(ids: string[], ghProxies: string[]): Promise<void> {
+  if (!isTauri() || ids.length === 0) return;
+  return invoke("prefetch_winget", { ids, ghProxies });
+}
+
 export async function cancelTask(id: string): Promise<boolean> {
   if (!isTauri()) return false;
   return invoke<boolean>("cancel_task", { id });

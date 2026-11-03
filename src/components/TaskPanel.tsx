@@ -1,7 +1,7 @@
 /** 任务面板：进度条 + 队列芯片 + 实时日志（宿主已按时间窗合并事件）。 */
 
 import { useEffect, useRef } from "react";
-import { CheckCircle2, Loader2, ShieldAlert, X, XCircle } from "lucide-react";
+import { ArrowDownToLine, CheckCircle2, Loader2, ShieldAlert, X, XCircle } from "lucide-react";
 import { parseWingetTaskId, useTaskStore } from "../state/taskStore";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 export function TaskPanel() {
   const running = useTaskStore((s) => s.running);
   const queue = useTaskStore((s) => s.queue);
+  const prefetch = useTaskStore((s) => s.prefetch);
   const progress = useTaskStore((s) => s.progress);
   const done = useTaskStore((s) => s.done);
   const lines = useTaskStore((s) => s.lines);
@@ -123,12 +124,18 @@ export function TaskPanel() {
       {queue.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-4 py-2">
           <span className="text-[11px] text-muted-foreground">排队：</span>
-          {queue.map((q) => (
+          {queue.map((q) => {
+            const wid = parseWingetTaskId(q.id)?.wingetId.toLowerCase();
+            const pf = wid ? prefetch[wid] : undefined;
+            return (
             <span
               key={q.id}
               className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px]"
-              title={q.id}
+              title={pf === "downloading" ? "后台预取" : pf === "ready" ? "安装包已预取" : q.id}
             >
+              {pf === "downloading" ? (
+                <ArrowDownToLine className="size-3 animate-pulse text-primary" />
+              ) : null}
               <span className="max-w-40 truncate">{q.label}</span>
               <button
                 className="rounded-full p-0.5 hover:bg-accent"
@@ -138,7 +145,8 @@ export function TaskPanel() {
                 <X className="size-3" />
               </button>
             </span>
-          ))}
+            );
+          })}
         </div>
       )}
 

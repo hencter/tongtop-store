@@ -52,7 +52,8 @@ pub fn valid_repo(repo: &str) -> bool {
 
 /// 解析 GitHub `releases/latest` 的 JSON。
 pub fn parse_release(repo: &str, json: &str) -> Result<GhRelease, String> {
-    let v: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("响应解析失败：{e}"))?;
+    let v: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| format!("响应解析失败：{e}"))?;
     if let Some(msg) = v.get("message").and_then(|m| m.as_str()) {
         // GitHub 错误体：{"message": "Not Found"} / rate limit 等
         return Err(format!("GitHub：{msg}"));

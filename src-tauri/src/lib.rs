@@ -12,6 +12,7 @@ mod gh;
 mod index_db;
 mod leftover;
 mod mirror;
+mod prefetch;
 mod terminal;
 mod tools;
 mod winget;
@@ -19,7 +20,7 @@ mod winget;
 use std::collections::HashMap;
 use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -89,6 +90,16 @@ struct TaskQueued {
     label: String,
 }
 
+/// 后台预取状态（安装当前项时，队列里后面的安装包走 HTTP 先下到 winget 缓存）。
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PrefetchEvent {
+    /// winget 包 id（不是任务 id）
+    id: String,
+    /// "downloading" | "ready" | "failed"
+    state: String,
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TaskLog {
@@ -140,7 +151,12 @@ pub struct TaskSpec {
     force_elevated: bool,
 }
 
-fn winget_action_args(action: &str, id: &str, silent: bool, location: Option<&str>) -> Result<Vec<String>, String> {
+fn winget_action_args(
+    action: &str,
+    id: &str,
+    silent: bool,
+    location: Option<&str>,
+) -> Result<Vec<String>, String> {
     let mut args: Vec<String> = match action {
         "install" | "upgrade" => vec![
             action.into(),
@@ -186,9 +202,14 @@ fn winget_action_args(action: &str, id: &str, silent: bool, location: Option<&st
 /// 准备好的任务：可直接跑的命令，或「先下载安装包再静默安装」两段式
 enum Prepared {
     Cmd(std::process::Command, String),
-    Download { url: String, args: Vec<String> },
+    Download {
+        url: String,
+        args: Vec<String>,
+    },
     /// 提权执行（UAC 一次）：命令经临时 .cmd 落盘，由 PowerShell `Start-Process -Verb RunAs` 拉起
-    Elevated { cmdline: String },
+    Elevated {
+        cmdline: String,
+    },
 }
 
 fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
@@ -196,10 +217,7 @@ fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
         "download" => {
             // 官网直链下载安装：解析来的安装包 URL → 下载 → 静默安装（args 为静默参数）
             let url = spec.url.clone().ok_or("缺少下载链接")?;
-            let label = spec
-                .display
-                .clone()
-                .unwrap_or_else(|| "下载并安装".into());
+            let label = spec.display.clone().unwrap_or_else(|| "下载并安装".into());
             Ok((
                 Prepared::Download {
                     url: url.clone(),
@@ -213,7 +231,12 @@ fn spec_command(spec: &TaskSpec) -> Result<(Prepared, String), String> {
             // 保证界面确认清单与实际执行范围完全一致（忽略/未勾选的软件不会收到升级命令）。
             let action = spec.action.clone().unwrap_or_else(|| "install".into());
             let id = spec.winget_id.clone().ok_or("缺少 wingetId")?;
-            let args = winget_action_args(&action, &id, spec.silent.unwrap_or(false), spec.location.as_deref())?;
+            let args = winget_action_args(
+                &action,
+                &id,
+                spec.silent.unwrap_or(false),
+                spec.location.as_deref(),
+            )?;
             let cmd_line = format!("winget {}", args.join(" "));
             let label = spec
                 .display
@@ -257,6 +280,12 @@ struct Engine {
     cancel: Option<Arc<AtomicBool>>,
     /// 提权子进程：取消时 taskkill 用（提权进程不在当前进程树里，Child::kill 无效）
     elevated_pid: Option<u32>,
+    /// 后台预取：当前项自己的预取还没结束时为 true，后台不要抢带宽
+    prefetch_hold: bool,
+    prefetch_queue: std::collections::VecDeque<String>,
+    prefetch_running: Option<String>,
+    prefetch_cancel: Option<Arc<AtomicBool>>,
+    prefetch_proxies: Vec<String>,
 }
 
 /// 当前运行任务的子进程槽位（重试时会被替换；取消操作经它 kill）
@@ -711,7 +740,11 @@ fn prefetch_release_notes(ids: Vec<String>) -> usize {
 // ---------- 文件活动监控 ----------
 
 #[tauri::command]
-fn activity_start(app: AppHandle, state: State<AppState>, roots: Vec<String>) -> Result<(), String> {
+fn activity_start(
+    app: AppHandle,
+    state: State<AppState>,
+    roots: Vec<String>,
+) -> Result<(), String> {
     let session = activity::start(app, roots)?;
     let mut guard = state.1.lock().map_err(|e| e.to_string())?;
     activity::stop(guard.take()); // 旧会话先停
@@ -1178,6 +1211,30 @@ fn schedule_next(app: &AppHandle, engine: &mut Engine) {
     engine.running = Some(id.clone());
     engine.child = Some(slot.clone());
     engine.cancel = Some(cancel.clone());
+    // 当前项自己的预取（有进度条）优先：后台预取等到它结束后再开。
+    if spec_needs_prefetch(&spec) {
+        engine.prefetch_hold = true;
+    }
+    if let Some(proxies) = spec.gh_proxies.as_ref() {
+        if !proxies.is_empty() {
+            engine.prefetch_proxies = proxies.clone();
+        }
+    }
+    let upcoming: Vec<String> = engine
+        .queue
+        .iter()
+        .filter(|(_, s)| spec_needs_prefetch(s))
+        .filter_map(|(_, s)| s.winget_id.clone())
+        .collect();
+    let inflight = engine.prefetch_running.clone();
+    let current = prefetch::winget_id_of_task(&id).map(str::to_string);
+    prefetch::enqueue(
+        &mut engine.prefetch_queue,
+        upcoming,
+        inflight.as_deref(),
+        current.as_deref(),
+        prefetch::LOOKAHEAD,
+    );
     let _ = app.emit(
         "task-started",
         TaskStarted {
@@ -1189,6 +1246,7 @@ fn schedule_next(app: &AppHandle, engine: &mut Engine) {
 
     let app2 = app.clone();
     std::thread::spawn(move || stream_task(app2, id, spec, prepared, slot, cancel));
+    kick_prefetch(app, engine);
 }
 
 // ---------- 下载看门狗：超时 / 停滞 / 过慢 → 自动切镜像重试 ----------
@@ -1255,11 +1313,7 @@ fn watchdog(watch: Arc<Mutex<WatchState>>, child: Arc<Mutex<Child>>) {
                             w.decision = Some(SlowReason::Stall);
                         } else {
                             let cutoff = Instant::now() - SPEED_WINDOW;
-                            while w
-                                .samples
-                                .front()
-                                .is_some_and(|(t, _)| *t < cutoff)
-                            {
+                            while w.samples.front().is_some_and(|(t, _)| *t < cutoff) {
                                 w.samples.pop_front();
                             }
                             if w.samples.len() >= 2 {
@@ -1305,21 +1359,32 @@ fn url_filename(url: &str) -> String {
 }
 
 /// 多线路多连接下载，进度走 task-log（进度条 + 每 25% 一行文字，含实时速度）。
+/// `quiet`：后台预取用，不往当前任务的日志/进度条里灌。
 fn fast_download(
     app: &AppHandle,
     id: &str,
     sources: &[String],
     dest: &std::path::Path,
     cancel: &AtomicBool,
+    quiet: bool,
 ) -> Result<(), String> {
     let lines = if sources.len() > 1 {
-        format!("多线路加速下载（原地址 + {} 个加速代理）：{}", sources.len() - 1, sources[0])
+        format!(
+            "多线路加速下载（原地址 + {} 个加速代理）：{}",
+            sources.len() - 1,
+            sources[0]
+        )
     } else {
         format!("开始下载：{}", sources[0])
     };
-    emit_lines(app, id, vec![lines]);
+    if !quiet {
+        emit_lines(app, id, vec![lines]);
+    }
     let last_mark = std::sync::atomic::AtomicU64::new(0);
     let sum = fastdl::download(sources, dest, cancel, |got, total, bps| {
+        if quiet {
+            return;
+        }
         let pct = (total > 0).then(|| (got * 100 / total).min(100) as u8);
         let _ = app.emit(
             "task-log",
@@ -1344,18 +1409,20 @@ fn fast_download(
             );
         }
     })?;
-    emit_lines(
-        app,
-        id,
-        vec![format!(
-            "下载完成：{:.1} MB，用时 {:.0} 秒，平均 {:.1} MB/s（{} 连接 / {} 条线路出力）",
-            sum.bytes as f64 / 1e6,
-            sum.secs,
-            sum.bytes as f64 / 1e6 / sum.secs.max(0.001),
-            sum.connections,
-            sum.sources_used
-        )],
-    );
+    if !quiet {
+        emit_lines(
+            app,
+            id,
+            vec![format!(
+                "下载完成：{:.1} MB，用时 {:.0} 秒，平均 {:.1} MB/s（{} 连接 / {} 条线路出力）",
+                sum.bytes as f64 / 1e6,
+                sum.secs,
+                sum.bytes as f64 / 1e6 / sum.secs.max(0.001),
+                sum.connections,
+                sum.sources_used
+            )],
+        );
+    }
     Ok(())
 }
 
@@ -1370,7 +1437,14 @@ fn download_installer(
     let dest = std::env::temp_dir()
         .join("tongtop-dl")
         .join(url_filename(url));
-    fast_download(app, id, &fastdl::sources_for(url, proxies), &dest, cancel)?;
+    fast_download(
+        app,
+        id,
+        &fastdl::sources_for(url, proxies),
+        &dest,
+        cancel,
+        false,
+    )?;
     process::unblock_path(&dest);
     emit_lines(app, id, vec!["开始安装…".into()]);
     Ok(dest)
@@ -1378,12 +1452,14 @@ fn download_installer(
 
 /// winget 安装/更新前的加速预下载：按清单把安装包下到 winget 的复用位置并校验 SHA256，
 /// 随后 winget 发现哈希一致的现成文件就跳过自己的下载。返回日志摘要。
+/// `quiet`：后台预取不写当前任务的进度条。
 fn winget_prefetch(
     app: &AppHandle,
     id: &str,
     winget_id: &str,
     proxies: &[String],
     cancel: &AtomicBool,
+    quiet: bool,
 ) -> Result<String, String> {
     let args: Vec<String> = [
         "show",
@@ -1399,21 +1475,201 @@ fn winget_prefetch(
     .map(|s| s.to_string())
     .collect();
     let text = process::run_capture(&args)?;
-    let inst = fastdl::parse_winget_show(winget_id, &text).ok_or("未能从 winget 清单解析安装包地址")?;
+    let inst =
+        fastdl::parse_winget_show(winget_id, &text).ok_or("未能从 winget 清单解析安装包地址")?;
     let dest = fastdl::winget_cache_path(winget_id, &inst);
     if sha256_file(&dest).is_ok_and(|h| h == inst.sha256) {
         return Ok("安装包已在本地缓存（哈希一致），跳过下载。".into());
     }
     let part = dest.with_extension("part");
-    fast_download(app, id, &fastdl::sources_for(&inst.url, proxies), &part, cancel)?;
+    fast_download(
+        app,
+        id,
+        &fastdl::sources_for(&inst.url, proxies),
+        &part,
+        cancel,
+        quiet,
+    )?;
     let actual = sha256_file(&part)?;
     if actual != inst.sha256 {
         let _ = std::fs::remove_file(&part);
-        return Err(format!("安装包哈希与 winget 清单不符（预期 {}，实际 {actual}）", inst.sha256));
+        return Err(format!(
+            "安装包哈希与 winget 清单不符（预期 {}，实际 {actual}）",
+            inst.sha256
+        ));
     }
     std::fs::rename(&part, &dest).map_err(|e| format!("无法写入 winget 缓存：{e}"))?;
     process::unblock_path(&dest);
     Ok("已校验 SHA256，交给 winget 安装（将复用已下载的安装包）。".into())
+}
+
+struct PrefetchInflight {
+    result: Mutex<Option<Result<String, String>>>,
+    cv: Condvar,
+}
+
+fn prefetch_inflight() -> &'static Mutex<HashMap<String, Arc<PrefetchInflight>>> {
+    static MAP: OnceLock<Mutex<HashMap<String, Arc<PrefetchInflight>>>> = OnceLock::new();
+    MAP.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 同一包的预取合并：后台已经在下时，安装任务等它结束，不要开第二条下载。
+fn winget_prefetch_coalesced(
+    app: &AppHandle,
+    log_id: &str,
+    winget_id: &str,
+    proxies: &[String],
+    cancel: &AtomicBool,
+    quiet: bool,
+) -> Result<String, String> {
+    let key = winget_id.to_lowercase();
+    let (slot, owner) = {
+        let mut map = prefetch_inflight().lock().unwrap();
+        if let Some(existing) = map.get(&key).cloned() {
+            (existing, false)
+        } else {
+            let slot = Arc::new(PrefetchInflight {
+                result: Mutex::new(None),
+                cv: Condvar::new(),
+            });
+            map.insert(key.clone(), slot.clone());
+            (slot, true)
+        }
+    };
+    if !owner {
+        if !quiet {
+            emit_lines(app, log_id, vec!["正在等待后台预取完成…".into()]);
+        }
+        let mut guard = slot.result.lock().unwrap();
+        loop {
+            if cancel.load(Ordering::Relaxed) {
+                return Err("已取消".into());
+            }
+            if let Some(done) = guard.as_ref() {
+                return done.clone();
+            }
+            let (g, _) = slot
+                .cv
+                .wait_timeout(guard, Duration::from_millis(200))
+                .unwrap();
+            guard = g;
+        }
+    }
+    let result = winget_prefetch(app, log_id, winget_id, proxies, cancel, quiet);
+    {
+        *slot.result.lock().unwrap() = Some(result.clone());
+        slot.cv.notify_all();
+    }
+    prefetch_inflight().lock().unwrap().remove(&key);
+    result
+}
+
+fn spec_needs_prefetch(spec: &TaskSpec) -> bool {
+    spec.kind == "winget"
+        && matches!(spec.action.as_deref(), Some("install") | Some("upgrade"))
+        && !spec.force_elevated
+}
+
+fn release_prefetch_hold(app: &AppHandle) {
+    if let Ok(mut engine) = app.state::<AppState>().0.lock() {
+        engine.prefetch_hold = false;
+        kick_prefetch(app, &mut engine);
+    }
+}
+
+fn emit_prefetch(app: &AppHandle, id: &str, state: &str) {
+    let _ = app.emit(
+        "prefetch-state",
+        PrefetchEvent {
+            id: id.to_string(),
+            state: state.to_string(),
+        },
+    );
+}
+
+/// 有空位就启动下一个后台预取。调用时必须已持有 engine 锁。
+/// 当前项自己的预取还在跑（hold）或还没有任何安装任务时不开，避免抢第一项的带宽。
+fn kick_prefetch(app: &AppHandle, engine: &mut Engine) {
+    if engine.prefetch_hold || engine.prefetch_running.is_some() || engine.running.is_none() {
+        return;
+    }
+    let skip = engine
+        .running
+        .as_deref()
+        .and_then(prefetch::winget_id_of_task)
+        .map(str::to_string);
+    let Some(wid) = prefetch::take_next(&mut engine.prefetch_queue, skip.as_deref()) else {
+        return;
+    };
+    let proxies = engine.prefetch_proxies.clone();
+    let cancel = Arc::new(AtomicBool::new(false));
+    engine.prefetch_running = Some(wid.clone());
+    engine.prefetch_cancel = Some(cancel.clone());
+    let app2 = app.clone();
+    std::thread::spawn(move || {
+        emit_prefetch(&app2, &wid, "downloading");
+        if let Ok(engine) = app2.state::<AppState>().0.lock() {
+            if let Some(rid) = engine.running.clone() {
+                drop(engine);
+                emit_lines(&app2, &rid, vec![format!("后台预取 {wid}…")]);
+            }
+        }
+        let quiet_id = format!("prefetch:{wid}");
+        let result = winget_prefetch_coalesced(&app2, &quiet_id, &wid, &proxies, &cancel, true);
+        match &result {
+            Ok(msg) => {
+                emit_prefetch(&app2, &wid, "ready");
+                if let Ok(engine) = app2.state::<AppState>().0.lock() {
+                    if let Some(rid) = engine.running.clone() {
+                        drop(engine);
+                        emit_lines(&app2, &rid, vec![format!("后台预取 {wid}：{msg}")]);
+                    }
+                }
+            }
+            Err(_) if cancel.load(Ordering::Relaxed) => {
+                emit_prefetch(&app2, &wid, "failed");
+            }
+            Err(e) => {
+                emit_prefetch(&app2, &wid, "failed");
+                if let Ok(engine) = app2.state::<AppState>().0.lock() {
+                    if let Some(rid) = engine.running.clone() {
+                        drop(engine);
+                        emit_lines(
+                            &app2,
+                            &rid,
+                            vec![format!(
+                                "后台预取 {wid} 未成功（{e}），该项安装时将自行下载。"
+                            )],
+                        );
+                    }
+                }
+            }
+        }
+        if let Ok(mut engine) = app2.state::<AppState>().0.lock() {
+            if engine
+                .prefetch_running
+                .as_deref()
+                .is_some_and(|r| r.eq_ignore_ascii_case(&wid))
+            {
+                engine.prefetch_running = None;
+                engine.prefetch_cancel = None;
+            }
+            kick_prefetch(&app2, &mut engine);
+        }
+    });
+}
+
+fn cancel_prefetch_id(engine: &mut Engine, winget_id: &str) {
+    prefetch::remove(&mut engine.prefetch_queue, winget_id);
+    if engine
+        .prefetch_running
+        .as_deref()
+        .is_some_and(|r| r.eq_ignore_ascii_case(winget_id))
+    {
+        if let Some(flag) = &engine.prefetch_cancel {
+            flag.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 /// 安装包执行命令：msi 走 msiexec 静默，exe 用调用方给的静默参数（无则交互式）。
@@ -1581,34 +1837,44 @@ fn stream_task(
     let (cmd, elevated_cmdline) = match prepared {
         Prepared::Cmd(cmd, _) => (Some(cmd), None),
         Prepared::Elevated { cmdline } => (None, Some(cmdline)),
-        Prepared::Download { url, args } => match download_installer(&app, &id, &url, &proxies, &cancel) {
-            Ok(file) => (Some(installer_command(&file, &args)), None),
-            Err(e) => {
-                let code = if cancel.load(Ordering::Relaxed) { -2 } else { -1 };
-                return finish_task(&app, id, code, vec![e], false);
+        Prepared::Download { url, args } => {
+            match download_installer(&app, &id, &url, &proxies, &cancel) {
+                Ok(file) => (Some(installer_command(&file, &args)), None),
+                Err(e) => {
+                    let code = if cancel.load(Ordering::Relaxed) {
+                        -2
+                    } else {
+                        -1
+                    };
+                    return finish_task(&app, id, code, vec![e], false);
+                }
             }
-        },
+        }
     };
 
     let retryable = spec.kind == "winget"
-        && matches!(
-            spec.action.as_deref(),
-            Some("install") | Some("upgrade")
-        );
+        && matches!(spec.action.as_deref(), Some("install") | Some("upgrade"));
     // 提权任务由 elevated_run 自己跑 winget，不走预下载（避免重复下载）
     let elevated = elevated_cmdline.is_some();
 
-    // winget 安装/更新：先自己多线路多连接下载安装包，失败则退回 winget 自带下载
-    if retryable && !elevated {
+    // winget 安装/更新：先自己多线路多连接下载安装包，失败则退回 winget 自带下载。
+    // 预取结束后立刻放开 hold，让后台去下队列里的下一项（与当前项的安装阶段重叠）。
+    if spec_needs_prefetch(&spec) {
         if let Some(wid) = spec.winget_id.as_deref() {
-            match winget_prefetch(&app, &id, wid, &proxies, &cancel) {
+            match winget_prefetch_coalesced(&app, &id, wid, &proxies, &cancel, false) {
                 Ok(msg) => emit_lines(&app, &id, vec![msg]),
                 Err(_) if cancel.load(Ordering::Relaxed) => {
+                    release_prefetch_hold(&app);
                     return finish_task(&app, id, -2, vec!["已取消".into()], false);
                 }
-                Err(e) => emit_lines(&app, &id, vec![format!("加速下载未生效（{e}），改由 winget 直接下载。")]),
+                Err(e) => emit_lines(
+                    &app,
+                    &id,
+                    vec![format!("加速下载未生效（{e}），改由 winget 直接下载。")],
+                ),
             }
         }
+        release_prefetch_hold(&app);
     }
 
     // winget 边下边跑安装包：下载瞬间会打上 MOTW，ShellExecute 就会弹「无法验证发布者」。
@@ -1662,18 +1928,29 @@ fn stream_task(
     if retryable
         && !elevated
         && outcome.code != 0
-        && matches!(outcome.decision, Some(SlowReason::Stall) | Some(SlowReason::Slow(_)))
+        && matches!(
+            outcome.decision,
+            Some(SlowReason::Stall) | Some(SlowReason::Slow(_))
+        )
     {
         let why = match outcome.decision {
             Some(SlowReason::Stall) => format!("下载停滞超过 {STALL_SECS} 秒"),
             Some(SlowReason::Slow(bps)) => format!("下载速度仅 {} KB/s", bps / 1024),
             _ => String::new(),
         };
-        emit_lines(&app, &id, vec![format!("官方源{why}，正在切换中科大镜像源重试…")]);
+        emit_lines(
+            &app,
+            &id,
+            vec![format!("官方源{why}，正在切换中科大镜像源重试…")],
+        );
         match mirror::apply_one("winget", USTC_SOURCE) {
             Ok(_) => {
                 index_db::kv_set("mirror:auto_switched", &index_db::now().to_string());
-                emit_lines(&app, &id, vec!["已切换为 USTC 镜像源，重新开始下载…".into()]);
+                emit_lines(
+                    &app,
+                    &id,
+                    vec!["已切换为 USTC 镜像源，重新开始下载…".into()],
+                );
                 if let Ok((Prepared::Cmd(cmd2, _), _)) = spec_command(&spec) {
                     match run_once(&app, &id, cmd2, &slot) {
                         Ok(o2) => {
@@ -1689,7 +1966,11 @@ fn stream_task(
                 }
             }
             Err(e) => {
-                emit_lines(&app, &id, vec![format!("镜像源切换失败（{e}），以官方源结果为准。")]);
+                emit_lines(
+                    &app,
+                    &id,
+                    vec![format!("镜像源切换失败（{e}），以官方源结果为准。")],
+                );
             }
         }
     }
@@ -1741,7 +2022,12 @@ fn emit_lines(app: &AppHandle, id: &str, lines: Vec<String>) {
 }
 
 #[tauri::command]
-fn start_task(app: AppHandle, state: State<AppState>, id: String, spec: TaskSpec) -> Result<(), String> {
+fn start_task(
+    app: AppHandle,
+    state: State<AppState>,
+    id: String,
+    spec: TaskSpec,
+) -> Result<(), String> {
     let mut engine = state.0.lock().map_err(|e| e.to_string())?;
     if engine.running.as_deref() == Some(id.as_str())
         || engine.queue.iter().any(|(qid, _)| qid == &id)
@@ -1758,6 +2044,36 @@ fn start_task(app: AppHandle, state: State<AppState>, id: String, spec: TaskSpec
     Ok(())
 }
 
+/// 把即将轮到的 winget 包装进后台预取队列（安装当前项时先下载后面的安装包）。
+/// 立即返回；真正下载在 hold 解除后由预取线程执行。
+#[tauri::command]
+fn prefetch_winget(
+    app: AppHandle,
+    state: State<AppState>,
+    ids: Vec<String>,
+    gh_proxies: Vec<String>,
+) -> Result<(), String> {
+    let mut engine = state.0.lock().map_err(|e| e.to_string())?;
+    if !gh_proxies.is_empty() {
+        engine.prefetch_proxies = gh_proxies;
+    }
+    let inflight = engine.prefetch_running.clone();
+    let current = engine
+        .running
+        .as_deref()
+        .and_then(prefetch::winget_id_of_task)
+        .map(str::to_string);
+    prefetch::enqueue(
+        &mut engine.prefetch_queue,
+        ids,
+        inflight.as_deref(),
+        current.as_deref(),
+        prefetch::LOOKAHEAD,
+    );
+    kick_prefetch(&app, &mut engine);
+    Ok(())
+}
+
 #[tauri::command]
 fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
     let Ok(mut engine) = state.0.lock() else {
@@ -1766,6 +2082,9 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
     if engine.running.as_deref() == Some(id.as_str()) {
         if let Some(flag) = &engine.cancel {
             flag.store(true, Ordering::Relaxed);
+        }
+        if let Some(wid) = prefetch::winget_id_of_task(&id) {
+            cancel_prefetch_id(&mut engine, wid);
         }
         // 提权进程不在本进程树里，Child::kill 打不到 → taskkill /T
         #[cfg(windows)]
@@ -1788,6 +2107,9 @@ fn cancel_task(app: AppHandle, state: State<AppState>, id: String) -> bool {
     } else {
         let before = engine.queue.len();
         engine.queue.retain(|(qid, _)| qid != &id);
+        if let Some(wid) = prefetch::winget_id_of_task(&id) {
+            cancel_prefetch_id(&mut engine, wid);
+        }
         if engine.queue.len() < before {
             let _ = app.emit(
                 "task-done",
@@ -1824,7 +2146,10 @@ fn semver_gt(a: &str, b: &str) -> bool {
     let (ac, ap) = parts(a);
     let (bc, bp) = parts(b);
     for i in 0..3 {
-        let (x, y) = (ac.get(i).copied().unwrap_or(0), bc.get(i).copied().unwrap_or(0));
+        let (x, y) = (
+            ac.get(i).copied().unwrap_or(0),
+            bc.get(i).copied().unwrap_or(0),
+        );
         if x != y {
             return x > y;
         }
@@ -1905,7 +2230,8 @@ async fn check_self_update(force: Option<bool>) -> Result<SelfUpdateInfo, String
         let cached = if force.unwrap_or(false) {
             None
         } else {
-            index_db::kv_get(&key, GH_TTL).and_then(|c| serde_json::from_str::<gh::GhRelease>(&c).ok())
+            index_db::kv_get(&key, GH_TTL)
+                .and_then(|c| serde_json::from_str::<gh::GhRelease>(&c).ok())
         };
         let r = match cached {
             Some(r) => r,
@@ -1949,7 +2275,11 @@ async fn check_self_update(force: Option<bool>) -> Result<SelfUpdateInfo, String
         let signature = if asset_name.is_empty() {
             None
         } else {
-            match r.assets.iter().find(|a| a.name == format!("{asset_name}.sig")) {
+            match r
+                .assets
+                .iter()
+                .find(|a| a.name == format!("{asset_name}.sig"))
+            {
                 // fail closed：已迁移签名发布的版本，签名缺失/拉取失败/内容异常即阻止更新，
                 // 不允许静默退回同 Release 的 sha256（攻击者可同时替换两者）
                 Some(a) => match http_get_text(&a.url) {
@@ -2066,7 +2396,9 @@ async fn download_self_update(
             let actual = std::fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
             if actual != expect {
                 let _ = std::fs::remove_file(&dest);
-                return Err(format!("下载大小不符（预期 {expect}，实际 {actual}），已删除重试"));
+                return Err(format!(
+                    "下载大小不符（预期 {expect}，实际 {actual}），已删除重试"
+                ));
             }
         }
         Ok(dest.to_string_lossy().into_owned())
@@ -2097,7 +2429,9 @@ fn verify_installer_integrity(
     }
     if !semver_gt(FIRST_SIGNED_VERSION, target_version) {
         let _ = std::fs::remove_file(path);
-        return Err(format!("v{target_version} 起更新必须携带签名，该发布缺少 .sig 资产，已阻止执行"));
+        return Err(format!(
+            "v{target_version} 起更新必须携带签名，该发布缺少 .sig 资产，已阻止执行"
+        ));
     }
     match expected_sha256 {
         Some(expected) => {
@@ -2316,7 +2650,12 @@ async fn mirror_latencies(urls: Vec<String>) -> Vec<MirrorLatency> {
         // 每个 URL 一个线程：总耗时 ≈ 最慢的那个
         let handles: Vec<_> = urls
             .into_iter()
-            .map(|url| std::thread::spawn(move || MirrorLatency { ms: ping_url(&url), url }))
+            .map(|url| {
+                std::thread::spawn(move || MirrorLatency {
+                    ms: ping_url(&url),
+                    url,
+                })
+            })
             .collect();
         handles.into_iter().filter_map(|h| h.join().ok()).collect()
     })
@@ -2437,6 +2776,7 @@ pub fn run() {
             terminal::term_kill,
             quit_app,
             start_task,
+            prefetch_winget,
             cancel_task,
             activity_start,
             activity_stop,
@@ -2446,7 +2786,6 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
 
 #[cfg(test)]
 mod updater_tests {
@@ -2458,10 +2797,16 @@ mod updater_tests {
     fn minisign_verify_fixture() {
         let data = b"tongtop updater minisign test fixture";
         let sig = r##"dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUb1NSYmwxd2NVTnFIbHp3bXpSMlVBelN6VFdhY0pwMHN2Z2c3V21SL25yaG1ieWVrR2JaUTA2WXNrRTdGY3RaZlRRVkdEWkpXekNJUW1GYWxWT2MxN085WU53dFBacVFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5ODkzOTcwCWZpbGU6dG9uZ3RvcC1maXh0dXJlLnR4dApnbnBlUzhWTitoOHh6em05KzJvSFUzdGJJV3FqaGcvdHNZZzNPZEkwY0JQRVFKTm1TYmVpcGprME9lWkxHTnMwRk1kanMyUi9QVUMvNmJKVWw3UGZBQT09Cg=="##;
-        assert!(verify_minisign(data, sig).is_ok(), "合法签名应通过: {:?}", verify_minisign(data, sig));
-        assert!(verify_minisign(b"tampered payload", sig).is_err(), "篡改内容必须验签失败");
+        assert!(
+            verify_minisign(data, sig).is_ok(),
+            "合法签名应通过: {:?}",
+            verify_minisign(data, sig)
+        );
+        assert!(
+            verify_minisign(b"tampered payload", sig).is_err(),
+            "篡改内容必须验签失败"
+        );
     }
-
 
     /// E2E（手动触发）：验证真实发布资产。
     /// 用法：下载 Release 的 tongtop-store.exe 与 .sig 后：
@@ -2492,8 +2837,7 @@ mod updater_tests {
     #[test]
     fn integrity_valid_signature_passes() {
         let f = temp_installer("ok.exe", FIXTURE_DATA);
-        verify_installer_integrity(&f, None, Some(FIXTURE_SIG), "0.6.6")
-            .expect("合法签名应放行");
+        verify_installer_integrity(&f, None, Some(FIXTURE_SIG), "0.6.6").expect("合法签名应放行");
         assert!(f.exists(), "校验通过不应删除文件");
     }
 
@@ -2547,8 +2891,7 @@ mod updater_tests {
     #[test]
     fn integrity_no_metadata_rejected() {
         let f = temp_installer("bare.exe", FIXTURE_DATA);
-        verify_installer_integrity(&f, None, None, "0.6.2")
-            .expect_err("无签名无摘要必须拒绝");
+        verify_installer_integrity(&f, None, None, "0.6.2").expect_err("无签名无摘要必须拒绝");
     }
 
     #[test]
@@ -2574,7 +2917,13 @@ mod updater_tests {
 mod elevation_tests {
     use super::*;
 
-    fn winget_spec(id: &str, action: &str, silent: bool, elevated: bool, location: Option<&str>) -> TaskSpec {
+    fn winget_spec(
+        id: &str,
+        action: &str,
+        silent: bool,
+        elevated: bool,
+        location: Option<&str>,
+    ) -> TaskSpec {
         TaskSpec {
             kind: "winget".into(),
             action: Some(action.into()),
@@ -2594,7 +2943,8 @@ mod elevation_tests {
     /// 普通安装：仍然是 Prepared::Cmd，且 -h 只在 silent 时出现
     #[test]
     fn plain_install_stays_cmd() {
-        let (prepared, label) = spec_command(&winget_spec("7zip.7zip", "install", true, false, None)).unwrap();
+        let (prepared, label) =
+            spec_command(&winget_spec("7zip.7zip", "install", true, false, None)).unwrap();
         assert!(matches!(prepared, Prepared::Cmd(..)));
         assert_eq!(label, "install 7zip.7zip");
         let args = winget_action_args("install", "7zip.7zip", true, None).unwrap();
@@ -2607,12 +2957,28 @@ mod elevation_tests {
     /// 提权重试：换成 Prepared::Elevated，命令行与普通路径完全一致（同一条 winget 命令）
     #[test]
     fn force_elevated_switches_variant_but_keeps_command() {
-        let plain = spec_command(&winget_spec("Microsoft.PowerToys", "install", true, false, None)).unwrap();
-        let elevated =
-            spec_command(&winget_spec("Microsoft.PowerToys", "install", true, true, None)).unwrap();
+        let plain = spec_command(&winget_spec(
+            "Microsoft.PowerToys",
+            "install",
+            true,
+            false,
+            None,
+        ))
+        .unwrap();
+        let elevated = spec_command(&winget_spec(
+            "Microsoft.PowerToys",
+            "install",
+            true,
+            true,
+            None,
+        ))
+        .unwrap();
         let plain_line = match plain.0 {
             Prepared::Cmd(_, line) => line,
-            other => panic!("普通安装不该是提权变体：{:?}", std::mem::discriminant(&other)),
+            other => panic!(
+                "普通安装不该是提权变体：{:?}",
+                std::mem::discriminant(&other)
+            ),
         };
         match elevated.0 {
             Prepared::Elevated { cmdline } => assert_eq!(cmdline, plain_line),
@@ -2624,14 +2990,38 @@ mod elevation_tests {
     /// 卸载不接受提权（只有安装/更新会弹 UAC）
     #[test]
     fn uninstall_never_elevates() {
-        let (prepared, _) = spec_command(&winget_spec("Git.Git", "uninstall", true, true, None)).unwrap();
+        let (prepared, _) =
+            spec_command(&winget_spec("Git.Git", "uninstall", true, true, None)).unwrap();
         assert!(matches!(prepared, Prepared::Cmd(..)));
+    }
+
+    /// 普通安装/更新走后台预取；卸载和提权路径不占预取带宽
+    #[test]
+    fn prefetch_only_for_plain_install_upgrade() {
+        assert!(spec_needs_prefetch(&winget_spec(
+            "Git.Git", "upgrade", true, false, None
+        )));
+        assert!(spec_needs_prefetch(&winget_spec(
+            "Git.Git", "install", true, false, None
+        )));
+        assert!(!spec_needs_prefetch(&winget_spec(
+            "Git.Git", "upgrade", true, true, None
+        )));
+        assert!(!spec_needs_prefetch(&winget_spec(
+            "Git.Git",
+            "uninstall",
+            true,
+            false,
+            None
+        )));
     }
 
     /// location 会进入提权时落盘的 .cmd，必须挡掉 cmd 元字符
     #[test]
     fn location_rejects_cmd_metacharacters() {
-        for bad in ["D:\\A&B", "D:\\A|B", "D:\\A>B", "D:\\A^B", "D:\\A%B", "D:\\A\"B"] {
+        for bad in [
+            "D:\\A&B", "D:\\A|B", "D:\\A>B", "D:\\A^B", "D:\\A%B", "D:\\A\"B",
+        ] {
             assert!(
                 winget_action_args("install", "Git.Git", false, Some(bad)).is_err(),
                 "应拒绝含元字符的路径：{bad}"
@@ -2677,7 +3067,10 @@ mod elevation_tests {
         let t0 = std::time::Instant::now();
         let (code, lines) = script_runner("echo hello-elevated");
         assert_eq!(code, 0, "日志：{lines:?}");
-        assert!(t0.elapsed() < std::time::Duration::from_secs(15), "不该等到超时才返回");
+        assert!(
+            t0.elapsed() < std::time::Duration::from_secs(15),
+            "不该等到超时才返回"
+        );
     }
 
     /// 命令失败 → 退出码如实回传（"普通方式失败 → 提示以管理员身份重试"就靠它判断）。

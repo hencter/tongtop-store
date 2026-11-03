@@ -1,13 +1,15 @@
-/** 更新页：快照首渲 + 勾选批量更新（逐项 winget upgrade 入队，执行范围与确认清单完全一致，issue #23）。
- *  忽略机制：每行可「忽略此版本 / 永久忽略」，被忽略的进底部「已忽略」区，可恢复；
- *  被忽略/未勾选的软件不会收到任何升级命令。
- *  批量结果：成功/失败条目明示，失败可重试。 */
+/** 更新页：待更新软件排成队列（winget 同时只能跑一个）。
+ *  勾选 = 入队，顺序与列表一致；开始后每行显示排队 / 预取 / 进行中 / 完成 / 失败。
+ *  当前项安装时后台预取后面的安装包（LOOKAHEAD=2）。
+ *  忽略机制：每行可「忽略此版本 / 永久忽略」，被忽略的进底部「已忽略」区。
+ *  执行范围与确认清单完全一致（issue #23）。 */
 
 import { useEffect, useMemo, useState } from "react";
-import { BellOff, Check, Pin, RefreshCw, Rocket, RotateCcw } from "lucide-react";
-import { useCatalogStore } from "../../state/catalogStore";
+import { ArrowDownToLine, BellOff, CheckCircle2, Loader2, Pin, RefreshCw, Rocket, RotateCcw, XCircle } from "lucide-react";
+import { useCatalogStore, ghProxyList } from "../../state/catalogStore";
 import { useAppStore } from "../../state/appStore";
 import { useTaskStore } from "../../state/taskStore";
+import * as ipc from "../../ipc/client";
 import { useNotesStore } from "../../state/notesStore";
 import { useSettingsStore } from "../../state/settingsStore";
 import { useUpdateStore } from "../../state/updateStore";
@@ -17,7 +19,7 @@ import { useT } from "../../i18n";
 import { AppRow } from "../../components/AppRow";
 import { PageFilter } from "../../components/PageFilter";
 import { VirtualList } from "../../components/VirtualList";
-import { planBatch, splitByIgnore } from "./batchPlan";
+import { planBatch, queueItemState, splitByIgnore, upcomingPrefetchIds } from "./batchPlan";
 import type { UpgradeInfo } from "../../ipc/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +51,7 @@ export function UpdatesPage() {
   const loading = useAppStore((s) => s.snapshotLoading);
   const refresh = useAppStore((s) => s.refreshSnapshot);
   const running = useTaskStore((s) => s.running);
+  const prefetch = useTaskStore((s) => s.prefetch);
   const runTask = useTaskStore((s) => s.runTask);
   const silent = useTaskStore((s) => s.silent);
   const openNotes = useNotesStore((s) => s.open);
@@ -103,11 +106,16 @@ export function UpdatesPage() {
   const selectAll = () => setDeselected(new Set());
   const selectNone = () => setDeselected(new Set(visible.map((u) => u.id.toLowerCase())));
 
-  /** 逐项入队执行（队列串行，一次一项）；结果逐条记录，失败不中断后续 */
+  /** 逐项入队执行（队列串行，一次一项）；当前项安装时后台预取后面的安装包。失败不中断后续。 */
   const runBatch = async (items: UpgradeInfo[]) => {
     setConfirming(false);
     setBatch({ total: items.length, done: 0, results: {}, running: true });
-    for (const u of items) {
+    const proxies = ghProxyList();
+    const ids = items.map((u) => u.id);
+    for (let i = 0; i < items.length; i++) {
+      const u = items[i];
+      const upcoming = upcomingPrefetchIds(ids, i);
+      if (upcoming.length > 0) void ipc.prefetchWinget(upcoming, proxies);
       let ok = false;
       try {
         const d = await runTask(`winget:upgrade:${u.id}`, {
@@ -145,8 +153,15 @@ export function UpdatesPage() {
           {upgrades ? `（${count}）` : ""}
           {batch?.running && (
             <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {t("正在更新")} {batch.done}/{batch.total}
+              {t("队列进度")} {batch.done}/{batch.total}
               {running ? ` · ${running.label}` : ""}
+              {Object.entries(prefetch)
+                .filter(([, s]) => s === "downloading")
+                .map(([id]) => CATALOG_BY_ID.get(id)?.name ?? visible.find((u) => u.id.toLowerCase() === id)?.name ?? id)
+                .filter((name) => !running?.label.includes(name))
+                .slice(0, 2)
+                .map((name) => ` · ${t("后台预取")} ${name}`)
+                .join("")}
             </span>
           )}
         </h2>
@@ -209,21 +224,55 @@ export function UpdatesPage() {
           rowHeight={ROW_H}
           renderRow={(info) => {
             const checked = !deselected.has(info.id.toLowerCase());
+            const queueIds = selectedItems.map((u) => u.id);
+            const qState = batch
+              ? queueItemState(info.id, queueIds, batch.results, batch.done, batch.running, prefetch)
+              : null;
+            const pos = queueIds.indexOf(info.id);
             return (
               <div className="flex items-center gap-2 pr-1">
                 <button
+                  type="button"
                   role="checkbox"
                   aria-checked={checked}
                   disabled={batch?.running}
                   onClick={() => toggle(info.id)}
-                  title={checked ? t("取消勾选（本次不更新）") : t("勾选（加入本次更新）")}
-                  className={`flex size-4.5 shrink-0 items-center justify-center rounded border transition-colors ${
-                    checked
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-muted-foreground/40 hover:border-muted-foreground"
-                  } ${batch?.running ? "opacity-50" : ""}`}
+                  title={
+                    qState === "prefetching"
+                      ? t("后台预取")
+                      : qState === "ready"
+                        ? t("安装包已预取")
+                        : checked
+                          ? t("移出队列")
+                          : t("加入队列")
+                  }
+                  className={`flex size-7 shrink-0 items-center justify-center rounded-md border text-[11px] font-medium tabular-nums transition-colors ${
+                    qState === "running" || qState === "prefetching"
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : qState === "ready"
+                        ? "border-ok/40 bg-ok/10 text-ok"
+                        : qState === "success"
+                          ? "border-ok/40 bg-ok/10 text-ok"
+                          : qState === "failed"
+                            ? "border-destructive/40 bg-destructive/10 text-destructive"
+                            : checked
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-muted-foreground/40 text-muted-foreground hover:border-muted-foreground"
+                  } ${batch?.running ? "opacity-80" : ""}`}
                 >
-                  {checked && <Check className="size-3.5" />}
+                  {qState === "running" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : qState === "prefetching" ? (
+                    <ArrowDownToLine className="size-3.5 animate-pulse" />
+                  ) : qState === "success" ? (
+                    <CheckCircle2 className="size-3.5" />
+                  ) : qState === "failed" ? (
+                    <XCircle className="size-3.5" />
+                  ) : qState === "ready" ? (
+                    pos + 1
+                  ) : checked ? (
+                    pos + 1
+                  ) : null}
                 </button>
                 <div className="min-w-0 flex-1">
                   <AppRow
@@ -268,21 +317,21 @@ export function UpdatesPage() {
         </div>
       )}
 
-      {/* 批量操作栏：已选 N 项 / 全选 / 清空 / 更新选中 */}
+      {/* 队列操作栏：入队 N 项 / 全部入队 / 清空 / 开始队列 */}
       {count > 0 && (
         <div className="mt-2 flex shrink-0 items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2">
           <span className="text-xs text-muted-foreground">
-            {t("已选 ")}{selectedItems.length}{t(" 项（共 ")}{count}{t(" 项待更新）")}
+            {t("队列 ")}{selectedItems.length}{t(" 项（共 ")}{count}{t(" 项待更新）")}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={batch?.running} onClick={selectAll}>
-              {t("全选")}
+              {t("全部入队")}
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={batch?.running} onClick={selectNone}>
               {t("清空")}
             </Button>
             <Button size="sm" className="h-7" disabled={selectedItems.length === 0 || batch?.running || running !== null} onClick={() => setConfirming(true)}>
-              <Rocket className="size-3.5" /> {t("更新选中")}
+              <Rocket className="size-3.5" /> {t("开始队列")}
             </Button>
           </div>
         </div>
@@ -320,20 +369,22 @@ export function UpdatesPage() {
       <Dialog open={confirming} onOpenChange={setConfirming}>
         <DialogContent className="w-[440px]">
           <DialogHeader>
-            <DialogTitle>{t("确认更新范围")}</DialogTitle>
+            <DialogTitle>{t("确认更新队列")}</DialogTitle>
             <DialogDescription>
-              {t("将逐项执行 winget upgrade，实际更新范围与以下清单完全一致（共 ")}{selectedItems.length}{t(" 个）；已忽略与未勾选的软件不会被更新。")}
+              {t("将按下面顺序依次执行 winget upgrade（同时只能跑一个，共 ")}{selectedItems.length}{t(" 个）；未入队与已忽略的软件不会被更新。")}
+              {selectedItems.length > 1 ? t("安装当前项时会后台下载队列里后面的安装包。") : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-48 overflow-y-auto p-4 pt-0">
-            <ul className="m-0 flex flex-col gap-1.5 pl-4 text-[13px] text-muted-foreground">
-              {selectedItems.map((u) => (
+            <ol className="m-0 flex flex-col gap-1.5 pl-5 text-[13px] text-muted-foreground">
+              {selectedItems.map((u, i) => (
                 <li key={u.id} className="truncate">
+                  <span className="mr-1.5 tabular-nums text-foreground">{i + 1}.</span>
                   {nameOf(u)}
                   <span className="text-foreground"> {u.version} → {u.available}</span>
                 </li>
               ))}
-            </ul>
+            </ol>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirming(false)}>

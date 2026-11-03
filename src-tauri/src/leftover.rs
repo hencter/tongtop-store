@@ -82,7 +82,8 @@ pub fn parse_reg_enum(output: &str, tokens: &[String]) -> Vec<LeftoverRegistry> 
     let mut out = Vec::new();
     for line in output.lines() {
         let mut parts = line.splitn(3, '\t');
-        let (Some(tag), Some(pspath), Some(name)) = (parts.next(), parts.next(), parts.next()) else {
+        let (Some(tag), Some(pspath), Some(name)) = (parts.next(), parts.next(), parts.next())
+        else {
             continue;
         };
         let name = name.trim();
@@ -95,7 +96,12 @@ pub fn parse_reg_enum(output: &str, tokens: &[String]) -> Vec<LeftoverRegistry> 
         out.push(LeftoverRegistry {
             key,
             name: name.to_string(),
-            kind: if tag.trim() == "U" { "uninstall" } else { "software" }.to_string(),
+            kind: if tag.trim() == "U" {
+                "uninstall"
+            } else {
+                "software"
+            }
+            .to_string(),
         });
     }
     out
@@ -165,9 +171,9 @@ pub fn clean(dirs: &[String], keys: &[String]) -> CleanReport {
     for d in dirs {
         let p = std::path::PathBuf::from(d);
         // 守卫：必须是 AppData 根的一级子目录（防止把参数拼成别的路径）
-        let depth_ok = appdata_roots().iter().any(|root| {
-            p.parent().is_some_and(|parent| parent == root.as_path())
-        });
+        let depth_ok = appdata_roots()
+            .iter()
+            .any(|root| p.parent().is_some_and(|parent| parent == root.as_path()));
         if !depth_ok || !path_under_root(&p) {
             r.dirs_skipped += 1;
             continue;

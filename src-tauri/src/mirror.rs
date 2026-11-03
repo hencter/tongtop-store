@@ -99,7 +99,8 @@ pub fn apply_docker_mirrors(existing: &str, mirrors: &[String]) -> Result<String
     let mut v: serde_json::Value = if existing.trim().is_empty() {
         serde_json::json!({})
     } else {
-        serde_json::from_str(existing).map_err(|e| format!("daemon.json 不是合法 JSON，未改动：{e}"))?
+        serde_json::from_str(existing)
+            .map_err(|e| format!("daemon.json 不是合法 JSON，未改动：{e}"))?
     };
     if !v.is_object() {
         return Err("daemon.json 顶层不是对象，未改动".into());
@@ -115,7 +116,9 @@ pub fn apply_docker_mirrors(existing: &str, mirrors: &[String]) -> Result<String
 // ---------- 检测 ----------
 
 fn home() -> std::path::PathBuf {
-    std::env::var("USERPROFILE").map(Into::into).unwrap_or_default()
+    std::env::var("USERPROFILE")
+        .map(Into::into)
+        .unwrap_or_default()
 }
 
 fn run_capture_cmd(program: &str, args: &[&str]) -> String {
@@ -137,7 +140,11 @@ fn run_capture_cmd(program: &str, args: &[&str]) -> String {
     }
     match cmd.output() {
         Ok(o) => {
-            let bytes = if o.stdout.is_empty() { o.stderr } else { o.stdout };
+            let bytes = if o.stdout.is_empty() {
+                o.stderr
+            } else {
+                o.stdout
+            };
             crate::winget::process::decode(&bytes).trim().to_string()
         }
         Err(e) => e.to_string(),
@@ -152,13 +159,18 @@ pub fn detect_one(tool: &str) -> MirrorStatus {
                 Some(p) => run_capture_cmd(p, &["config", "get", "registry"]),
                 None => String::new(),
             };
-            MirrorStatus { tool: tool.into(), installed: path.is_some(), current }
+            MirrorStatus {
+                tool: tool.into(),
+                installed: path.is_some(),
+                current,
+            }
         }
         "pip" => {
             let path = tools::resolve("python");
             let current = match &path {
                 Some(p) => {
-                    let out = run_capture_cmd(p, &["-m", "pip", "config", "get", "global.index-url"]);
+                    let out =
+                        run_capture_cmd(p, &["-m", "pip", "config", "get", "global.index-url"]);
                     if out.is_empty() || out.contains("ERROR") || out.contains("No such") {
                         "https://pypi.org/simple（官方默认）".into()
                     } else {
@@ -167,7 +179,11 @@ pub fn detect_one(tool: &str) -> MirrorStatus {
                 }
                 None => String::new(),
             };
-            MirrorStatus { tool: tool.into(), installed: path.is_some(), current }
+            MirrorStatus {
+                tool: tool.into(),
+                installed: path.is_some(),
+                current,
+            }
         }
         "cargo" => {
             let cfg = home().join(r".cargo\config.toml");
@@ -177,7 +193,11 @@ pub fn detect_one(tool: &str) -> MirrorStatus {
                 .unwrap_or_default();
             let current = cargo_current(&content)
                 .unwrap_or_else(|| "https://github.com/rust-lang/crates.io-index（官方）".into());
-            MirrorStatus { tool: tool.into(), installed: tools::resolve("cargo").is_some(), current }
+            MirrorStatus {
+                tool: tool.into(),
+                installed: tools::resolve("cargo").is_some(),
+                current,
+            }
         }
         "docker" => {
             let cfg = home().join(r".docker\daemon.json");
@@ -192,7 +212,11 @@ pub fn detect_one(tool: &str) -> MirrorStatus {
                         .map(|s| s.to_string())
                 })
                 .unwrap_or_else(|| "Docker Hub 官方".into());
-            MirrorStatus { tool: tool.into(), installed: tools::resolve("docker").is_some(), current }
+            MirrorStatus {
+                tool: tool.into(),
+                installed: tools::resolve("docker").is_some(),
+                current,
+            }
         }
         "go" => {
             let path = tools::resolve("go");
@@ -200,14 +224,26 @@ pub fn detect_one(tool: &str) -> MirrorStatus {
                 Some(p) => run_capture_cmd(p, &["env", "GOPROXY"]),
                 None => String::new(),
             };
-            MirrorStatus { tool: tool.into(), installed: path.is_some(), current }
+            MirrorStatus {
+                tool: tool.into(),
+                installed: path.is_some(),
+                current,
+            }
         }
         "winget" => {
             // 官方机器可读通道：`winget source export` 输出 JSONL（每行一个源）
             let current = winget_source_url().unwrap_or_default();
-            MirrorStatus { tool: tool.into(), installed: true, current }
+            MirrorStatus {
+                tool: tool.into(),
+                installed: true,
+                current,
+            }
         }
-        _ => MirrorStatus { tool: tool.into(), installed: false, current: String::new() },
+        _ => MirrorStatus {
+            tool: tool.into(),
+            installed: false,
+            current: String::new(),
+        },
     }
 }
 
@@ -278,7 +314,10 @@ pub fn apply_one(tool: &str, value: &str) -> Result<String, String> {
         }
         "pip" => {
             let p = tools::resolve("python").ok_or("未找到 python，请先安装 Python")?;
-            Ok(run_capture_cmd(p.as_str(), &["-m", "pip", "config", "set", "global.index-url", value]))
+            Ok(run_capture_cmd(
+                p.as_str(),
+                &["-m", "pip", "config", "set", "global.index-url", value],
+            ))
         }
         "cargo" => {
             let dir = home().join(".cargo");
@@ -305,18 +344,28 @@ pub fn apply_one(tool: &str, value: &str) -> Result<String, String> {
             };
             let next = apply_docker_mirrors(&existing, &mirrors)?;
             std::fs::write(&cfg, next).map_err(|e| format!("写入 {} 失败：{e}", cfg.display()))?;
-            Ok(format!("已写入 {}（重启 Docker Desktop 后生效）", cfg.display()))
+            Ok(format!(
+                "已写入 {}（重启 Docker Desktop 后生效）",
+                cfg.display()
+            ))
         }
         "go" => {
             let p = tools::resolve("go").ok_or("未找到 go，请先安装 Go")?;
-            Ok(run_capture_cmd(&p, &["env", "-w", &format!("GOPROXY={value}")]))
+            Ok(run_capture_cmd(
+                &p,
+                &["env", "-w", &format!("GOPROXY={value}")],
+            ))
         }
         "winget" => {
             // 官方换源序列（与官方文档一致）：remove → add → source update。
             // 源是系统级配置必须管理员：单次 UAC 提权跑完整条序列（避免三次弹窗），
             // 结果经临时文件回传（提权子进程退出码跨层不可靠）。
             const OFFICIAL: &str = "https://cdn.winget.microsoft.com/cache";
-            let url = if value.trim().is_empty() { OFFICIAL } else { value.trim() };
+            let url = if value.trim().is_empty() {
+                OFFICIAL
+            } else {
+                value.trim()
+            };
             if !url.starts_with("http") || url.contains('\'') {
                 return Err("源地址不合法（仅支持 http(s)，且不允许引号）".into());
             }
@@ -354,7 +403,10 @@ pub fn apply_one(tool: &str, value: &str) -> Result<String, String> {
                     "切换失败（winget 退出码 {}）——可在管理员终端手动执行官方命令",
                     t.trim().trim_start_matches("fail:")
                 )),
-                Err(_) => Err("提权执行未返回结果（可能被安全软件拦截）；可在管理员终端手动执行官方命令".into()),
+                Err(_) => Err(
+                    "提权执行未返回结果（可能被安全软件拦截）；可在管理员终端手动执行官方命令"
+                        .into(),
+                ),
             }
         }
         _ => Err(format!("未知工具：{tool}")),
@@ -369,9 +421,12 @@ mod tests {
     fn winget_source_export_jsonl_parse() {
         // winget v1.29 `winget source export` 实测输出（每行一个 JSON）
         let sample = concat!(
-            r#"{"Arg":"https://mirrors.ustc.edu.cn/winget-source","Data":"Microsoft.Winget.Source_8wekyb3d8bbwe","Explicit":false,"Identifier":"Microsoft.Winget.Source_8wekyb3d8bbwe","Name":"winget","Type":"Microsoft.PreIndexed.Package"}"#, "\n",
-            r#"{"Arg":"https://storeedgefd.dsx.mp.microsoft.com/v9.0","Data":"","Identifier":"StoreEdgeFD","Name":"msstore","TrustLevel":["Trusted"],"Type":"Microsoft.Rest"}"#, "\n",
-            r#"{"Arg":"https://cdn.winget.microsoft.com/fonts","Identifier":"Microsoft.Winget.Fonts.Source_8wekyb3d8bbwe","Name":"winget-font","Explicit":true,"Type":"Microsoft.PreIndexed.Package"}"#, "\n",
+            r#"{"Arg":"https://mirrors.ustc.edu.cn/winget-source","Data":"Microsoft.Winget.Source_8wekyb3d8bbwe","Explicit":false,"Identifier":"Microsoft.Winget.Source_8wekyb3d8bbwe","Name":"winget","Type":"Microsoft.PreIndexed.Package"}"#,
+            "\n",
+            r#"{"Arg":"https://storeedgefd.dsx.mp.microsoft.com/v9.0","Data":"","Identifier":"StoreEdgeFD","Name":"msstore","TrustLevel":["Trusted"],"Type":"Microsoft.Rest"}"#,
+            "\n",
+            r#"{"Arg":"https://cdn.winget.microsoft.com/fonts","Identifier":"Microsoft.Winget.Fonts.Source_8wekyb3d8bbwe","Name":"winget-font","Explicit":true,"Type":"Microsoft.PreIndexed.Package"}"#,
+            "\n",
         );
         assert_eq!(
             parse_source_export(sample).as_deref(),

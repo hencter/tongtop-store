@@ -207,8 +207,8 @@
   {
     "id": "Tencent.WeChat.Universal",
     "name": "微信",
-    "desc": "微信 Windows 通用版，推荐安装新版客户端",
-    "site": "https://weixin.qq.com/",
+    "desc": "跨平台通讯：文字、语音、视频与文件",
+    "site": "https://windows.weixin.qq.com/",
     "category": "social",
     "tags": [
       "wechat",
@@ -218,7 +218,7 @@
   {
     "id": "Tencent.QQ.NT",
     "name": "QQ",
-    "desc": "QQ NT 架构新版客户端，即时通讯与文件传输",
+    "desc": "即时通讯与文件传输",
     "site": "https://im.qq.com/",
     "category": "social",
     "tags": [
@@ -235,6 +235,17 @@
     "tags": [
       "腾讯",
       "办公"
+    ]
+  },
+  {
+    "id": "Tencent.WeType",
+    "name": "微信输入法",
+    "desc": "微信官方输入法，词库与微信生态打通",
+    "site": "https://z.weixin.qq.com/",
+    "category": "system",
+    "tags": [
+      "输入法",
+      "微信"
     ]
   },
   {
@@ -683,6 +694,19 @@
       "开源"
     ],
     "github": "zhongyang219/TrafficMonitor"
+  },
+  {
+    "id": "LocalSend.LocalSend",
+    "name": "LocalSend",
+    "desc": "开源局域网互传，不经云、不限速",
+    "site": "https://localsend.org/",
+    "category": "system",
+    "tags": [
+      "互传",
+      "局域网",
+      "开源"
+    ],
+    "github": "localsend/localsend"
   },
   {
     "id": "agalwood.Motrix",

@@ -8,6 +8,8 @@ import { create } from "zustand";
 import { listen } from "@tauri-apps/api/event";
 import * as ipc from "../ipc/client";
 import type {
+  PrefetchEvent,
+  PrefetchState,
   TaskDoneEvent,
   TaskLogEvent,
   TaskQueuedEvent,
@@ -53,6 +55,8 @@ const pending = new Map<string, (d: TaskDoneEvent) => void>();
 interface TaskStore {
   running: RunningInfo | null;
   queue: QueuedInfo[];
+  /** winget 包 id（小写）→ 后台预取状态 */
+  prefetch: Record<string, PrefetchState>;
   progress: number | null;
   done: DoneInfo | null;
   lines: string[];
@@ -72,6 +76,7 @@ interface TaskStore {
 export const useTaskStore = create<TaskStore>()((set, get) => ({
   running: null,
   queue: [],
+  prefetch: {},
   progress: null,
   done: null,
   lines: [],
@@ -173,6 +178,15 @@ export function initTaskListeners(): () => void {
         lines: [...s.lines, ...e.payload.lines].slice(-MAX_LOG_LINES),
         progress: e.payload.progress ?? s.progress,
       }));
+    }),
+  );
+
+  unlisteners.push(
+    listen<PrefetchEvent>("prefetch-state", (e) => {
+      const id = e.payload.id.toLowerCase();
+      const state = e.payload.state;
+      if (state !== "downloading" && state !== "ready" && state !== "failed") return;
+      useTaskStore.setState((s) => ({ prefetch: { ...s.prefetch, [id]: state } }));
     }),
   );
 

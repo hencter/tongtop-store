@@ -44,7 +44,12 @@ fn exit_event(id: &str) -> String {
 
 /// 启动一条 PTY 会话并流式输出。失败立即报错（不静默降级）。
 #[tauri::command]
-pub fn term_spawn(app: AppHandle, state: State<TermState>, id: String, spec: TermSpec) -> Result<(), String> {
+pub fn term_spawn(
+    app: AppHandle,
+    state: State<TermState>,
+    id: String,
+    spec: TermSpec,
+) -> Result<(), String> {
     if state.0.lock().unwrap().contains_key(&id) {
         return Err(format!("会话已存在：{id}"));
     }
@@ -106,7 +111,10 @@ pub fn term_spawn(app: AppHandle, state: State<TermState>, id: String, spec: Ter
         .master
         .try_clone_reader()
         .map_err(|e| format!("读取终端失败：{e}"))?;
-    let writer = pair.master.take_writer().map_err(|e| format!("写入终端失败：{e}"))?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|e| format!("写入终端失败：{e}"))?;
 
     state.0.lock().unwrap().insert(
         id.clone(),
@@ -140,7 +148,10 @@ pub fn term_spawn(app: AppHandle, state: State<TermState>, id: String, spec: Ter
                             }
                         }
                     }
-                    let _ = app2.emit(&data_event(&id2), String::from_utf8_lossy(&chunk).into_owned());
+                    let _ = app2.emit(
+                        &data_event(&id2),
+                        String::from_utf8_lossy(&chunk).into_owned(),
+                    );
                 }
                 Err(_) => break,
             }
@@ -149,7 +160,8 @@ pub fn term_spawn(app: AppHandle, state: State<TermState>, id: String, spec: Ter
         let code = {
             let app_state = app2.state::<TermState>();
             let mut map = app_state.0.lock().unwrap();
-            map.get_mut(&id2).and_then(|s| s.child.wait().ok().map(|st| st.exit_code() as i64))
+            map.get_mut(&id2)
+                .and_then(|s| s.child.wait().ok().map(|st| st.exit_code() as i64))
         };
         let _ = app2.emit(&exit_event(&id2), code.unwrap_or(-1));
         let app_state = app2.state::<TermState>();
@@ -179,7 +191,12 @@ pub fn term_write(state: State<TermState>, id: String, data: String) -> Result<(
 }
 
 #[tauri::command]
-pub fn term_resize(state: State<TermState>, id: String, cols: u16, rows: u16) -> Result<(), String> {
+pub fn term_resize(
+    state: State<TermState>,
+    id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
     let map = state.0.lock().unwrap();
     let s = map.get(&id).ok_or("会话不存在")?;
     s.master

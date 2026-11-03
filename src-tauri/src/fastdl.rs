@@ -72,7 +72,11 @@ pub fn parse_winget_show(id: &str, text: &str) -> Option<WingetInstaller> {
         let at = l.find("https://").or_else(|| l.find("http://"))?;
         Some(l[at..].trim().to_string())
     })?;
-    Some(WingetInstaller { version, url, sha256 })
+    Some(WingetInstaller {
+        version,
+        url,
+        sha256,
+    })
 }
 
 /// winget 复用已下载安装包的位置
@@ -88,10 +92,17 @@ fn is_github_url(url: &str) -> bool {
         .strip_prefix("https://")
         .or_else(|| url.strip_prefix("http://"))
         .unwrap_or("");
-    let host = rest.split(['/', ':']).next().unwrap_or("").to_ascii_lowercase();
+    let host = rest
+        .split(['/', ':'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
     matches!(
         host.as_str(),
-        "github.com" | "objects.githubusercontent.com" | "raw.githubusercontent.com" | "codeload.github.com"
+        "github.com"
+            | "objects.githubusercontent.com"
+            | "raw.githubusercontent.com"
+            | "codeload.github.com"
     )
 }
 
@@ -106,7 +117,11 @@ pub fn sources_for(url: &str, proxies: &[String]) -> Vec<String> {
             if !p.starts_with("https://") {
                 continue;
             }
-            let prefix = if p.ends_with('/') { p.to_string() } else { format!("{p}/") };
+            let prefix = if p.ends_with('/') {
+                p.to_string()
+            } else {
+                format!("{p}/")
+            };
             let s = format!("{prefix}{url}");
             if !out.contains(&s) {
                 out.push(s);
@@ -133,7 +148,11 @@ struct Probe {
 
 /// 用 `Range: bytes=0-0` 探测：206 + Content-Range 总大小 = 可分段；200 = 可达但只能单连接。
 fn probe(idx: usize, url: &str) -> Option<Probe> {
-    let resp = agent(PROBE_TIMEOUT).get(url).header("Range", "bytes=0-0").call().ok()?;
+    let resp = agent(PROBE_TIMEOUT)
+        .get(url)
+        .header("Range", "bytes=0-0")
+        .call()
+        .ok()?;
     let ranged_total = if resp.status().as_u16() == 206 {
         resp.headers()
             .get("content-range")
@@ -218,7 +237,8 @@ fn fetch_range(
         if resp.status().as_u16() != 206 {
             return Err(FetchErr::Fail);
         }
-        file.seek(SeekFrom::Start(start)).map_err(|_| FetchErr::Fail)?;
+        file.seek(SeekFrom::Start(start))
+            .map_err(|_| FetchErr::Fail)?;
         let want = end - start + 1;
         let mut reader = resp.body_mut().as_reader();
         let mut buf = [0u8; 65536];
@@ -275,11 +295,14 @@ fn download_single(
         if cancel.load(Ordering::Relaxed) {
             return Err("已取消".into());
         }
-        let n = reader.read(&mut buf).map_err(|e| format!("下载中断：{e}"))?;
+        let n = reader
+            .read(&mut buf)
+            .map_err(|e| format!("下载中断：{e}"))?;
         if n == 0 {
             return Ok(());
         }
-        file.write_all(&buf[..n]).map_err(|e| format!("写入失败：{e}"))?;
+        file.write_all(&buf[..n])
+            .map_err(|e| format!("写入失败：{e}"))?;
         done.fetch_add(n as u64, Ordering::Relaxed);
     }
 }
@@ -309,7 +332,10 @@ fn load_completed(state: &Path, dest: &Path, origin: &str, size: u64) -> HashSet
     if lines.next() != Some(format!("{size} {origin}").as_str()) {
         return HashSet::new();
     }
-    if std::fs::metadata(dest).map(|m| m.len() != size).unwrap_or(true) {
+    if std::fs::metadata(dest)
+        .map(|m| m.len() != size)
+        .unwrap_or(true)
+    {
         return HashSet::new();
     }
     lines
@@ -350,7 +376,9 @@ pub fn download(
             .enumerate()
             .map(|(i, u)| s.spawn(move || probe(i, u)))
             .collect();
-        hs.into_iter().filter_map(|h| h.join().ok().flatten()).collect()
+        hs.into_iter()
+            .filter_map(|h| h.join().ok().flatten())
+            .collect()
     });
     if probes.is_empty() {
         return Err("所有下载线路均无法连接".into());
@@ -389,8 +417,7 @@ pub fn download(
             }
             _ => {
                 let first = probes.iter().map(|p| p.idx).min().unwrap();
-                download_single(&sources[first], dest, &done, &total, cancel)
-                    .map(|_| (1, 1))
+                download_single(&sources[first], dest, &done, &total, cancel).map(|_| (1, 1))
             }
         };
         finished.store(true, Ordering::Relaxed);
@@ -492,7 +519,8 @@ fn download_ranged(
                         if bps < best * YIELD_RATIO {
                             return true;
                         }
-                        let tail = queue.lock().unwrap().is_empty() && inflight.load(Ordering::SeqCst) < connections;
+                        let tail = queue.lock().unwrap().is_empty()
+                            && inflight.load(Ordering::SeqCst) < connections;
                         tail && bps < best
                     };
                     let Some(src) = pick_source(&mut stats.lock().unwrap(), worker) else {
@@ -501,8 +529,15 @@ fn download_ranged(
                         return;
                     };
                     let t0 = Instant::now();
-                    let (written, res) =
-                        fetch_range(urls[src], &mut file, start, end, done, cancel, &should_yield);
+                    let (written, res) = fetch_range(
+                        urls[src],
+                        &mut file,
+                        start,
+                        end,
+                        done,
+                        cancel,
+                        &should_yield,
+                    );
                     {
                         let mut st = stats.lock().unwrap();
                         let s = &mut st[src];
@@ -546,7 +581,12 @@ fn download_ranged(
     if got != size {
         return Err(format!("下载不完整（{got}/{size} 字节）"));
     }
-    let used = stats.into_inner().unwrap().iter().filter(|s| s.bytes > 0).count();
+    let used = stats
+        .into_inner()
+        .unwrap()
+        .iter()
+        .filter(|s| s.bytes > 0)
+        .count();
     Ok((connections, used))
 }
 
@@ -581,24 +621,46 @@ mod tests {
         let zh = parse_winget_show("7zip.7zip", SHOW_ZH).unwrap();
         assert_eq!(zh.version, "26.03");
         assert_eq!(zh.url, "https://www.7-zip.org/a/7z2603-x64.msi");
-        assert_eq!(zh.sha256, "c0680064d698a62dd4a5a47f403db356a6531a5473e4c4b1d090ea2590513926");
+        assert_eq!(
+            zh.sha256,
+            "c0680064d698a62dd4a5a47f403db356a6531a5473e4c4b1d090ea2590513926"
+        );
         let en = parse_winget_show("git.git", SHOW_EN).unwrap();
         assert_eq!(en.version, "2.51.0");
         assert!(en.url.ends_with("Git-2.51.0-64-bit.exe"));
         // 交互式输出形态：版本与标题同行
         let inline = SHOW_ZH.replacen("[7zip.7zip]\n版本: 26.03", "[7zip.7zip] 版本 26.03", 1);
-        assert_eq!(parse_winget_show("7zip.7zip", &inline).unwrap().version, "26.03");
+        assert_eq!(
+            parse_winget_show("7zip.7zip", &inline).unwrap().version,
+            "26.03"
+        );
         assert!(parse_winget_show("7zip.7zip", "找不到与输入条件匹配的程序包。").is_none());
     }
 
     #[test]
     fn github_sources_get_proxies() {
-        let proxies = vec!["https://ghfast.top/".to_string(), "https://gh-proxy.com".to_string(), "".to_string()];
-        let gh = sources_for("https://github.com/a/b/releases/download/v1/x.exe", &proxies);
+        let proxies = vec![
+            "https://ghfast.top/".to_string(),
+            "https://gh-proxy.com".to_string(),
+            "".to_string(),
+        ];
+        let gh = sources_for(
+            "https://github.com/a/b/releases/download/v1/x.exe",
+            &proxies,
+        );
         assert_eq!(gh.len(), 3);
-        assert_eq!(gh[1], "https://ghfast.top/https://github.com/a/b/releases/download/v1/x.exe");
-        assert_eq!(gh[2], "https://gh-proxy.com/https://github.com/a/b/releases/download/v1/x.exe");
-        assert_eq!(sources_for("https://www.7-zip.org/a/x.msi", &proxies).len(), 1);
+        assert_eq!(
+            gh[1],
+            "https://ghfast.top/https://github.com/a/b/releases/download/v1/x.exe"
+        );
+        assert_eq!(
+            gh[2],
+            "https://gh-proxy.com/https://github.com/a/b/releases/download/v1/x.exe"
+        );
+        assert_eq!(
+            sources_for("https://www.7-zip.org/a/x.msi", &proxies).len(),
+            1
+        );
     }
 
     /// 本地 HTTP 服务：`ranged=false` 时忽略 Range 返回整文件
@@ -619,10 +681,13 @@ mod tests {
                         }
                     }
                     let req = String::from_utf8_lossy(&req).to_lowercase();
-                    let range = req.lines().find_map(|l| l.strip_prefix("range: bytes=")).and_then(|r| {
-                        let (a, b) = r.trim().split_once('-')?;
-                        Some((a.parse::<usize>().ok()?, b.parse::<usize>().ok()?))
-                    });
+                    let range = req
+                        .lines()
+                        .find_map(|l| l.strip_prefix("range: bytes="))
+                        .and_then(|r| {
+                            let (a, b) = r.trim().split_once('-')?;
+                            Some((a.parse::<usize>().ok()?, b.parse::<usize>().ok()?))
+                        });
                     let head = match (ranged, range) {
                         (true, Some((a, b))) => {
                             let b = b.min(data.len() - 1);
@@ -635,7 +700,10 @@ mod tests {
                             let _ = stream.write_all(&data[a..=b]);
                             return;
                         }
-                        _ => format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", data.len()),
+                        _ => format!(
+                            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                            data.len()
+                        ),
                     };
                     let _ = stream.write_all(head.as_bytes());
                     let _ = stream.write_all(&data);
@@ -646,7 +714,11 @@ mod tests {
     }
 
     fn payload() -> Arc<Vec<u8>> {
-        Arc::new((0..(5 * 1024 * 1024 + 123)).map(|i| (i * 31 % 251) as u8).collect())
+        Arc::new(
+            (0..(5 * 1024 * 1024 + 123))
+                .map(|i| (i * 31 % 251) as u8)
+                .collect(),
+        )
     }
 
     #[test]
@@ -667,19 +739,35 @@ mod tests {
     #[ignore]
     fn real_winget_github_package() {
         let id = std::env::var("FASTDL_ID").unwrap_or_else(|_| "Git.Git".into());
-        let args: Vec<String> = ["show", "-e", "--id", &id, "--source", "winget", "--accept-source-agreements"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let args: Vec<String> = [
+            "show",
+            "-e",
+            "--id",
+            &id,
+            "--source",
+            "winget",
+            "--accept-source-agreements",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
         let text = crate::winget::process::run_capture(&args).unwrap();
         let inst = parse_winget_show(&id, &text).expect("解析 winget show 失败");
-        let proxies = vec!["https://ghfast.top/".to_string(), "https://gh-proxy.com/".to_string()];
+        let proxies = vec![
+            "https://ghfast.top/".to_string(),
+            "https://gh-proxy.com/".to_string(),
+        ];
         let sources = sources_for(&inst.url, &proxies);
         println!("{inst:?}\nsources: {sources:#?}");
         let dest = std::env::temp_dir().join(format!("tt-fastdl-real-{}", inst.sha256));
         let cancel = AtomicBool::new(false);
         let sum = download(&sources, &dest, &cancel, |d, t, bps| {
-            println!("{:.1}/{:.1} MB  {:.2} MB/s", d as f64 / 1e6, t as f64 / 1e6, bps as f64 / 1e6)
+            println!(
+                "{:.1}/{:.1} MB  {:.2} MB/s",
+                d as f64 / 1e6,
+                t as f64 / 1e6,
+                bps as f64 / 1e6
+            )
         })
         .unwrap();
         let hash = crate::sha256_file(&dest).unwrap();
@@ -690,8 +778,18 @@ mod tests {
         } else {
             let _ = std::fs::remove_file(&dest);
         }
-        assert!(inst.version.chars().next().is_some_and(|c| c.is_ascii_digit()), "版本解析异常：{}", inst.version);
-        println!("winget cache path: {}", winget_cache_path(&id, &inst).display());
+        assert!(
+            inst.version
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_digit()),
+            "版本解析异常：{}",
+            inst.version
+        );
+        println!(
+            "winget cache path: {}",
+            winget_cache_path(&id, &inst).display()
+        );
         println!(
             "done {:.1} MB in {:.1}s = {:.2} MB/s, {} conns, {} sources used",
             sum.bytes as f64 / 1e6,
@@ -709,7 +807,8 @@ mod tests {
         let data = payload();
         let url = serve(data.clone(), true);
         let size = data.len() as u64;
-        let dest = std::env::temp_dir().join(format!("tt-fastdl-resume-{}.bin", std::process::id()));
+        let dest =
+            std::env::temp_dir().join(format!("tt-fastdl-resume-{}.bin", std::process::id()));
         let mut file = std::fs::File::create(&dest).unwrap();
         file.set_len(size).unwrap();
         file.write_all(&data[..(2 * CHUNK) as usize]).unwrap();
@@ -743,7 +842,8 @@ mod tests {
     fn falls_back_to_single_stream_without_range() {
         let data = payload();
         let url = serve(data.clone(), false);
-        let dest = std::env::temp_dir().join(format!("tt-fastdl-single-{}.bin", std::process::id()));
+        let dest =
+            std::env::temp_dir().join(format!("tt-fastdl-single-{}.bin", std::process::id()));
         let cancel = AtomicBool::new(false);
         let sum = download(&[url], &dest, &cancel, |_, _, _| {}).unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), *data);

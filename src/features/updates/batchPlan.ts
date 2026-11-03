@@ -27,3 +27,44 @@ export function planBatch(
 ): UpgradeInfo[] {
   return visible.filter((u) => !deselected.has(u.id.toLowerCase()));
 }
+
+export type QueueItemState = "pending" | "prefetching" | "ready" | "running" | "success" | "failed";
+
+/** 后台预取：当前项安装时最多再提前下载这么多个安装包。 */
+export const PREFETCH_LOOKAHEAD = 2;
+
+export type PrefetchState = "downloading" | "ready" | "failed";
+
+/** 当前项之后、需要交给后台预取的 id（最多 LOOKAHEAD 个）。 */
+export function upcomingPrefetchIds(
+  queueIds: readonly string[],
+  currentIndex: number,
+  lookahead = PREFETCH_LOOKAHEAD,
+): string[] {
+  if (currentIndex < 0 || currentIndex >= queueIds.length) return [];
+  return queueIds.slice(currentIndex + 1, currentIndex + 1 + lookahead);
+}
+
+/** 队列里某一项的状态：已出结果 / 正在跑 / 后台预取 / 还在后面排队 */
+export function queueItemState(
+  id: string,
+  queueIds: readonly string[],
+  results: Readonly<Record<string, "success" | "failed">>,
+  doneCount: number,
+  running: boolean,
+  prefetch?: Readonly<Record<string, PrefetchState>>,
+): QueueItemState | null {
+  const result = results[id];
+  if (result) return result;
+  if (!running) return null;
+  const idx = queueIds.indexOf(id);
+  if (idx < 0) return null;
+  if (idx === doneCount) return "running";
+  if (idx > doneCount) {
+    const p = prefetch?.[id] ?? prefetch?.[id.toLowerCase()];
+    if (p === "downloading") return "prefetching";
+    if (p === "ready") return "ready";
+    return "pending";
+  }
+  return null;
+}

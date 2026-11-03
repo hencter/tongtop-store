@@ -275,7 +275,9 @@ pub fn powershell(script: &str) -> Result<String, String> {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
-    let out = cmd.output().map_err(|e| format!("无法启动 PowerShell：{e}"))?;
+    let out = cmd
+        .output()
+        .map_err(|e| format!("无法启动 PowerShell：{e}"))?;
     let bytes = if out.stdout.is_empty() {
         &out.stderr
     } else {
@@ -380,7 +382,9 @@ pub fn run_quiet(program: &str, args: &[&str]) -> Result<String, String> {
         .output()
         .map_err(|e| format!("无法启动 {program}：{e}"))?;
     if !out.status.success() {
-        return Err(crate::winget::process::decode(&out.stderr).trim().to_string());
+        return Err(crate::winget::process::decode(&out.stderr)
+            .trim()
+            .to_string());
     }
     Ok(crate::winget::process::decode(&out.stdout))
 }
@@ -417,7 +421,6 @@ pub fn launch_start_app(names: &[String]) -> Result<(), String> {
         .map_err(|e| format!("启动失败：{e}"))?;
     Ok(())
 }
-
 
 /// 列出开始菜单全部应用（一次 PowerShell 调用；批量检测桌面端安装状态用）。
 #[cfg(windows)]

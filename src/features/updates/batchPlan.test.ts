@@ -2,7 +2,7 @@
  *  核心断言：被忽略 / 被取消勾选的软件绝不会进入执行清单。 */
 
 import { describe, expect, it } from "vitest";
-import { planBatch, splitByIgnore } from "./batchPlan";
+import { planBatch, queueItemState, splitByIgnore, upcomingPrefetchIds } from "./batchPlan";
 import type { UpgradeInfo } from "../../ipc/types";
 
 const u = (id: string, version = "1.0", available = "2.0"): UpgradeInfo => ({
@@ -48,5 +48,55 @@ describe("planBatch（issue #23 验收：忽略 1 项 + 更新其余 N 项）", 
   it("id 大小写不敏感", () => {
     const batch = planBatch([u("Foo.Bar")], new Set(["foo.bar"]));
     expect(batch).toHaveLength(0);
+  });
+});
+
+describe("queueItemState", () => {
+  const ids = ["A", "B", "C"];
+
+  it("未开始时没有队列状态", () => {
+    expect(queueItemState("A", ids, {}, 0, false)).toBeNull();
+  });
+
+  it("进行中：当前项 running，后面 pending，已完成看 results", () => {
+    const results = { A: "success" as const };
+    expect(queueItemState("A", ids, results, 1, true)).toBe("success");
+    expect(queueItemState("B", ids, results, 1, true)).toBe("running");
+    expect(queueItemState("C", ids, results, 1, true)).toBe("pending");
+  });
+
+  it("不在队列里的项没有状态", () => {
+    expect(queueItemState("Z", ids, {}, 0, true)).toBeNull();
+  });
+
+  it("排队项：后台预取中显示 prefetching，下完显示 ready", () => {
+    const prefetch = { B: "downloading" as const, C: "ready" as const };
+    expect(queueItemState("B", ids, {}, 0, true, prefetch)).toBe("prefetching");
+    expect(queueItemState("C", ids, {}, 0, true, prefetch)).toBe("ready");
+    expect(queueItemState("A", ids, {}, 0, true, prefetch)).toBe("running");
+  });
+
+  it("预取失败仍显示 pending（安装时会自行下载）", () => {
+    expect(queueItemState("B", ids, {}, 0, true, { B: "failed" })).toBe("pending");
+  });
+
+  it("预取 map 按小写 id 也能命中", () => {
+    expect(queueItemState("Git.Git", ["A", "Git.Git"], {}, 0, true, { "git.git": "ready" })).toBe(
+      "ready",
+    );
+  });
+});
+
+describe("upcomingPrefetchIds", () => {
+  it("当前项之后最多取 LOOKAHEAD 个", () => {
+    expect(upcomingPrefetchIds(["A", "B", "C", "D"], 0)).toEqual(["B", "C"]);
+    expect(upcomingPrefetchIds(["A", "B", "C", "D"], 2)).toEqual(["D"]);
+    expect(upcomingPrefetchIds(["A", "B"], 1)).toEqual([]);
+    expect(upcomingPrefetchIds(["A"], 0)).toEqual([]);
+  });
+
+  it("越界索引得到空列表", () => {
+    expect(upcomingPrefetchIds(["A"], -1)).toEqual([]);
+    expect(upcomingPrefetchIds(["A"], 3)).toEqual([]);
   });
 });

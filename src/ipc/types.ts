@@ -114,6 +114,15 @@ export interface TaskLogEvent {
   progress: number | null;
 }
 
+/** 后台预取（安装当前项时先下载队列里后面的安装包） */
+export type PrefetchState = "downloading" | "ready" | "failed";
+
+export interface PrefetchEvent {
+  /** winget 包 id */
+  id: string;
+  state: PrefetchState;
+}
+
 export interface NotesDto {
   id: string;
   notes: string;

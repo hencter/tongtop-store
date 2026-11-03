@@ -11,6 +11,7 @@ import { useT } from "../../i18n";
 import { useAppStore } from "../../state/appStore";
 import { useAgentStore } from "../../state/agentStore";
 import type { CatalogApp } from "../../catalog/apps";
+import { isSupersededPackage } from "../../catalog/superseded";
 import type { AppInfo } from "../../ipc/types";
 import { AppIcon } from "../../components/AppIcon";
 import { AppRow } from "../../components/AppRow";
@@ -99,7 +100,9 @@ export function SearchPage() {
   const wingetHits = useMemo(() => {
     if (!q) return [];
     const curated = new Set(curatedHits.map((a) => a.id.toLowerCase()));
-    return (results ?? []).filter((a) => !curated.has(a.id.toLowerCase()));
+    return (results ?? []).filter(
+      (a) => !curated.has(a.id.toLowerCase()) && !isSupersededPackage(a.id),
+    );
   }, [curatedHits, results, q]);
 
   // 未套「安装状态」筛选的行数：给筛选面板显示各状态的可选数量
