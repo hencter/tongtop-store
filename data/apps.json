@@ -1235,5 +1235,245 @@
     "oss": true,
     "license": "自由软件",
     "proof": "winget TorProject.TorBrowser 16.0。X @rimugu 2026-10-28 把它和 KeePassXC、WinSCP、VLC 一起列为 Windows 必装。许可证以 Tor Project 的发布说明为准，这里没有把某一份 SPDX 当成整包许可证。"
+  },
+  {
+    "id": "ArtCraft.VectorCraft",
+    "name": "VectorCraft",
+    "desc": "开源矢量图编辑，纯 Rust，1.0 之前",
+    "site": "https://getartcraft.com/apps/vectorcraft",
+    "category": "media",
+    "tags": [
+      "开源",
+      "矢量"
+    ],
+    "github": "storytold/vectorcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/vectorcraft 2026-11-03 为 11296 stars，最新 tag v0.21.0 与 winget ArtCraft.VectorCraft 0.21.0 一致。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.FilmCraft",
+    "name": "FilmCraft",
+    "desc": "开源视频剪辑，纯 Rust，1.0 之前",
+    "site": "https://getartcraft.com/apps/filmcraft",
+    "category": "media",
+    "tags": [
+      "开源",
+      "剪辑"
+    ],
+    "github": "storytold/filmcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/filmcraft 2026-11-03 为 17392 stars，最新 tag v0.17.0 与 winget ArtCraft.FilmCraft 0.17.0 一致。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.LightCraft",
+    "name": "LightCraft",
+    "desc": "开源非破坏性照片编辑，纯 Rust，1.0 之前",
+    "site": "https://getartcraft.com/apps/lightcraft",
+    "category": "media",
+    "tags": [
+      "开源",
+      "照片"
+    ],
+    "github": "storytold/lightcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/lightcraft 2026-11-03 为 15393 stars，最新 tag v0.18.0 与 winget ArtCraft.LightCraft 0.18.0 一致。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.EffectCraft",
+    "name": "EffectCraft",
+    "desc": "开源动态图形，纯 Rust，1.0 之前",
+    "site": "https://getartcraft.com/apps/effectcraft",
+    "category": "media",
+    "tags": [
+      "开源",
+      "特效"
+    ],
+    "github": "storytold/effectcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/effectcraft 2026-11-03 为 8387 stars，最新 tag v0.21.0 与 winget ArtCraft.EffectCraft 0.21.0 一致。winget 描述写明仍打不开 After Effects 的 .aep。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.SoundCraft",
+    "name": "SoundCraft",
+    "desc": "开源音频工作站，纯 Rust，1.0 之前",
+    "site": "https://github.com/storytold/soundcraft",
+    "category": "media",
+    "tags": [
+      "开源",
+      "音频"
+    ],
+    "github": "storytold/soundcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/soundcraft 2026-11-03 为 4048 stars，最新 tag 是当天的 v0.17.0。winget ArtCraft.SoundCraft 仍是 0.10.0，一键安装得到这一版。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.PdfCraft",
+    "name": "PdfCraft",
+    "desc": "开源 PDF 阅读和编辑，纯 Rust，1.0 之前",
+    "site": "https://getartcraft.com/apps/pdfcraft",
+    "category": "office",
+    "tags": [
+      "开源",
+      "PDF"
+    ],
+    "github": "storytold/pdfcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/pdfcraft 2026-11-03 为 19368 stars，最新 tag v0.18.0 发布于当天。winget ArtCraft.PdfCraft 仍是 0.9.0，一键安装得到这一版。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.GridCraft",
+    "name": "GridCraft",
+    "desc": "开源表格，纯 Rust，1.0 之前",
+    "site": "https://github.com/storytold/gridcraft",
+    "category": "office",
+    "tags": [
+      "开源",
+      "表格"
+    ],
+    "github": "storytold/gridcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/gridcraft 2026-11-03 为 7082 stars，最新 tag v0.16.0 发布于当天。winget ArtCraft.GridCraft 仍是 0.9.0，一键安装得到这一版。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "ArtCraft.CadCraft",
+    "name": "CADCraft",
+    "desc": "开源制图，纯 Rust，1.0 之前",
+    "site": "https://github.com/storytold/cadcraft",
+    "category": "office",
+    "tags": [
+      "开源",
+      "制图"
+    ],
+    "github": "storytold/cadcraft",
+    "oss": true,
+    "license": "MIT OR Apache-2.0",
+    "proof": "LICENSE-MIT 与 LICENSE-APACHE 都在，winget 写成 MIT OR Apache-2.0。GitHub storytold/cadcraft 2026-11-03 为 7534 stars，最新 tag v0.17.0 发布于当天。winget ArtCraft.CadCraft 仍是 0.7.0，安装包日期 2026-10-14。发布者 Learning Machines LLC。"
+  },
+  {
+    "id": "Rizin.Cutter",
+    "name": "Cutter",
+    "desc": "开源逆向分析平台，基于 Rizin",
+    "site": "https://cutter.re",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "逆向"
+    ],
+    "github": "rizinorg/cutter",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub rizinorg/cutter 标明 GPL-3.0，2026-11-03 为 20146 stars。winget Rizin.Cutter 2.5.0，发布说明写使用 Rizin v0.9.1。同一天 winget 另有命令行包 Rizin.Rizin 0.9.1。"
+  },
+  {
+    "id": "Skylot.jadx",
+    "name": "jadx",
+    "desc": "把 Android DEX/APK 反编译成 Java",
+    "site": "https://github.com/skylot/jadx",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "反编译"
+    ],
+    "github": "skylot/jadx",
+    "oss": true,
+    "license": "Apache-2.0",
+    "proof": "GitHub skylot/jadx 标明 Apache-2.0，2026-11-03 为 51536 stars，2026-11-02 仍在推送。winget Skylot.jadx 1.5.6。"
+  },
+  {
+    "id": "WerWolv.ImHex",
+    "name": "ImHex",
+    "desc": "面向逆向的十六进制编辑器",
+    "site": "https://imhex.werwolv.net/",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "十六进制"
+    ],
+    "github": "WerWolv/ImHex",
+    "oss": true,
+    "license": "GPL-2.0",
+    "proof": "GitHub WerWolv/ImHex 标明 GPL-2.0，2026-11-03 为 55729 stars，最近推送是 2026-10-09。winget WerWolv.ImHex 1.38.1。"
+  },
+  {
+    "id": "x64dbg.x64dbg",
+    "name": "x64dbg",
+    "desc": "Windows 用户态调试器",
+    "site": "https://github.com/x64dbg/x64dbg",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "调试"
+    ],
+    "github": "x64dbg/x64dbg",
+    "oss": true,
+    "license": "GPL-3.0 (Modified)",
+    "proof": "LICENSE 开头是 GNU GPL 第 3 版，并写着 THIS DOCUMENT HAS BEEN MODIFIED。GitHub 许可证接口因此返回 NOASSERTION，这里不标成标准 GPL-3.0。winget 写成 GPL-3.0 (Modified)，包 x64dbg.x64dbg 2026.05.27。2026-11-03 为 50179 stars。"
+  },
+  {
+    "id": "icsharpcode.ILSpy",
+    "name": "ILSpy",
+    "desc": "开源 .NET 反编译",
+    "site": "https://github.com/icsharpcode/ILSpy",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "反编译"
+    ],
+    "github": "icsharpcode/ILSpy",
+    "oss": true,
+    "license": "MIT",
+    "proof": "GitHub icsharpcode/ILSpy 标明 MIT，2026-11-03 为 26943 stars。winget icsharpcode.ILSpy 11.2.0.10050。没有收录预览包 icsharpcode.ILSpy.Preview。"
+  },
+  {
+    "id": "dnSpyEx.dnSpy",
+    "name": "dnSpy",
+    "desc": ".NET 调试和程序集编辑",
+    "site": "https://github.com/dnSpyEx/dnSpy",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "调试"
+    ],
+    "github": "dnSpyEx/dnSpy",
+    "oss": true,
+    "license": "GPL-3.0",
+    "proof": "GitHub dnSpyEx/dnSpy 标明 GPL-3.0，2026-11-03 为 11415 stars。winget dnSpyEx.dnSpy 6.6.0。这是 dnSpy 的非官方续作。"
+  },
+  {
+    "id": "horsicq.DIE-engine",
+    "name": "Detect It Easy",
+    "desc": "判断可执行文件和压缩包的类型",
+    "site": "https://horsicq.github.io/",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "逆向"
+    ],
+    "github": "horsicq/DIE-engine",
+    "oss": true,
+    "license": "MIT",
+    "proof": "winget horsicq.DIE-engine 3.21，许可证 URL 指向 horsicq/DIE-engine。该仓库标明 MIT，2026-11-03 为 3336 stars。同作者 horsicq/Detect-It-Easy 当天 11866 stars，LICENSE 开头是 MIT License。"
+  },
+  {
+    "id": "hasherezade.PE-bear",
+    "name": "PE-bear",
+    "desc": "查看 PE 文件的逆向工具",
+    "site": "https://github.com/hasherezade/pe-bear",
+    "category": "dev",
+    "tags": [
+      "开源",
+      "逆向"
+    ],
+    "github": "hasherezade/pe-bear",
+    "oss": true,
+    "license": "GPL-2.0",
+    "proof": "GitHub hasherezade/pe-bear 标明 GPL-2.0，2026-11-03 为 3873 stars。winget hasherezade.PE-bear 0.7.2。"
   }
 ]
