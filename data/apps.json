@@ -205,9 +205,9 @@
     ]
   },
   {
-    "id": "Tencent.WeChat",
+    "id": "Tencent.WeChat.Universal",
     "name": "微信",
-    "desc": "腾讯微信，是一个生活方式",
+    "desc": "微信 Windows 通用版，推荐安装新版客户端",
     "site": "https://weixin.qq.com/",
     "category": "social",
     "tags": [
@@ -216,9 +216,9 @@
     ]
   },
   {
-    "id": "Tencent.QQ",
+    "id": "Tencent.QQ.NT",
     "name": "QQ",
-    "desc": "腾讯 QQ 即时通讯",
+    "desc": "QQ NT 架构新版客户端，即时通讯与文件传输",
     "site": "https://im.qq.com/",
     "category": "social",
     "tags": [

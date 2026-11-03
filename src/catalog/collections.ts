@@ -28,8 +28,8 @@ export const ESSENTIALS: CuratedCollection = {
   category: "system",
   ids: [
     "7zip.7zip",
-    "Tencent.WeChat",
-    "Tencent.QQ",
+    "Tencent.WeChat.Universal",
+    "Tencent.QQ.NT",
     "Google.Chrome",
     "Microsoft.Edge",
     "VideoLAN.VLC",
@@ -37,7 +37,7 @@ export const ESSENTIALS: CuratedCollection = {
     "voidtools.Everything",
     "Microsoft.PowerToys",
     "Notepad++.Notepad++",
-    "Motrix",
+    "agalwood.Motrix",
     "Baidu.BaiduNetdisk",
   ],
 };
@@ -55,7 +55,7 @@ export const CURATED_COLLECTIONS: CuratedCollection[] = [
     label: "社交通讯",
     desc: "聊天、开会、团队协作",
     category: "social",
-    ids: ["Tencent.WeChat", "Tencent.QQ", "Tencent.WeCom", "ByteDance.Feishu", "Alibaba.DingTalk.Mainland", "Tencent.TIM"],
+    ids: ["Tencent.WeChat.Universal", "Tencent.QQ.NT", "Tencent.WeCom", "ByteDance.Feishu", "Alibaba.DingTalk.Mainland", "Tencent.TIM"],
   },
   {
     id: "office",
