@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240" viewBox="0 0 900 240" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">TongTop Store — Option B: Discovery Portal</title>
+  <desc id="desc">An open portal and rising spark symbolize discovering and launching software.</desc>
+  <rect x="24" y="28" width="184" height="184" rx="48" fill="#182D58"/>
+  <path d="M70 174V105a46 46 0 0 1 92 0v69" stroke="#F5F7FC" stroke-width="18" stroke-linecap="round"/>
+  <path d="M116 157v-42m0 0-18 18m18-18 18 18" stroke="#48D6C2" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="163" cy="66" r="11" fill="#FFC15A"/>
+  <text x="258" y="132" fill="#142746" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="64" font-weight="750" letter-spacing="-2.5">TongTop</text>
+  <text x="263" y="179" fill="#55708F" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="6.5">SOFTWARE STORE</text>
+</svg>

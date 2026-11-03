@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="480" viewBox="0 0 680 480" fill="none" role="img" aria-labelledby="tt-mono-title tt-mono-desc">
+  <title id="tt-mono-title">TongTop Store</title>
+  <desc id="tt-mono-desc">Monochrome stacked TongTop Store logo: the paired window-T mark above the wordmark in a single dark tone.</desc>
+  <svg x="162" y="40" width="357" height="357" viewBox="0 0 512 512">
+    <defs>
+      <g id="ttm-glyph">
+        <rect x="82" y="147" width="244" height="48" rx="14"/>
+        <rect x="174" y="147" width="68" height="268" rx="14"/>
+        <path d="M294 195H326V335A18 18 0 0 1 308 353H242V317H284A10 10 0 0 1 294 307V195Z"/>
+      </g>
+      <mask id="ttm-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="#fff"/>
+        <g fill="#000" stroke="#000" stroke-width="26" stroke-linejoin="round"><use href="#ttm-glyph"/></g>
+        <rect x="242" y="195" width="52" height="122" fill="#000"/>
+      </mask>
+      <mask id="ttm-dots-back" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="#fff"/>
+        <g fill="#000"><circle cx="204" cy="121" r="10"/><circle cx="234" cy="121" r="10"/><circle cx="264" cy="121" r="10"/></g>
+      </mask>
+      <mask id="ttm-dots-front" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="#fff"/>
+        <g fill="#000"><circle cx="100" cy="171" r="10"/><circle cx="130" cy="171" r="10"/><circle cx="160" cy="171" r="10"/></g>
+      </mask>
+    </defs>
+    <g mask="url(#ttm-cut)">
+      <g mask="url(#ttm-dots-back)"><use href="#ttm-glyph" fill="#171A21" transform="translate(104 -50)"/></g>
+    </g>
+    <g mask="url(#ttm-dots-front)"><use href="#ttm-glyph" fill="#171A21"/></g>
+  </svg>
+  <text x="340" y="420" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="70" font-weight="750" letter-spacing="-2" fill="#171A21">TongTop Store</text>
+</svg>

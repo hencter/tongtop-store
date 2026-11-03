@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="30" y1="18" x2="278" y2="294" gradientUnits="userSpaceOnUse"><stop stop-color="#173F9A"/><stop offset="1" stop-color="#08A6A6"/></linearGradient>
+    <linearGradient id="bag" x1="73" y1="72" x2="234" y2="250" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#DCEBFF"/></linearGradient>
+    <filter id="shadow" x="24" y="18" width="272" height="284" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <rect x="32" y="26" width="256" height="256" rx="66" fill="#08275D" opacity=".25" filter="url(#shadow)"/>
+  <rect x="32" y="24" width="256" height="256" rx="66" fill="url(#bg)"/>
+  <circle cx="223" cy="77" r="23" fill="#FFB84D"/>
+  <path d="M79 111h162l-13 119a17 17 0 0 1-17 15H109a17 17 0 0 1-17-15L79 111Z" fill="url(#bag)"/>
+  <path d="M125 118V96a35 35 0 0 1 70 0v22" stroke="#173F9A" stroke-width="13" stroke-linecap="round"/>
+  <path d="M119 161h80v18h-29v64h-22v-64h-29v-18Z" fill="#1C4FA9"/>
+  <rect x="207" y="178" width="16" height="16" rx="5" fill="#12B8A6"/>
+  <rect x="207" y="202" width="16" height="16" rx="5" fill="#FFB84D"/>
+  <text x="340" y="158" fill="#10264A" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="70" font-weight="750" letter-spacing="-3">TongTop</text>
+  <text x="345" y="212" fill="#4E6688" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="23" font-weight="700" letter-spacing="7">STORE</text>
+  <path d="M345 235h99" stroke="#13AFA8" stroke-width="5" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="tt-icon-title tt-icon-desc">
+  <title id="tt-icon-title">TongTop Store</title>
+  <desc id="tt-icon-desc">Two overlapping window-T marks: a bright blue window behind a deep navy one, separated by a uniform light gap, on a light rounded square.</desc>
+  <defs>
+    <g id="tt-glyph">
+      <rect x="82" y="147" width="244" height="48" rx="14"/>
+      <rect x="174" y="147" width="68" height="268" rx="14"/>
+      <path d="M294 195H326V335A18 18 0 0 1 308 353H242V317H284A10 10 0 0 1 294 307V195Z"/>
+    </g>
+    <mask id="tt-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <g fill="#000" stroke="#000" stroke-width="26" stroke-linejoin="round"><use href="#tt-glyph"/></g>
+      <rect x="242" y="195" width="52" height="122" fill="#000"/>
+    </mask>
+    <mask id="tt-dots-back" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <g fill="#000"><circle cx="204" cy="121" r="10"/><circle cx="234" cy="121" r="10"/><circle cx="264" cy="121" r="10"/></g>
+    </mask>
+    <mask id="tt-dots-front" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect width="512" height="512" fill="#fff"/>
+      <g fill="#000"><circle cx="100" cy="171" r="10"/><circle cx="130" cy="171" r="10"/><circle cx="160" cy="171" r="10"/></g>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#F7F8FC"/>
+  <g mask="url(#tt-cut)">
+    <g mask="url(#tt-dots-back)"><use href="#tt-glyph" fill="#159BEF" transform="translate(104 -50)"/></g>
+  </g>
+  <g mask="url(#tt-dots-front)"><use href="#tt-glyph" fill="#0B2E6E"/></g>
+</svg>

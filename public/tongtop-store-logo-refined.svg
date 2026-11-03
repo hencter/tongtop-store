@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="480" viewBox="0 0 680 480" fill="none" role="img" aria-labelledby="tt-logo-title tt-logo-desc">
+  <title id="tt-logo-title">TongTop Store</title>
+  <desc id="tt-logo-desc">Stacked TongTop Store logo: the paired window-T mark above a bold two-tone wordmark.</desc>
+  <svg x="162" y="40" width="357" height="357" viewBox="0 0 512 512">
+    <defs>
+      <g id="ttl-glyph">
+        <rect x="82" y="147" width="244" height="48" rx="14"/>
+        <rect x="174" y="147" width="68" height="268" rx="14"/>
+        <path d="M294 195H326V335A18 18 0 0 1 308 353H242V317H284A10 10 0 0 1 294 307V195Z"/>
+      </g>
+      <mask id="ttl-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="#fff"/>
+        <g fill="#000" stroke="#000" stroke-width="26" stroke-linejoin="round"><use href="#ttl-glyph"/></g>
+        <rect x="242" y="195" width="52" height="122" fill="#000"/>
+      </mask>
+      <mask id="ttl-dots-back" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="#fff"/>
+        <g fill="#000"><circle cx="204" cy="121" r="10"/><circle cx="234" cy="121" r="10"/><circle cx="264" cy="121" r="10"/></g>
+      </mask>
+      <mask id="ttl-dots-front" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+        <rect width="512" height="512" fill="#fff"/>
+        <g fill="#000"><circle cx="100" cy="171" r="10"/><circle cx="130" cy="171" r="10"/><circle cx="160" cy="171" r="10"/></g>
+      </mask>
+    </defs>
+    <g mask="url(#ttl-cut)">
+      <g mask="url(#ttl-dots-back)"><use href="#ttl-glyph" fill="#159BEF" transform="translate(104 -50)"/></g>
+    </g>
+    <g mask="url(#ttl-dots-front)"><use href="#ttl-glyph" fill="#0B2E6E"/></g>
+  </svg>
+  <text x="340" y="420" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="70" font-weight="750" letter-spacing="-2"><tspan fill="#0B2E6E">TongTop </tspan><tspan fill="#159BEF">Store</tspan></text>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240" viewBox="0 0 900 240" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">TongTop Store — Option A: App Shelf</title>
+  <desc id="desc">A four-tile software grid with a download cue beside the TongTop Store wordmark.</desc>
+  <rect x="24" y="28" width="184" height="184" rx="48" fill="#F0F5FF"/>
+  <rect x="56" y="59" width="49" height="49" rx="14" fill="#2457C5"/>
+  <rect x="117" y="59" width="59" height="49" rx="14" fill="#10A99E"/>
+  <rect x="56" y="121" width="49" height="59" rx="14" fill="#10A99E"/>
+  <path d="M131 121h31a14 14 0 0 1 14 14v31a14 14 0 0 1-14 14h-31a14 14 0 0 1-14-14v-31a14 14 0 0 1 14-14Z" fill="#2457C5"/>
+  <path d="M140 133h13v21h14l-20 20-20-20h13v-21Z" fill="#fff"/>
+  <text x="258" y="132" fill="#142746" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="64" font-weight="750" letter-spacing="-2.5">TongTop</text>
+  <text x="263" y="179" fill="#55708F" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="6.5">SOFTWARE STORE</text>
+</svg>

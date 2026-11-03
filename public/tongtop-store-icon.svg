@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none" role="img" aria-labelledby="icon-title icon-desc">
+  <title id="icon-title">TongTop Store app icon</title>
+  <desc id="icon-desc">A bold white geometric T with a small golden app tile on a blue-to-teal rounded square.</desc>
+  <defs>
+    <linearGradient id="tt-icon-brand" x1="24" y1="20" x2="232" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2859C7"/><stop offset="1" stop-color="#087F91"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="12" width="232" height="232" rx="64" fill="url(#tt-icon-brand)"/>
+  <path d="M67 79a10 10 0 0 1 10-10h102a10 10 0 0 1 10 10v20a10 10 0 0 1-10 10h-36v75a10 10 0 0 1-10 10h-10a10 10 0 0 1-10-10v-75H77a10 10 0 0 1-10-10V79Z" fill="#fff"/>
+  <rect x="174" y="145" width="22" height="22" rx="7" fill="#FFC15A"/>
+</svg>
