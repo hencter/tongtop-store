@@ -1,6 +1,8 @@
-# TongTop Store
+# 通天鹿（TongTop）· Store
 
 Windows 桌面应用商店（Tauri 2 + React 19 + TypeScript）+ Astro 索引站。
+
+主项目：[通天鹿（TongTop）](https://github.com/hencter/tongtop) — **发现、写下、被认真对待**。
 
 - 桌面端：精选软件目录（winget 安装）、AI 智能体一键装机（CLI / 桌面端分栏：装运行时 → 装本体 → 写密钥 → 一键启动，自动检测并建议安装 Windows Terminal）、GitHub 专区（Release + 直链下载）、镜像源管理、包管理器管理（主流语言运行时检测/安装/卸载）、缓存清理、自动更新
 - 索引站（`web/`）：软件库 / 智能体 / 镜像 / AI 免费额度索引 + 环境变量配置引导 + 提交审核接口 + 安装包下载
